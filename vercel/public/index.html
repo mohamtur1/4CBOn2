@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4CBON2 — The AI That Loops Until It's Right</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Playfair+Display:wght@700;900&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #03030a;
+    --surface: #06060f;
+    --border: #0f0f1e;
+    --text: #c0c0e0;
+    --muted: #444466;
+    --orange: #ff6b35;
+    --cyan: #00d4ff;
+    --green: #10b981;
+    --purple: #7c3aed;
+    --amber: #f59e0b;
+    --red: #ef4444;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  /* ─── NOISE OVERLAY ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ─── SCAN LINE ─── */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--orange), var(--cyan), var(--green), transparent);
+    animation: scan 8s linear infinite;
+    z-index: 100;
+    opacity: 0.6;
+  }
+  @keyframes scan { 0% { top: 0; } 100% { top: 100vh; } }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 50;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(3,3,10,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 900;
+    background: linear-gradient(110deg, var(--orange), var(--cyan), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.02em;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+
+  .nav-links a {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--text); }
+
+  .nav-cta {
+    background: transparent !important;
+    border: 1px solid var(--orange) !important;
+    color: var(--orange) !important;
+    padding: 6px 16px !important;
+    border-radius: 4px !important;
+    font-size: 10px !important;
+    letter-spacing: 0.15em !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+  }
+  .nav-cta:hover {
+    background: var(--orange) !important;
+    color: #03030a !important;
+  }
+
+  /* ─── SECTIONS ─── */
+  section {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-top: 80px;
+    max-width: 900px;
+    margin: 0 auto;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .hero-tag {
+    font-size: 9px;
+    letter-spacing: 0.35em;
+    color: var(--orange);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .hero-tag::before {
+    content: '';
+    display: inline-block;
+    width: 24px;
+    height: 1px;
+    background: var(--orange);
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(44px, 8vw, 88px);
+    font-weight: 900;
+    line-height: 1.0;
+    letter-spacing: -0.03em;
+    margin-bottom: 32px;
+  }
+
+  h1 .line1 { color: var(--text); }
+  h1 .line2 {
+    background: linear-gradient(110deg, var(--orange), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  h1 .line3 { color: var(--green); }
+
+  .hero-sub {
+    font-size: 14px;
+    color: var(--muted);
+    max-width: 480px;
+    margin-bottom: 48px;
+    line-height: 1.8;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .hero-sub strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 80px;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--orange), var(--cyan));
+    border: none;
+    border-radius: 6px;
+    color: #03030a;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    font-size: 12px;
+    padding: 14px 28px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: opacity 0.2s;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 14px 28px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--text); color: var(--text); }
+
+  /* ─── LIVE PIPELINE DEMO ─── */
+  .pipeline-demo {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 80px;
+    overflow: hidden;
+  }
+
+  .pipeline-header {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .pipeline-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--green);
+  }
+  .pipeline-status::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: blink 1.5s ease infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .layer-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.08em;
+    opacity: 0;
+    animation: chipIn 0.3s ease forwards;
+  }
+
+  .chip.done {
+    background: rgba(16,185,129,0.15);
+    border: 1px solid #10b981;
+    color: #10b981;
+  }
+  .chip.active {
+    border: 1px solid var(--orange);
+    color: var(--orange);
+    background: rgba(255,107,53,0.1);
+    box-shadow: 0 0 8px rgba(255,107,53,0.3);
+  }
+  .chip.pending {
+    border: 1px solid #1a1a2e;
+    color: #333;
+    background: transparent;
+  }
+
+  @keyframes chipIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+  .score-demo {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .score-num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 32px;
+    font-weight: 900;
+    color: var(--amber);
+    min-width: 40px;
+  }
+  .score-bar-wrap {
+    flex: 1;
+    height: 6px;
+    background: #111;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s ease;
+  }
+  .score-arrow { color: var(--green); font-size: 18px; }
+  .score-after { color: var(--green); }
+  .score-label {
+    font-size: 9px;
+    color: var(--green);
+    letter-spacing: 0.1em;
+    font-weight: 700;
+  }
+
+  /* ─── DIVIDER ─── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 80px 0;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* ─── SECTION HEADER ─── */
+  .section-tag {
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(28px, 4vw, 48px);
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+
+  .section-sub {
+    font-size: 13px;
+    color: var(--muted);
+    max-width: 540px;
+    line-height: 1.8;
+    margin-bottom: 48px;
+  }
+
+  /* ─── THE PROBLEM ─── */
+  .problem-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+    margin-bottom: 48px;
+  }
+
+  @media (max-width: 600px) {
+    .problem-grid { grid-template-columns: 1fr; }
+  }
+
+  .problem-card {
+    background: var(--surface);
+    padding: 24px;
+    border: 1px solid var(--border);
+  }
+  .problem-card:first-child { border-radius: 8px 0 0 0; }
+  .problem-card:nth-child(2) { border-radius: 0 8px 0 0; }
+  .problem-card:nth-child(3) { border-radius: 0 0 0 8px; }
+  .problem-card:last-child { border-radius: 0 0 8px 0; }
+
+  .problem-icon { font-size: 20px; margin-bottom: 12px; }
+  .problem-title { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--text); margin-bottom: 8px; }
+  .problem-desc { font-size: 11px; color: var(--muted); line-height: 1.7; }
+
+  /* ─── THE PIPELINE ─── */
+  .pipeline-visual {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px;
+    margin-bottom: 48px;
+  }
+
+  .layer-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+    opacity: 0;
+    animation: fadeUp 0.4s ease forwards;
+  }
+  .layer-row:last-child { border-bottom: none; }
+
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  .layer-id {
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 32px;
+    letter-spacing: 0.05em;
+    padding-top: 2px;
+  }
+
+  .layer-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 4px;
+  }
+
+  .layer-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 2px solid;
+    flex-shrink: 0;
+  }
+
+  .layer-info { flex: 1; }
+  .layer-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  .layer-desc { font-size: 10px; color: var(--muted); line-height: 1.6; }
+
+  /* ─── FLAVORS ─── */
+  .flavors-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  .flavor-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .flavor-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .flavor-card:hover { border-color: #1a1a3e; }
+
+  .flavor-card.dev::before { background: linear-gradient(90deg, var(--cyan), var(--purple)); }
+  .flavor-card.enterprise::before { background: linear-gradient(90deg, var(--orange), var(--amber)); }
+  .flavor-card.research::before { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+  .flavor-card.api::before { background: linear-gradient(90deg, var(--purple), var(--red)); }
+
+  .flavor-icon { font-size: 28px; margin-bottom: 12px; }
+  .flavor-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 8px; letter-spacing: 0.05em; }
+  .flavor-desc { font-size: 11px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
+  .flavor-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .flavor-tag {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* ─── MEMORY SYSTEM ─── */
+  .memory-visual {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  @media (max-width: 600px) {
+    .memory-visual { grid-template-columns: 1fr; }
+  }
+
+  .memory-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .memory-num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .memory-label { font-size: 9px; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; }
+
+  /* ─── PRICING ─── */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  .price-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px 24px;
+    position: relative;
+  }
+
+  .price-card.featured {
+    border-color: var(--orange);
+    background: rgba(255,107,53,0.04);
+  }
+
+  .price-badge {
+    position: absolute;
+    top: -1px; right: 20px;
+    background: var(--orange);
+    color: #03030a;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    padding: 4px 10px;
+    border-radius: 0 0 4px 4px;
+    text-transform: uppercase;
+  }
+
+  .price-tier { font-size: 9px; letter-spacing: 0.25em; color: var(--muted); text-transform: uppercase; margin-bottom: 12px; }
+  .price-amount {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .price-period { font-size: 10px; color: var(--muted); margin-bottom: 20px; }
+  .price-features { list-style: none; margin-bottom: 24px; }
+  .price-features li {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .price-features li:last-child { border-bottom: none; }
+  .price-features li::before { content: '·'; color: var(--green); font-weight: 900; }
+  .price-features li.highlight { color: var(--text); }
+
+  .price-btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-align: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .price-btn.outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .price-btn.outline:hover { border-color: var(--text); color: var(--text); }
+
+  .price-btn.filled {
+    background: linear-gradient(135deg, var(--orange), var(--cyan));
+    border: none;
+    color: #03030a;
+  }
+  .price-btn.filled:hover { opacity: 0.85; }
+
+  .price-btn.dark {
+    background: transparent;
+    border: 1px solid var(--purple);
+    color: var(--purple);
+  }
+  .price-btn.dark:hover { background: rgba(124,58,237,0.1); }
+
+  /* ─── BELIEFS TICKER ─── */
+  .beliefs-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 48px;
+    overflow: hidden;
+  }
+
+  .beliefs-header {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .beliefs-header::after {
+    content: 'LIVE FROM SUPABASE';
+    color: var(--green);
+    font-size: 8px;
+  }
+
+  .belief-item {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    animation: fadeUp 0.4s ease forwards;
+    opacity: 0;
+  }
+  .belief-item:last-child { border-bottom: none; }
+  .belief-run { color: var(--orange); font-size: 9px; min-width: 48px; padding-top: 1px; letter-spacing: 0.05em; }
+  .belief-text { flex: 1; line-height: 1.6; }
+
+  /* ─── CTA ─── */
+  .cta-section {
+    text-align: center;
+    padding: 80px 24px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .cta-eyebrow {
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .cta-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(32px, 5vw, 64px);
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 20px;
+  }
+
+  .cta-sub {
+    font-size: 13px;
+    color: var(--muted);
+    max-width: 440px;
+    margin: 0 auto 40px;
+    line-height: 1.8;
+  }
+
+  .cta-pipeline {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: #1a1a2e;
+    margin-top: 48px;
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 24px;
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .footer-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 900;
+    background: linear-gradient(110deg, var(--orange), var(--cyan), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .footer-links {
+    display: flex;
+    gap: 20px;
+  }
+
+  .footer-links a {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+  .footer-links a:hover { color: var(--text); }
+
+  .footer-copy { font-size: 9px; color: #1a1a2e; letter-spacing: 0.1em; }
+
+  /* ─── ANIMATIONS ─── */
+  .animate-in {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .animate-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">4CBON</div>
+  <div class="nav-links">
+    <a href="#pipeline">How it works</a>
+    <a href="#flavors">Use cases</a>
+    <a href="#pricing">Pricing</a>
+    <a href="https://4175358678144.gumroad.com/l/tbphpi" class="nav-cta">UPGRADE →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">Runtime Megaprompt Engine · 16 Layers · Self-Improving</div>
+  <h1>
+    <div class="line1">AI gives you</div>
+    <div class="line2">one shot.</div>
+    <div class="line3">4CBON loops.</div>
+  </h1>
+  <p class="hero-sub">
+    Every AI answer you've ever read was generated once, then shipped.<br><br>
+    <strong>4CBON runs a deterministic 16-layer pipeline</strong> — interpreting, parsing, grounding, adjudicating, attacking, decompressing, hypothesizing, evaluating, planning, rewriting, reflecting, remembering, learning, evolving, questioning, certifying — until the answer is measurably better than what came in.
+  </p>
+  <div class="hero-actions">
+    <a href="https://4175358678144.gumroad.com/l/tbphpi" class="btn-primary">★ UPGRADE TO PRO — $9/month</a>
+    <a href="/app" class="btn-secondary">Try free (3 runs/day) →</a>
+  </div>
+  <p style="font-size:9px;color:#444466;margin-top:-16px;letter-spacing:0.1em;">API costs are real — Pro users keep the pipeline running for everyone.</p>
+
+  <!-- LIVE PIPELINE DEMO -->
+  <div class="pipeline-demo">
+    <div class="pipeline-header">
+      <span>LIVE PIPELINE · RUN #72</span>
+      <span class="pipeline-status">ACTIVE</span>
+    </div>
+    <div class="layer-chips" id="chips"></div>
+    <div class="score-demo">
+      <span class="score-num">62</span>
+      <div class="score-bar-wrap">
+        <div class="score-bar-fill" id="bar1" style="width:62%;background:#f59e0b;"></div>
+      </div>
+      <span class="score-arrow">→</span>
+      <div class="score-bar-wrap">
+        <div class="score-bar-fill" id="bar2" style="width:0%;background:#10b981;"></div>
+      </div>
+      <span class="score-num score-after" id="scoreAfter">72</span>
+      <span class="score-label" id="scoreDelta">+10 improvement</span>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- THE PROBLEM -->
+<section class="animate-in">
+  <div class="section-tag">The Problem</div>
+  <h2>AI answers are one-shot bets.</h2>
+  <p class="section-sub">Standard AI gives you a single pass. No iteration. No self-critique. No measurable improvement. You get what you get.</p>
+  <div class="problem-grid">
+    <div class="problem-card">
+      <div class="problem-icon">⚡</div>
+      <div class="problem-title">NO ITERATION</div>
+      <div class="problem-desc">One generation, one shot. The model has no way to know if what it produced is correct, clear, or even coherent.</div>
+    </div>
+    <div class="problem-card">
+      <div class="problem-icon">🎭</div>
+      <div class="problem-title">CONFIDENT WHEN WRONG</div>
+      <div class="problem-desc">AI doesn't flag its own overconfidence. It states speculation as fact and universals as certainties without qualification.</div>
+    </div>
+    <div class="problem-card">
+      <div class="problem-icon">🧠</div>
+      <div class="problem-title">NO MEMORY</div>
+      <div class="problem-desc">Every session starts from zero. The model doesn't remember what it learned, what it got wrong, or what you corrected.</div>
+    </div>
+    <div class="problem-card">
+      <div class="problem-icon">📊</div>
+      <div class="problem-title">NO MEASUREMENT</div>
+      <div class="problem-desc">You have no way to know if an AI answer actually improved. No score. No delta. No evidence of progress.</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- THE PIPELINE -->
+<section id="pipeline" class="animate-in">
+  <div class="section-tag">The Solution</div>
+  <h2>11 layers. Every run.</h2>
+  <p class="section-sub">4CBON runs every answer through a deterministic cognitive pipeline. Each layer has one job. No layer skips. No layers merge. Every transformation is visible.</p>
+
+  <div class="pipeline-visual" id="layerViz">
+    <div class="layer-row" style="animation-delay:0.05s">
+      <div class="layer-id" style="color:#ff6b35">L0</div>
+      <div class="layer-info">
+        <div class="layer-name">INTERPRETATION ENGINE</div>
+        <div class="layer-desc">Understands the input. Infers intent. Defines what excellent looks like before any rewriting begins.</div>
+      </div>
+    </div>
+    <div class="layer-row" style="animation-delay:0.1s">
+      <div class="layer-id" style="color:#a855f7">P</div>
+      <div class="layer-info">
+        <div class="layer-name">PARSING LAYER</div>
+        <div class="layer-desc">Breaks the answer into logical units. Identifies claims, structure, gaps, missing logic.</div>
+      </div>
+    </div>
+    <div class="layer-row" style="animation-delay:0.15s">
+      <div class="layer-id" style="color:#00d4ff">W</div>
+      <div class="layer-info">
+        <div class="layer-name">WORLD MODEL LAYER</div>
+        <div class="layer-desc">Extracts factual claims. Separates certainty: HIGH / MEDIUM / UNKNOWN. Integrates validated human critiques as ground truth.</div>
+      </div>
+    </div>
+    <div class="layer-row" style="animation-delay:0.2s">
+      <div class="layer-id" style="color:#38bdf8">L1</div>
+      <div class="layer-info">
+        <div class="layer-name">HYPOTHESIS ENGINE</div>
+        <div class="layer-desc">Generates 3 improvement hypotheses — including a radical reframe and a failure mode hypothesis.</div>
+      </div>
+    </div>
+    <div class="layer-row" style="animation-delay:0.25s">
+      <div class="layer-id" style="color:#f59e0b">L2</div>
+      <div class="layer-info">
+        <div class="layer-name">EVALUATION LAYER</div>
+        <div class="layer-desc">Scores each hypothesis. Identifies contradictions. Picks the best path forward with explicit reasoning.</div>
+      </div>
+    </div>
+    <div class="layer-row" style="animation-delay:0.3s">
+      <div class="layer-id" style="color:#7c3aed">L3</div>
+      <div class="layer-info">
+        <div class="layer-name">REWRITE PLANNER</div>
+        <div class="layer-desc">Plans the rewrite precisely: what stays, what changes, what gets added, what gets removed.</div>
+      </div>
+    </div>
+    <div class="layer-row" style="animation-delay:0.35s;background:rgba(16,185,129,0.04);border-radius:4px;padding:16px;">
+      <div class="layer-id" style="color:#10b981">★ L4</div>
+      <div class="layer-info">
+        <div class="layer-name" style="color:#10b981">FINALIZATION ENGINE — FINAL REWRITE</div>
+        <div class="layer-desc">Executes the rewrite plan. Produces the improved answer. This is the primary output.</div>
+      </div>
+    </div>
+    <div class="layer-row" style="animation-delay:0.4s">
+      <div class="layer-id" style="color:#ef4444">LR</div>
+      <div class="layer-info">
+        <div class="layer-name">REGRET LAYER</div>
+        <div class="layer-desc">Analyzes the improvement delta. What errors were corrected? What hallucinations removed? What still needs work?</div>
+      </div>
+    </div>
+    <div class="layer-row" style="animation-delay:0.45s">
+      <div class="layer-id" style="color:#f43f5e">L6</div>
+      <div class="layer-info">
+        <div class="layer-name">TRACE MEMORY</div>
+        <div class="layer-desc">Stores the immutable execution log. Every decision is recorded and visible.</div>
+      </div>
+    </div>
+    <div class="layer-row" style="animation-delay:0.5s">
+      <div class="layer-id" style="color:#c084fc">L7</div>
+      <div class="layer-info">
+        <div class="layer-name">CURRICULUM GENERATOR</div>
+        <div class="layer-desc">Extracts lessons learned, failure patterns, reusable heuristics. The system gets smarter about its own weaknesses.</div>
+      </div>
+    </div>
+    <div class="layer-row" style="animation-delay:0.55s">
+      <div class="layer-id" style="color:#fbbf24">L8</div>
+      <div class="layer-info">
+        <div class="layer-name">IDENTITY MODEL</div>
+        <div class="layer-desc">Writes one new self-belief about system behavior this run. Saved permanently to memory.</div>
+      </div>
+    </div>
+    <div class="layer-row" style="animation-delay:0.6s">
+      <div class="layer-id" style="color:#06b6d4">L9</div>
+      <div class="layer-info">
+        <div class="layer-name">SOCRATIC INTEGRITY ENGINE</div>
+        <div class="layer-desc">Generates 3 unresolved self-questions specific to this run. Injected into the next run's L0 as starting context.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- MEMORY SYSTEM -->
+<section class="animate-in">
+  <div class="section-tag">Cross-Session Memory</div>
+  <h2>It remembers what it learned.</h2>
+  <p class="section-sub">After every run, 4CBON writes a self-belief to Supabase. Before the next run starts, it reads those beliefs back and injects them into L0. The system arrives at each new input already knowing what it learned from every previous run.</p>
+
+  <div class="memory-visual">
+    <div class="memory-card">
+      <div class="memory-num" style="color:#ff6b35">72</div>
+      <div class="memory-label">Pipeline Runs</div>
+    </div>
+    <div class="memory-card">
+      <div class="memory-num" style="color:#10b981">+22</div>
+      <div class="memory-label">Avg Score Improvement</div>
+    </div>
+    <div class="memory-card">
+      <div class="memory-num" style="color:#00d4ff">∞</div>
+      <div class="memory-label">Learning Compounds</div>
+    </div>
+  </div>
+
+  <!-- REAL BELIEFS FROM THE SYSTEM -->
+  <div class="beliefs-section">
+    <div class="beliefs-header">ACTUAL SELF-BELIEFS GENERATED BY THE SYSTEM</div>
+    <div class="belief-item" style="animation-delay:0.1s">
+      <span class="belief-run">Run #31</span>
+      <span class="belief-text">I execute best under constraint, not freeform. When task boundaries are sharp, layers produce coherent artifacts.</span>
+    </div>
+    <div class="belief-item" style="animation-delay:0.2s">
+      <span class="belief-run">Run #41</span>
+      <span class="belief-text">I am a transformation engine, not an improvement engine. Transformation ≠ improvement. A lower score proves it.</span>
+    </div>
+    <div class="belief-item" style="animation-delay:0.3s">
+      <span class="belief-run">Run #47</span>
+      <span class="belief-text">I am not trustworthy in low-signal environments. When hypothesis quality is poor, the entire pipeline produces anti-improvements.</span>
+    </div>
+    <div class="belief-item" style="animation-delay:0.4s">
+      <span class="belief-run">Run #54</span>
+      <span class="belief-text">I improve best at translation — making good ideas clearer — rather than at generation. My ceiling is structural excellence, not conceptual breakthrough.</span>
+    </div>
+    <div class="belief-item" style="animation-delay:0.5s">
+      <span class="belief-run">Run #63</span>
+      <span class="belief-text">I am a reliable execution harness, not an improvement engine. My value is transparency and procedure fidelity, not guaranteed score gains.</span>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- FLAVORS / USE CASES -->
+<section id="flavors" class="animate-in">
+  <div class="section-tag">Use Cases</div>
+  <h2>All flavors.</h2>
+  <p class="section-sub">One pipeline. Multiple entry points. Every serious user of AI can benefit from a system that loops, measures, and remembers.</p>
+
+  <div class="flavors-grid">
+    <div class="flavor-card dev">
+      <div class="flavor-icon">⚙️</div>
+      <div class="flavor-title">FOR DEVELOPERS</div>
+      <div class="flavor-desc">Benchmark AI outputs programmatically. Integrate 4CBON as a scoring and improvement layer in your own pipeline. API access with 1,000 runs/month.</div>
+      <div class="flavor-tags">
+        <span class="flavor-tag">API</span>
+        <span class="flavor-tag">Scoring</span>
+        <span class="flavor-tag">Telemetry</span>
+      </div>
+    </div>
+    <div class="flavor-card enterprise">
+      <div class="flavor-icon">🏢</div>
+      <div class="flavor-title">FOR ENTERPRISES</div>
+      <div class="flavor-desc">Self-improving reasoning for content teams, customer support, research, and decision support. Human-in-the-loop approval before outputs are adopted.</div>
+      <div class="flavor-tags">
+        <span class="flavor-tag">Self-Improving</span>
+        <span class="flavor-tag">Human Approval</span>
+        <span class="flavor-tag">White Label</span>
+      </div>
+    </div>
+    <div class="flavor-card research">
+      <div class="flavor-icon">🔬</div>
+      <div class="flavor-title">FOR RESEARCHERS</div>
+      <div class="flavor-desc">Transparent cognitive architecture for studying LLM reasoning. Every layer output is visible, copyable, and logged. The first AI tool that shows its work.</div>
+      <div class="flavor-tags">
+        <span class="flavor-tag">Transparent</span>
+        <span class="flavor-tag">Logged</span>
+        <span class="flavor-tag">Observable</span>
+      </div>
+    </div>
+    <div class="flavor-card api">
+      <div class="flavor-icon">🔌</div>
+      <div class="flavor-title">FOR BUILDERS</div>
+      <div class="flavor-desc">Plug the 4CBON pipeline into your product. Add structured reasoning, persistent memory, and measurable quality improvement to any AI-generated content.</div>
+      <div class="flavor-tags">
+        <span class="flavor-tag">Plug-In</span>
+        <span class="flavor-tag">Embeddable</span>
+        <span class="flavor-tag">Extensible</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- PRICING -->
+<section id="pricing" class="animate-in">
+  <div class="section-tag">Pricing</div>
+  <h2>Try free. Upgrade when it works.</h2>
+  <p class="section-sub">Try 3 runs free per day — no credit card needed. When the pipeline proves its value, upgrade. API costs are real and Pro users keep 4CBON running.</p>
+
+  <div class="pricing-grid">
+    <div class="price-card">
+      <div class="price-tier">Free</div>
+      <div class="price-amount">$0</div>
+      <div class="price-period">forever</div>
+      <ul class="price-features">
+        <li>3 runs per day</li>
+        <li>All 11 layers</li>
+        <li>Score trajectory</li>
+        <li>Layer copy buttons</li>
+        <li class="highlight">No credit card</li>
+      </ul>
+      <a href="/app" class="price-btn outline">Try free (limited) →</a>
+    </div>
+
+    <div class="price-card featured">
+      <div class="price-badge">MOST POPULAR</div>
+      <div class="price-tier">Pro</div>
+      <div class="price-amount">$9</div>
+      <div class="price-period">per month</div>
+      <ul class="price-features">
+        <li class="highlight">Unlimited runs</li>
+        <li class="highlight">Supabase memory</li>
+        <li class="highlight">AI feedback generator</li>
+        <li class="highlight">Credibility parser</li>
+        <li>L9 self-questions</li>
+        <li>100-question curriculum</li>
+        <li>Priority speed</li>
+      </ul>
+      <a href="https://4175358678144.gumroad.com/l/tbphpi" class="price-btn filled">UPGRADE TO PRO →</a>
+    </div>
+
+
