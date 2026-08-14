@@ -37,9 +37,18 @@ async def gumroad_webhook(request: Request, secret: str = Query(None)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to parse webhook data: {e}")
     
-    # Extract key fields
-    event_type = data.get("sale_id") and "sale" or data.get("event_type", "unknown")
-    buyer_email = data.get("email", "")
+    # Gumroad sends form-encoded fields. Depending on the webhook version,
+    # the event is either explicit or represented by a subscription_status.
+    event_type = (data.get("event_type") or data.get("resource_type") or "").strip().lower()
+    if event_type not in {"sale", "subscription_updated", "subscription_cancelled", "subscription_restarted"}:
+        status_hint = (data.get("subscription_status") or "").lower()
+        event_type = {
+            "cancelled": "subscription_cancelled",
+            "canceled": "subscription_cancelled",
+            "restarted": "subscription_restarted",
+            "active": "subscription_updated",
+        }.get(status_hint, "sale" if data.get("sale_id") else "unknown")
+    buyer_email = data.get("email", "").strip()
     subscription_id = data.get("subscription_id", "")
     product_name = data.get("product_name", "")
     sale_id = data.get("sale_id", "")
