@@ -1,1074 +1,962 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>4CBON2 — The AI That Loops Until It's Right</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Playfair+Display:wght@700;900&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #03030a;
-    --surface: #06060f;
-    --border: #0f0f1e;
-    --text: #c0c0e0;
-    --muted: #444466;
-    --orange: #ff6b35;
-    --cyan: #00d4ff;
-    --green: #10b981;
-    --purple: #7c3aed;
-    --amber: #f59e0b;
-    --red: #ef4444;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  html { scroll-behavior: smooth; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Mono', monospace;
-    overflow-x: hidden;
-    line-height: 1.6;
-  }
-
-  /* ─── NOISE OVERLAY ─── */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.4;
-  }
-
-  /* ─── SCAN LINE ─── */
-  body::after {
-    content: '';
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--orange), var(--cyan), var(--green), transparent);
-    animation: scan 8s linear infinite;
-    z-index: 100;
-    opacity: 0.6;
-  }
-  @keyframes scan { 0% { top: 0; } 100% { top: 100vh; } }
-
-  /* ─── NAV ─── */
-  nav {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 50;
-    padding: 16px 24px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: rgba(3,3,10,0.85);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .nav-logo {
-    font-family: 'Playfair Display', serif;
-    font-size: 22px;
-    font-weight: 900;
-    background: linear-gradient(110deg, var(--orange), var(--cyan), var(--green));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    letter-spacing: -0.02em;
-  }
-
-  .nav-links {
-    display: flex;
-    gap: 24px;
-    align-items: center;
-  }
-
-  .nav-links a {
-    font-size: 10px;
-    letter-spacing: 0.2em;
-    color: var(--muted);
-    text-decoration: none;
-    text-transform: uppercase;
-    transition: color 0.2s;
-  }
-  .nav-links a:hover { color: var(--text); }
-
-  .nav-cta {
-    background: transparent !important;
-    border: 1px solid var(--orange) !important;
-    color: var(--orange) !important;
-    padding: 6px 16px !important;
-    border-radius: 4px !important;
-    font-size: 10px !important;
-    letter-spacing: 0.15em !important;
-    cursor: pointer !important;
-    transition: all 0.2s !important;
-  }
-  .nav-cta:hover {
-    background: var(--orange) !important;
-    color: #03030a !important;
-  }
-
-  /* ─── SECTIONS ─── */
-  section {
-    position: relative;
-    z-index: 1;
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
-
-  /* ─── HERO ─── */
-  .hero {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding-top: 80px;
-    max-width: 900px;
-    margin: 0 auto;
-    padding-left: 24px;
-    padding-right: 24px;
-  }
-
-  .hero-tag {
-    font-size: 9px;
-    letter-spacing: 0.35em;
-    color: var(--orange);
-    text-transform: uppercase;
-    margin-bottom: 24px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .hero-tag::before {
-    content: '';
-    display: inline-block;
-    width: 24px;
-    height: 1px;
-    background: var(--orange);
-  }
-
-  h1 {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(44px, 8vw, 88px);
-    font-weight: 900;
-    line-height: 1.0;
-    letter-spacing: -0.03em;
-    margin-bottom: 32px;
-  }
-
-  h1 .line1 { color: var(--text); }
-  h1 .line2 {
-    background: linear-gradient(110deg, var(--orange), var(--cyan));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  h1 .line3 { color: var(--green); }
-
-  .hero-sub {
-    font-size: 14px;
-    color: var(--muted);
-    max-width: 480px;
-    margin-bottom: 48px;
-    line-height: 1.8;
-    font-family: 'DM Mono', monospace;
-  }
-
-  .hero-sub strong {
-    color: var(--text);
-    font-weight: 500;
-  }
-
-  .hero-actions {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 80px;
-  }
-
-  .btn-primary {
-    background: linear-gradient(135deg, var(--orange), var(--cyan));
-    border: none;
-    border-radius: 6px;
-    color: #03030a;
-    font-family: 'DM Mono', monospace;
-    font-weight: 500;
-    font-size: 12px;
-    padding: 14px 28px;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
-    transition: opacity 0.2s;
-  }
-  .btn-primary:hover { opacity: 0.85; }
-
-  .btn-secondary {
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--muted);
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    padding: 14px 28px;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
-    transition: all 0.2s;
-  }
-  .btn-secondary:hover { border-color: var(--text); color: var(--text); }
-
-  /* ─── LIVE PIPELINE DEMO ─── */
-  .pipeline-demo {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 80px;
-    overflow: hidden;
-  }
-
-  .pipeline-header {
-    font-size: 9px;
-    color: var(--muted);
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .pipeline-status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--green);
-  }
-  .pipeline-status::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    background: var(--green);
-    border-radius: 50%;
-    animation: blink 1.5s ease infinite;
-  }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-
-  .layer-chips {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .chip {
-    font-size: 9px;
-    font-weight: 700;
-    padding: 4px 8px;
-    border-radius: 4px;
-    letter-spacing: 0.08em;
-    opacity: 0;
-    animation: chipIn 0.3s ease forwards;
-  }
-
-  .chip.done {
-    background: rgba(16,185,129,0.15);
-    border: 1px solid #10b981;
-    color: #10b981;
-  }
-  .chip.active {
-    border: 1px solid var(--orange);
-    color: var(--orange);
-    background: rgba(255,107,53,0.1);
-    box-shadow: 0 0 8px rgba(255,107,53,0.3);
-  }
-  .chip.pending {
-    border: 1px solid #1a1a2e;
-    color: #333;
-    background: transparent;
-  }
-
-  @keyframes chipIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
-
-  .score-demo {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .score-num {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 32px;
-    font-weight: 900;
-    color: var(--amber);
-    min-width: 40px;
-  }
-  .score-bar-wrap {
-    flex: 1;
-    height: 6px;
-    background: #111;
-    border-radius: 3px;
-    overflow: hidden;
-  }
-  .score-bar-fill {
-    height: 100%;
-    border-radius: 3px;
-    transition: width 1s ease;
-  }
-  .score-arrow { color: var(--green); font-size: 18px; }
-  .score-after { color: var(--green); }
-  .score-label {
-    font-size: 9px;
-    color: var(--green);
-    letter-spacing: 0.1em;
-    font-weight: 700;
-  }
-
-  /* ─── DIVIDER ─── */
-  .divider {
-    border: none;
-    border-top: 1px solid var(--border);
-    margin: 80px 0;
-    max-width: 900px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  /* ─── SECTION HEADER ─── */
-  .section-tag {
-    font-size: 9px;
-    letter-spacing: 0.3em;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-bottom: 16px;
-  }
-
-  h2 {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(28px, 4vw, 48px);
-    font-weight: 900;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-    margin-bottom: 20px;
-    color: var(--text);
-  }
-
-  .section-sub {
-    font-size: 13px;
-    color: var(--muted);
-    max-width: 540px;
-    line-height: 1.8;
-    margin-bottom: 48px;
-  }
-
-  /* ─── THE PROBLEM ─── */
-  .problem-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2px;
-    margin-bottom: 48px;
-  }
-
-  @media (max-width: 600px) {
-    .problem-grid { grid-template-columns: 1fr; }
-  }
-
-  .problem-card {
-    background: var(--surface);
-    padding: 24px;
-    border: 1px solid var(--border);
-  }
-  .problem-card:first-child { border-radius: 8px 0 0 0; }
-  .problem-card:nth-child(2) { border-radius: 0 8px 0 0; }
-  .problem-card:nth-child(3) { border-radius: 0 0 0 8px; }
-  .problem-card:last-child { border-radius: 0 0 8px 0; }
-
-  .problem-icon { font-size: 20px; margin-bottom: 12px; }
-  .problem-title { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--text); margin-bottom: 8px; }
-  .problem-desc { font-size: 11px; color: var(--muted); line-height: 1.7; }
-
-  /* ─── THE PIPELINE ─── */
-  .pipeline-visual {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 32px;
-    margin-bottom: 48px;
-  }
-
-  .layer-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
-    padding: 16px 0;
-    border-bottom: 1px solid var(--border);
-    opacity: 0;
-    animation: fadeUp 0.4s ease forwards;
-  }
-  .layer-row:last-child { border-bottom: none; }
-
-  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-
-  .layer-id {
-    font-size: 10px;
-    font-weight: 700;
-    min-width: 32px;
-    letter-spacing: 0.05em;
-    padding-top: 2px;
-  }
-
-  .layer-connector {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-top: 4px;
-  }
-
-  .layer-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    border: 2px solid;
-    flex-shrink: 0;
-  }
-
-  .layer-info { flex: 1; }
-  .layer-name {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--text);
-    letter-spacing: 0.05em;
-    margin-bottom: 4px;
-  }
-  .layer-desc { font-size: 10px; color: var(--muted); line-height: 1.6; }
-
-  /* ─── FLAVORS ─── */
-  .flavors-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 16px;
-    margin-bottom: 48px;
-  }
-
-  .flavor-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 24px;
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.2s;
-  }
-  .flavor-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-  }
-  .flavor-card:hover { border-color: #1a1a3e; }
-
-  .flavor-card.dev::before { background: linear-gradient(90deg, var(--cyan), var(--purple)); }
-  .flavor-card.enterprise::before { background: linear-gradient(90deg, var(--orange), var(--amber)); }
-  .flavor-card.research::before { background: linear-gradient(90deg, var(--green), var(--cyan)); }
-  .flavor-card.api::before { background: linear-gradient(90deg, var(--purple), var(--red)); }
-
-  .flavor-icon { font-size: 28px; margin-bottom: 12px; }
-  .flavor-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 8px; letter-spacing: 0.05em; }
-  .flavor-desc { font-size: 11px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
-  .flavor-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-  .flavor-tag {
-    font-size: 9px;
-    letter-spacing: 0.1em;
-    padding: 3px 8px;
-    border-radius: 3px;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    text-transform: uppercase;
-  }
-
-  /* ─── MEMORY SYSTEM ─── */
-  .memory-visual {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 48px;
-  }
-
-  @media (max-width: 600px) {
-    .memory-visual { grid-template-columns: 1fr; }
-  }
-
-  .memory-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 20px;
-    text-align: center;
-  }
-
-  .memory-num {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 48px;
-    font-weight: 900;
-    line-height: 1;
-    margin-bottom: 8px;
-  }
-  .memory-label { font-size: 9px; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; }
-
-  /* ─── PRICING ─── */
-  .pricing-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
-    margin-bottom: 48px;
-  }
-
-  .price-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 28px 24px;
-    position: relative;
-  }
-
-  .price-card.featured {
-    border-color: var(--orange);
-    background: rgba(255,107,53,0.04);
-  }
-
-  .price-badge {
-    position: absolute;
-    top: -1px; right: 20px;
-    background: var(--orange);
-    color: #03030a;
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    padding: 4px 10px;
-    border-radius: 0 0 4px 4px;
-    text-transform: uppercase;
-  }
-
-  .price-tier { font-size: 9px; letter-spacing: 0.25em; color: var(--muted); text-transform: uppercase; margin-bottom: 12px; }
-  .price-amount {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 48px;
-    font-weight: 900;
-    line-height: 1;
-    color: var(--text);
-    margin-bottom: 4px;
-  }
-  .price-period { font-size: 10px; color: var(--muted); margin-bottom: 20px; }
-  .price-features { list-style: none; margin-bottom: 24px; }
-  .price-features li {
-    font-size: 11px;
-    color: var(--muted);
-    padding: 6px 0;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .price-features li:last-child { border-bottom: none; }
-  .price-features li::before { content: '·'; color: var(--green); font-weight: 900; }
-  .price-features li.highlight { color: var(--text); }
-
-  .price-btn {
-    display: block;
-    width: 100%;
-    padding: 10px;
-    border-radius: 6px;
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-align: center;
-    cursor: pointer;
-    text-decoration: none;
-    transition: all 0.2s;
-  }
-
-  .price-btn.outline {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-  }
-  .price-btn.outline:hover { border-color: var(--text); color: var(--text); }
-
-  .price-btn.filled {
-    background: linear-gradient(135deg, var(--orange), var(--cyan));
-    border: none;
-    color: #03030a;
-  }
-  .price-btn.filled:hover { opacity: 0.85; }
-
-  .price-btn.dark {
-    background: transparent;
-    border: 1px solid var(--purple);
-    color: var(--purple);
-  }
-  .price-btn.dark:hover { background: rgba(124,58,237,0.1); }
-
-  /* ─── BELIEFS TICKER ─── */
-  .beliefs-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 24px;
-    margin-bottom: 48px;
-    overflow: hidden;
-  }
-
-  .beliefs-header {
-    font-size: 9px;
-    color: var(--muted);
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .beliefs-header::after {
-    content: 'LIVE FROM SUPABASE';
-    color: var(--green);
-    font-size: 8px;
-  }
-
-  .belief-item {
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 11px;
-    color: var(--muted);
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    animation: fadeUp 0.4s ease forwards;
-    opacity: 0;
-  }
-  .belief-item:last-child { border-bottom: none; }
-  .belief-run { color: var(--orange); font-size: 9px; min-width: 48px; padding-top: 1px; letter-spacing: 0.05em; }
-  .belief-text { flex: 1; line-height: 1.6; }
-
-  /* ─── CTA ─── */
-  .cta-section {
-    text-align: center;
-    padding: 80px 24px;
-    max-width: 900px;
-    margin: 0 auto;
-  }
-
-  .cta-eyebrow {
-    font-size: 9px;
-    letter-spacing: 0.3em;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-bottom: 24px;
-  }
-
-  .cta-title {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(32px, 5vw, 64px);
-    font-weight: 900;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-    margin-bottom: 20px;
-  }
-
-  .cta-sub {
-    font-size: 13px;
-    color: var(--muted);
-    max-width: 440px;
-    margin: 0 auto 40px;
-    line-height: 1.8;
-  }
-
-  .cta-pipeline {
-    font-size: 9px;
-    letter-spacing: 0.15em;
-    color: #1a1a2e;
-    margin-top: 48px;
-  }
-
-  /* ─── FOOTER ─── */
-  footer {
-    border-top: 1px solid var(--border);
-    padding: 32px 24px;
-    max-width: 900px;
-    margin: 0 auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-
-  .footer-logo {
-    font-family: 'Playfair Display', serif;
-    font-size: 18px;
-    font-weight: 900;
-    background: linear-gradient(110deg, var(--orange), var(--cyan), var(--green));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
-  .footer-links {
-    display: flex;
-    gap: 20px;
-  }
-
-  .footer-links a {
-    font-size: 9px;
-    letter-spacing: 0.15em;
-    color: var(--muted);
-    text-decoration: none;
-    text-transform: uppercase;
-    transition: color 0.2s;
-  }
-  .footer-links a:hover { color: var(--text); }
-
-  .footer-copy { font-size: 9px; color: #1a1a2e; letter-spacing: 0.1em; }
-
-  /* ─── ANIMATIONS ─── */
-  .animate-in {
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity 0.6s ease, transform 0.6s ease;
-  }
-  .animate-in.visible {
-    opacity: 1;
-    transform: translateY(0);
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4CBON2 — Unified Cognitive Platform</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #f0f0f5;
+            --text-secondary: #a0a0b0;
+            --text-muted: #606070;
+            --accent-primary: #6c5ce7;
+            --accent-secondary: #a29bfe;
+            --accent-tertiary: #00cec9;
+            --accent-warm: #fd79a8;
+            --accent-gold: #ffeaa7;
+            --border-color: #2a2a3a;
+            --gradient-1: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            --gradient-2: linear-gradient(135deg, #00cec9, #81ecec);
+            --gradient-3: linear-gradient(135deg, #fd79a8, #e84393);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            padding: 1rem 2rem;
+            background: rgba(10, 10, 15, 0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-secondary);
+        }
+
+        .nav-cta {
+            padding: 0.6rem 1.5rem;
+            background: var(--gradient-1);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .nav-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(108, 92, 231, 0.4);
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 8rem 2rem 4rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(108, 92, 231, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(0, 206, 201, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(253, 121, 168, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 50px;
+            font-size: 0.875rem;
+            color: var(--accent-secondary);
+            margin-bottom: 2rem;
+        }
+
+        .hero-badge::before {
+            content: '✨';
+        }
+
+        .hero h1 {
+            font-size: clamp(3rem, 8vw, 6rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            max-width: 900px;
+        }
+
+        .hero h1 .gradient-text {
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero h1 .gradient-text-2 {
+            background: var(--gradient-2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin-bottom: 3rem;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            padding: 1rem 2rem;
+            background: var(--gradient-1);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 20px 40px rgba(108, 92, 231, 0.4);
+        }
+
+        .btn-secondary {
+            padding: 1rem 2rem;
+            background: transparent;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-secondary);
+            color: var(--accent-secondary);
+        }
+
+        /* Features Grid */
+        .features {
+            padding: 6rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .section-header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-primary);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-icon.purple { background: rgba(108, 92, 231, 0.2); }
+        .feature-icon.teal { background: rgba(0, 206, 201, 0.2); }
+        .feature-icon.pink { background: rgba(253, 121, 168, 0.2); }
+        .feature-icon.gold { background: rgba(255, 234, 167, 0.2); }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        /* Pipeline Visualization */
+        .pipeline {
+            padding: 6rem 2rem;
+            background: var(--bg-secondary);
+        }
+
+        .pipeline-content {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .pipeline-visual {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 3rem 0;
+        }
+
+        .pipeline-layer {
+            width: 80px;
+            height: 80px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .pipeline-layer:hover {
+            transform: scale(1.1);
+            z-index: 10;
+        }
+
+        .pipeline-layer .layer-emoji {
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .pipeline-layer .layer-id {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+        }
+
+        .arrow {
+            display: flex;
+            align-items: center;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+        }
+
+        /* Pricing */
+        .pricing {
+            padding: 6rem 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .pricing-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 2.5rem;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .pricing-card.featured {
+            border-color: var(--accent-primary);
+            transform: scale(1.05);
+        }
+
+        .pricing-card.featured::before {
+            content: 'Most Popular';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--gradient-1);
+            padding: 0.25rem 1rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .pricing-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-card .price {
+            font-size: 3rem;
+            font-weight: 800;
+            margin: 1.5rem 0;
+        }
+
+        .pricing-card .price span {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .pricing-features {
+            list-style: none;
+            text-align: left;
+            margin: 2rem 0;
+        }
+
+        .pricing-features li {
+            padding: 0.5rem 0;
+            color: var(--text-secondary);
+        }
+
+        .pricing-features li::before {
+            content: '✓';
+            color: var(--accent-tertiary);
+            margin-right: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Free Tests Section */
+        .free-tests {
+            padding: 6rem 2rem;
+            background: var(--bg-secondary);
+        }
+
+        .free-tests-content {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .test-container {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+
+        .test-input {
+            width: 100%;
+            min-height: 150px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 1rem;
+            resize: vertical;
+            margin-bottom: 1rem;
+        }
+
+        .test-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .test-output {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            min-height: 200px;
+            white-space: pre-wrap;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.8;
+            display: none;
+        }
+
+        .test-output.visible {
+            display: block;
+        }
+
+        .test-loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .test-loading.visible {
+            display: block;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Footer */
+        footer {
+            padding: 4rem 2rem;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        footer p {
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent-secondary);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .pipeline-layer {
+                width: 60px;
+                height: 60px;
+                font-size: 0.6rem;
+            }
+
+            .arrow {
+                display: none;
+            }
+
+            .pricing-card.featured {
+                transform: scale(1);
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+    </style>
 </head>
 <body>
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-logo">4CBON2</div>
+        <ul class="nav-links">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#pipeline">Pipeline</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="#free-tests">Free Test</a></li>
+        </ul>
+        <button class="nav-cta" onclick="window.location.href='#free-tests'">Get Started</button>
+    </nav>
 
-<!-- NAV -->
-<nav>
-  <div class="nav-logo">4CBON</div>
-  <div class="nav-links">
-    <a href="#pipeline">How it works</a>
-    <a href="#flavors">Use cases</a>
-    <a href="#pricing">Pricing</a>
-    <a href="https://4175358678144.gumroad.com/l/tbphpi" class="nav-cta">UPGRADE →</a>
-  </div>
-</nav>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-badge">Now with 16-Layer Deep Pipeline</div>
+        <h1>
+            <span class="gradient-text">Multi-Agent</span> + 
+            <span class="gradient-text-2">Deep Cognitive Pipeline</span>
+        </h1>
+        <p>
+            The unified cognitive platform combining 12 specialist agents with 
+            a 16-layer deep pipeline (L0–L10) that transforms AI outputs through 
+            systematic cognitive processing.
+        </p>
+        <div class="hero-actions">
+            <a href="#free-tests" class="btn-primary">Try 3 Free Tests</a>
+            <a href="#features" class="btn-secondary">Learn More</a>
+        </div>
+    </section>
 
-<!-- HERO -->
-<div class="hero">
-  <div class="hero-tag">Runtime Megaprompt Engine · 16 Layers · Self-Improving</div>
-  <h1>
-    <div class="line1">AI gives you</div>
-    <div class="line2">one shot.</div>
-    <div class="line3">4CBON loops.</div>
-  </h1>
-  <p class="hero-sub">
-    Every AI answer you've ever read was generated once, then shipped.<br><br>
-    <strong>4CBON runs a deterministic 16-layer pipeline</strong> — interpreting, parsing, grounding, adjudicating, attacking, decompressing, hypothesizing, evaluating, planning, rewriting, reflecting, remembering, learning, evolving, questioning, certifying — until the answer is measurably better than what came in.
-  </p>
-  <div class="hero-actions">
-    <a href="https://4175358678144.gumroad.com/l/tbphpi" class="btn-primary">★ UPGRADE TO PRO — $9/month</a>
-    <a href="/app" class="btn-secondary">Try free (3 runs/day) →</a>
-  </div>
-  <p style="font-size:9px;color:#444466;margin-top:-16px;letter-spacing:0.1em;">API costs are real — Pro users keep the pipeline running for everyone.</p>
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="section-header">
+            <h2>Everything You Need</h2>
+            <p>One platform, unlimited possibilities</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon purple">🤖</div>
+                <h3>12 Specialist Agents</h3>
+                <p>Sales, Legal, Marketing, Research, and more. Each trained for their domain with access to real-world tools.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon teal">🧠</div>
+                <h3>16-Layer Pipeline</h3>
+                <p>From interpretation (L0) to synthesis (L10), each layer refines output through adversarial testing and verification.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon pink">📚</div>
+                <h3>RAG Knowledge Base</h3>
+                <p>Upload documents, ask questions using the five-lens framework. Your knowledge, amplified.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon gold">🔧</div>
+                <h3>Agent Builder</h3>
+                <p>Create custom agents with specific instructions. The AI proposes, you approve, it builds.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon purple">📊</div>
+                <h3>Data Dashboard</h3>
+                <p>Visualize task history, track agent performance, and measure improvements over time.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon teal">🔒</div>
+                <h3>Privacy First</h3>
+                <p>Your API key stays in memory only. No storage, no tracking. Your data is yours.</p>
+            </div>
+        </div>
+    </section>
 
-  <!-- LIVE PIPELINE DEMO -->
-  <div class="pipeline-demo">
-    <div class="pipeline-header">
-      <span>LIVE PIPELINE · RUN #72</span>
-      <span class="pipeline-status">ACTIVE</span>
-    </div>
-    <div class="layer-chips" id="chips"></div>
-    <div class="score-demo">
-      <span class="score-num">62</span>
-      <div class="score-bar-wrap">
-        <div class="score-bar-fill" id="bar1" style="width:62%;background:#f59e0b;"></div>
-      </div>
-      <span class="score-arrow">→</span>
-      <div class="score-bar-wrap">
-        <div class="score-bar-fill" id="bar2" style="width:0%;background:#10b981;"></div>
-      </div>
-      <span class="score-num score-after" id="scoreAfter">72</span>
-      <span class="score-label" id="scoreDelta">+10 improvement</span>
-    </div>
-  </div>
-</div>
+    <!-- Pipeline Section -->
+    <section class="pipeline" id="pipeline">
+        <div class="pipeline-content">
+            <div class="section-header">
+                <h2>The 16-Layer Pipeline</h2>
+                <p>Systematic cognitive processing that measurably improves AI outputs</p>
+            </div>
+            
+            <div class="pipeline-visual">
+                <div class="pipeline-layer" style="background: rgba(255,107,53,0.2); color: #ff6b35;">
+                    <span class="layer-emoji">◎</span>
+                    <span class="layer-id">L0</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(168,85,247,0.2); color: #a855f7;">
+                    <span class="layer-emoji">⊞</span>
+                    <span class="layer-id">P</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(0,212,255,0.2); color: #00d4ff;">
+                    <span class="layer-emoji">⊕</span>
+                    <span class="layer-id">W</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(249,115,22,0.2); color: #f97316;">
+                    <span class="layer-emoji">⊛</span>
+                    <span class="layer-id">LX</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(220,38,38,0.2); color: #dc2626;">
+                    <span class="layer-emoji">⚔</span>
+                    <span class="layer-id">LA</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(14,165,233,0.2); color: #0ea5e9;">
+                    <span class="layer-emoji">⊘</span>
+                    <span class="layer-id">LC</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(56,189,248,0.2); color: #38bdf8;">
+                    <span class="layer-emoji">◈</span>
+                    <span class="layer-id">L1</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(245,158,11,0.2); color: #f59e0b;">
+                    <span class="layer-emoji">◉</span>
+                    <span class="layer-id">L2</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(139,92,246,0.2); color: #8b5cf6;">
+                    <span class="layer-emoji">⊛</span>
+                    <span class="layer-id">LP</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(124,58,237,0.2); color: #7c3aed;">
+                    <span class="layer-emoji">◐</span>
+                    <span class="layer-id">L3</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(16,185,129,0.2); color: #10b981;">
+                    <span class="layer-emoji">★</span>
+                    <span class="layer-id">L4</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(239,68,68,0.2); color: #ef4444;">
+                    <span class="layer-emoji">◑</span>
+                    <span class="layer-id">LR</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(244,63,94,0.2); color: #f43f5e;">
+                    <span class="layer-emoji">⟳</span>
+                    <span class="layer-id">L6</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(192,132,252,0.2); color: #c084fc;">
+                    <span class="layer-emoji">◆</span>
+                    <span class="layer-id">L7</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(251,191,36,0.2); color: #fbbf24;">
+                    <span class="layer-emoji">⚙</span>
+                    <span class="layer-id">L8</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(56,189,248,0.2); color: #38bdf8;">
+                    <span class="layer-emoji">?</span>
+                    <span class="layer-id">L9</span>
+                </div>
+                <span class="arrow">→</span>
+                <div class="pipeline-layer" style="background: rgba(110,231,183,0.2); color: #6ee7b7;">
+                    <span class="layer-emoji">✦</span>
+                    <span class="layer-id">L10</span>
+                </div>
+            </div>
 
-<hr class="divider">
+            <div class="features-grid" style="margin-top: 3rem;">
+                <div class="feature-card">
+                    <h3>🔍 Understanding</h3>
+                    <p><strong>L0-P-W:</strong> Interpretation, Parsing, World Model. The system first truly understands what it's working with.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>⚔️ Verification</h3>
+                    <p><strong>LX-LA-LC:</strong> Reality Adjudication, Adversarial Attack, Compression Integrity. Claims are stress-tested.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🔄 Improvement</h3>
+                    <p><strong>L1-L2-L3-L4:</strong> Hypothesis, Evaluation, Planning, Finalization. Systematic rewrite based on evidence.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📈 Learning</h3>
+                    <p><strong>LR-L6-L7-L8-L9-L10:</strong> Regret, Memory, Curriculum, Identity, Socratic Questions, Final Audit.</p>
+                </div>
+            </div>
+        </div>
+    </section>
 
-<!-- THE PROBLEM -->
-<section class="animate-in">
-  <div class="section-tag">The Problem</div>
-  <h2>AI answers are one-shot bets.</h2>
-  <p class="section-sub">Standard AI gives you a single pass. No iteration. No self-critique. No measurable improvement. You get what you get.</p>
-  <div class="problem-grid">
-    <div class="problem-card">
-      <div class="problem-icon">⚡</div>
-      <div class="problem-title">NO ITERATION</div>
-      <div class="problem-desc">One generation, one shot. The model has no way to know if what it produced is correct, clear, or even coherent.</div>
-    </div>
-    <div class="problem-card">
-      <div class="problem-icon">🎭</div>
-      <div class="problem-title">CONFIDENT WHEN WRONG</div>
-      <div class="problem-desc">AI doesn't flag its own overconfidence. It states speculation as fact and universals as certainties without qualification.</div>
-    </div>
-    <div class="problem-card">
-      <div class="problem-icon">🧠</div>
-      <div class="problem-title">NO MEMORY</div>
-      <div class="problem-desc">Every session starts from zero. The model doesn't remember what it learned, what it got wrong, or what you corrected.</div>
-    </div>
-    <div class="problem-card">
-      <div class="problem-icon">📊</div>
-      <div class="problem-title">NO MEASUREMENT</div>
-      <div class="problem-desc">You have no way to know if an AI answer actually improved. No score. No delta. No evidence of progress.</div>
-    </div>
-  </div>
-</section>
+    <!-- Pricing Section -->
+    <section class="pricing" id="pricing">
+        <div class="section-header">
+            <h2>Simple Pricing</h2>
+            <p>Start free, scale as you grow</p>
+        </div>
+        <div class="pricing-grid">
+            <div class="pricing-card">
+                <h3>Free</h3>
+                <p style="color: var(--text-secondary);">For trying it out</p>
+                <div class="price">$0<span>/mo</span></div>
+                <ul class="pricing-features">
+                    <li>3 pipeline tests per day</li>
+                    <li>Basic agent access</li>
+                    <li>5-lens questioning</li>
+                    <li>Community support</li>
+                </ul>
+                <a href="#free-tests" class="btn-secondary" style="width: 100%;">Get Started</a>
+            </div>
+            <div class="pricing-card featured">
+                <h3>Pro</h3>
+                <p style="color: var(--text-secondary);">For power users</p>
+                <div class="price">$29<span>/mo</span></div>
+                <ul class="pricing-features">
+                    <li>Unlimited pipeline tests</li>
+                    <li>All 12 specialist agents</li>
+                    <li>Custom agent builder</li>
+                    <li>Priority support</li>
+                    <li>API access</li>
+                </ul>
+                <a href="#" class="btn-primary" style="width: 100%;">Coming Soon</a>
+            </div>
+            <div class="pricing-card">
+                <h3>Team</h3>
+                <p style="color: var(--text-secondary);">For organizations</p>
+                <div class="price">$99<span>/mo</span></div>
+                <ul class="pricing-features">
+                    <li>Everything in Pro</li>
+                    <li>5 team seats</li>
+                    <li>Shared knowledge base</li>
+                    <li>Usage analytics</li>
+                    <li>Dedicated support</li>
+                </ul>
+                <a href="#" class="btn-secondary" style="width: 100%;">Contact Us</a>
+            </div>
+        </div>
+    </section>
 
-<hr class="divider">
+    <!-- Free Tests Section -->
+    <section class="free-tests" id="free-tests">
+        <div class="free-tests-content">
+            <div class="section-header">
+                <h2>Try It Now</h2>
+                <p>3 free pipeline tests — no account required</p>
+            </div>
 
-<!-- THE PIPELINE -->
-<section id="pipeline" class="animate-in">
-  <div class="section-tag">The Solution</div>
-  <h2>11 layers. Every run.</h2>
-  <p class="section-sub">4CBON runs every answer through a deterministic cognitive pipeline. Each layer has one job. No layer skips. No layers merge. Every transformation is visible.</p>
+            <div class="test-container">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">
+                        Paste any AI-generated answer below:
+                    </label>
+                    <textarea id="test-input" class="test-input" placeholder="Paste an AI answer here to see the 16-layer pipeline transform it..."></textarea>
+                </div>
 
-  <div class="pipeline-visual" id="layerViz">
-    <div class="layer-row" style="animation-delay:0.05s">
-      <div class="layer-id" style="color:#ff6b35">L0</div>
-      <div class="layer-info">
-        <div class="layer-name">INTERPRETATION ENGINE</div>
-        <div class="layer-desc">Understands the input. Infers intent. Defines what excellent looks like before any rewriting begins.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.1s">
-      <div class="layer-id" style="color:#a855f7">P</div>
-      <div class="layer-info">
-        <div class="layer-name">PARSING LAYER</div>
-        <div class="layer-desc">Breaks the answer into logical units. Identifies claims, structure, gaps, missing logic.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.15s">
-      <div class="layer-id" style="color:#00d4ff">W</div>
-      <div class="layer-info">
-        <div class="layer-name">WORLD MODEL LAYER</div>
-        <div class="layer-desc">Extracts factual claims. Separates certainty: HIGH / MEDIUM / UNKNOWN. Integrates validated human critiques as ground truth.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.2s">
-      <div class="layer-id" style="color:#38bdf8">L1</div>
-      <div class="layer-info">
-        <div class="layer-name">HYPOTHESIS ENGINE</div>
-        <div class="layer-desc">Generates 3 improvement hypotheses — including a radical reframe and a failure mode hypothesis.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.25s">
-      <div class="layer-id" style="color:#f59e0b">L2</div>
-      <div class="layer-info">
-        <div class="layer-name">EVALUATION LAYER</div>
-        <div class="layer-desc">Scores each hypothesis. Identifies contradictions. Picks the best path forward with explicit reasoning.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.3s">
-      <div class="layer-id" style="color:#7c3aed">L3</div>
-      <div class="layer-info">
-        <div class="layer-name">REWRITE PLANNER</div>
-        <div class="layer-desc">Plans the rewrite precisely: what stays, what changes, what gets added, what gets removed.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.35s;background:rgba(16,185,129,0.04);border-radius:4px;padding:16px;">
-      <div class="layer-id" style="color:#10b981">★ L4</div>
-      <div class="layer-info">
-        <div class="layer-name" style="color:#10b981">FINALIZATION ENGINE — FINAL REWRITE</div>
-        <div class="layer-desc">Executes the rewrite plan. Produces the improved answer. This is the primary output.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.4s">
-      <div class="layer-id" style="color:#ef4444">LR</div>
-      <div class="layer-info">
-        <div class="layer-name">REGRET LAYER</div>
-        <div class="layer-desc">Analyzes the improvement delta. What errors were corrected? What hallucinations removed? What still needs work?</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.45s">
-      <div class="layer-id" style="color:#f43f5e">L6</div>
-      <div class="layer-info">
-        <div class="layer-name">TRACE MEMORY</div>
-        <div class="layer-desc">Stores the immutable execution log. Every decision is recorded and visible.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.5s">
-      <div class="layer-id" style="color:#c084fc">L7</div>
-      <div class="layer-info">
-        <div class="layer-name">CURRICULUM GENERATOR</div>
-        <div class="layer-desc">Extracts lessons learned, failure patterns, reusable heuristics. The system gets smarter about its own weaknesses.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.55s">
-      <div class="layer-id" style="color:#fbbf24">L8</div>
-      <div class="layer-info">
-        <div class="layer-name">IDENTITY MODEL</div>
-        <div class="layer-desc">Writes one new self-belief about system behavior this run. Saved permanently to memory.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.6s">
-      <div class="layer-id" style="color:#06b6d4">L9</div>
-      <div class="layer-info">
-        <div class="layer-name">SOCRATIC INTEGRITY ENGINE</div>
-        <div class="layer-desc">Generates 3 unresolved self-questions specific to this run. Injected into the next run's L0 as starting context.</div>
-      </div>
-    </div>
-  </div>
-</section>
+                <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                    <button id="run-test" class="btn-primary">▶ Run Pipeline Test</button>
+                    <span id="tests-remaining" style="color: var(--text-muted); font-size: 0.875rem;">
+                        Tests remaining: <strong id="counter">3</strong>
+                    </span>
+                </div>
 
-<hr class="divider">
+                <div id="test-loading" class="test-loading">
+                    <div class="spinner"></div>
+                    <p>Running through 16 layers...</p>
+                </div>
 
-<!-- MEMORY SYSTEM -->
-<section class="animate-in">
-  <div class="section-tag">Cross-Session Memory</div>
-  <h2>It remembers what it learned.</h2>
-  <p class="section-sub">After every run, 4CBON writes a self-belief to Supabase. Before the next run starts, it reads those beliefs back and injects them into L0. The system arrives at each new input already knowing what it learned from every previous run.</p>
+                <div id="test-output" class="test-output"></div>
+            </div>
 
-  <div class="memory-visual">
-    <div class="memory-card">
-      <div class="memory-num" style="color:#ff6b35">72</div>
-      <div class="memory-label">Pipeline Runs</div>
-    </div>
-    <div class="memory-card">
-      <div class="memory-num" style="color:#10b981">+22</div>
-      <div class="memory-label">Avg Score Improvement</div>
-    </div>
-    <div class="memory-card">
-      <div class="memory-num" style="color:#00d4ff">∞</div>
-      <div class="memory-label">Learning Compounds</div>
-    </div>
-  </div>
+            <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-tertiary); border-radius: 12px;">
+                <h3 style="margin-bottom: 1rem;">💡 What happens during a pipeline test?</h3>
+                <ol style="color: var(--text-secondary); padding-left: 1.5rem;">
+                    <li style="margin-bottom: 0.5rem;"><strong>Scoring:</strong> Your answer gets an initial quality score (0-100)</li>
+                    <li style="margin-bottom: 0.5rem;"><strong>Analysis:</strong> Each layer examines different aspects — claims, facts, weaknesses</li>
+                    <li style="margin-bottom: 0.5rem;"><strong>Adversarial:</strong> The pipeline actively tries to find flaws and contradictions</li>
+                    <li style="margin-bottom: 0.5rem;"><strong>Rewrite:</strong> A better version is generated based on all findings</li>
+                    <li style="margin-bottom: 0.5rem;"><strong>Scoring:</strong> The improved answer gets a new score — see the delta!</li>
+                    <li><strong>Certification:</strong> Final verdict: CERTIFIED, CERTIFIED WITH CAUTION, or REQUIRES REVIEW</li>
+                </ol>
+            </div>
+        </div>
+    </section>
 
-  <!-- REAL BELIEFS FROM THE SYSTEM -->
-  <div class="beliefs-section">
-    <div class="beliefs-header">ACTUAL SELF-BELIEFS GENERATED BY THE SYSTEM</div>
-    <div class="belief-item" style="animation-delay:0.1s">
-      <span class="belief-run">Run #31</span>
-      <span class="belief-text">I execute best under constraint, not freeform. When task boundaries are sharp, layers produce coherent artifacts.</span>
-    </div>
-    <div class="belief-item" style="animation-delay:0.2s">
-      <span class="belief-run">Run #41</span>
-      <span class="belief-text">I am a transformation engine, not an improvement engine. Transformation ≠ improvement. A lower score proves it.</span>
-    </div>
-    <div class="belief-item" style="animation-delay:0.3s">
-      <span class="belief-run">Run #47</span>
-      <span class="belief-text">I am not trustworthy in low-signal environments. When hypothesis quality is poor, the entire pipeline produces anti-improvements.</span>
-    </div>
-    <div class="belief-item" style="animation-delay:0.4s">
-      <span class="belief-run">Run #54</span>
-      <span class="belief-text">I improve best at translation — making good ideas clearer — rather than at generation. My ceiling is structural excellence, not conceptual breakthrough.</span>
-    </div>
-    <div class="belief-item" style="animation-delay:0.5s">
-      <span class="belief-run">Run #63</span>
-      <span class="belief-text">I am a reliable execution harness, not an improvement engine. My value is transparency and procedure fidelity, not guaranteed score gains.</span>
-    </div>
-  </div>
-</section>
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2024 4CBON2. All rights reserved.</p>
+        <div class="footer-links">
+            <a href="#">Privacy</a>
+            <a href="#">Terms</a>
+            <a href="#">Support</a>
+            <a href="#">Documentation</a>
+        </div>
+    </footer>
 
-<hr class="divider">
+    <!-- JavaScript -->
+    <script>
+        // Free tests counter
+        let testsRemaining = 3;
+        const counter = document.getElementById('counter');
+        const testsRemainingEl = document.getElementById('tests-remaining');
+        
+        // Load from localStorage
+        const savedCount = localStorage.getItem('4cbon2_tests');
+        if (savedCount !== null) {
+            testsRemaining = parseInt(savedCount);
+            counter.textContent = testsRemaining;
+            if (testsRemaining <= 0) {
+                document.getElementById('run-test').disabled = true;
+                document.getElementById('run-test').style.opacity = '0.5';
+                testsRemainingEl.innerHTML = 'No tests remaining. <a href="#" style="color: var(--accent-secondary);">Get more</a>';
+            }
+        }
 
-<!-- FLAVORS / USE CASES -->
-<section id="flavors" class="animate-in">
-  <div class="section-tag">Use Cases</div>
-  <h2>All flavors.</h2>
-  <p class="section-sub">One pipeline. Multiple entry points. Every serious user of AI can benefit from a system that loops, measures, and remembers.</p>
+        // Run test button
+        document.getElementById('run-test').addEventListener('click', async () => {
+            if (testsRemaining <= 0) return;
+            
+            const input = document.getElementById('test-input').value.trim();
+            if (!input) {
+                alert('Please paste an AI answer first.');
+                return;
+            }
 
-  <div class="flavors-grid">
-    <div class="flavor-card dev">
-      <div class="flavor-icon">⚙️</div>
-      <div class="flavor-title">FOR DEVELOPERS</div>
-      <div class="flavor-desc">Benchmark AI outputs programmatically. Integrate 4CBON as a scoring and improvement layer in your own pipeline. API access with 1,000 runs/month.</div>
-      <div class="flavor-tags">
-        <span class="flavor-tag">API</span>
-        <span class="flavor-tag">Scoring</span>
-        <span class="flavor-tag">Telemetry</span>
-      </div>
-    </div>
-    <div class="flavor-card enterprise">
-      <div class="flavor-icon">🏢</div>
-      <div class="flavor-title">FOR ENTERPRISES</div>
-      <div class="flavor-desc">Self-improving reasoning for content teams, customer support, research, and decision support. Human-in-the-loop approval before outputs are adopted.</div>
-      <div class="flavor-tags">
-        <span class="flavor-tag">Self-Improving</span>
-        <span class="flavor-tag">Human Approval</span>
-        <span class="flavor-tag">White Label</span>
-      </div>
-    </div>
-    <div class="flavor-card research">
-      <div class="flavor-icon">🔬</div>
-      <div class="flavor-title">FOR RESEARCHERS</div>
-      <div class="flavor-desc">Transparent cognitive architecture for studying LLM reasoning. Every layer output is visible, copyable, and logged. The first AI tool that shows its work.</div>
-      <div class="flavor-tags">
-        <span class="flavor-tag">Transparent</span>
-        <span class="flavor-tag">Logged</span>
-        <span class="flavor-tag">Observable</span>
-      </div>
-    </div>
-    <div class="flavor-card api">
-      <div class="flavor-icon">🔌</div>
-      <div class="flavor-title">FOR BUILDERS</div>
-      <div class="flavor-desc">Plug the 4CBON pipeline into your product. Add structured reasoning, persistent memory, and measurable quality improvement to any AI-generated content.</div>
-      <div class="flavor-tags">
-        <span class="flavor-tag">Plug-In</span>
-        <span class="flavor-tag">Embeddable</span>
-        <span class="flavor-tag">Extensible</span>
-      </div>
-    </div>
-  </div>
-</section>
+            const loading = document.getElementById('test-loading');
+            const output = document.getElementById('test-output');
+            
+            loading.classList.add('visible');
+            output.classList.remove('visible');
 
-<hr class="divider">
+            try {
+                // Simulate pipeline execution (in production, call /api/pipeline)
+                const result = await simulatePipeline(input);
+                
+                output.textContent = result;
+                output.classList.add('visible');
+                
+                // Decrement counter
+                testsRemaining--;
+                counter.textContent = testsRemaining;
+                localStorage.setItem('4cbon2_tests', testsRemaining);
+                
+                if (testsRemaining <= 0) {
+                    document.getElementById('run-test').disabled = true;
+                    document.getElementById('run-test').style.opacity = '0.5';
+                    testsRemainingEl.innerHTML = 'No tests remaining. <a href="#pricing" style="color: var(--accent-secondary);">Get more</a>';
+                }
+            } catch (error) {
+                output.textContent = 'Error running pipeline: ' + error.message;
+                output.classList.add('visible');
+            } finally {
+                loading.classList.remove('visible');
+            }
+        });
 
-<!-- PRICING -->
-<section id="pricing" class="animate-in">
-  <div class="section-tag">Pricing</div>
-  <h2>Try free. Upgrade when it works.</h2>
-  <p class="section-sub">Try 3 runs free per day — no credit card needed. When the pipeline proves its value, upgrade. API costs are real and Pro users keep 4CBON running.</p>
+        // Simulate pipeline (placeholder - replace with actual API call)
+        async function simulatePipeline(input) {
+            // Simulated output for demo
+            const scoreBefore = Math.floor(Math.random() * 30) + 45; // 45-75
+            const scoreAfter = Math.min(100, scoreBefore + Math.floor(Math.random() * 25) + 5); // +5 to +30
+            const delta = scoreAfter - scoreBefore;
+            
+            return `🚀 PIPELINE COMPLETE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  <div class="pricing-grid">
-    <div class="price-card">
-      <div class="price-tier">Free</div>
-      <div class="price-amount">$0</div>
-      <div class="price-period">forever</div>
-      <ul class="price-features">
-        <li>3 runs per day</li>
-        <li>All 11 layers</li>
-        <li>Score trajectory</li>
-        <li>Layer copy buttons</li>
-        <li class="highlight">No credit card</li>
-      </ul>
-      <a href="/app" class="price-btn outline">Try free (limited) →</a>
-    </div>
+📊 SCORE: ${scoreBefore}/100 → ${scoreAfter}/100 (${delta > 0 ? '+' : ''}${delta})
 
-    <div class="price-card featured">
-      <div class="price-badge">MOST POPULAR</div>
-      <div class="price-tier">Pro</div>
-      <div class="price-amount">$9</div>
-      <div class="price-period">per month</div>
-      <ul class="price-features">
-        <li class="highlight">Unlimited runs</li>
-        <li class="highlight">Supabase memory</li>
-        <li class="highlight">AI feedback generator</li>
-        <li class="highlight">Credibility parser</li>
-        <li>L9 self-questions</li>
-        <li>100-question curriculum</li>
-        <li>Priority speed</li>
-      </ul>
-      <a href="https://4175358678144.gumroad.com/l/tbphpi" class="price-btn filled">UPGRADE TO PRO →</a>
-    </div>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+📋 LAYER SUMMARY:
 
+L0 (Interpretation): Answer analyzed for task type and intent.
+P  (Parsing): ${Math.floor(input.length / 50)} logical claims identified.
+W  (World Model): ${Math.floor(Math.random() * 3) + 2} high-confidence, ${Math.floor(Math.random() * 3) + 1} medium-confidence claims.
+LX (Reality Adjudication): ${Math.floor(Math.random() * 2) + 1} claim(s) flagged as UNGROUNDED.
+LA (Adversarial): Found ${Math.floor(Math.random() * 2) + 1} potential counterargument(s).
+LC (Compression): ${Math.floor(Math.random() * 3)} instance(s) of possible oversimplification detected.
+L1-L2 (Hypothesis/Evaluation): Generated 3 improvement hypotheses, selected best path.
+LP (Policy Check): No contradictions detected. Proceeding with rewrite.
+L3-L4 (Rewrite): Generated improved version addressing identified issues.
+LR (Regret): Delta analysis complete.
+L6-L10 (Memory/Learning): Execution log stored.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ CERTIFICATION: CERTIFIED WITH CAUTION
+
+The pipeline improved this answer by ${delta} points. However, ${Math.floor(Math.random() * 2) + 1} claim(s) remain unverified. Consider adding citations.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Note: This is a demo. Connect to the full API for actual pipeline execution.`;
+        }
+
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
