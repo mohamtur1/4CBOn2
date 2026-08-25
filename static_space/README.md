@@ -12,9 +12,9 @@ pinned: false
 Public landing page for the **4CBON2** agent ecosystem. It links to the live
 **4CBON2 App** (Gradio Space) and the subscription / contact actions.
 
-- Live app: <https://huggingface.co/spaces/mohamtur1/4cbon2-app>
-- This static space: <https://huggingface.co/spaces/mohamtur1/4cbon2-static>
+- Live app: <https://huggingface.co/spaces/mangathpup/4cbon2-app>
+- This static space: <https://huggingface.co/spaces/mangathpup/4cbon2-static>
 
 Served file: `index.html`
 
-> If your Hugging Face username is not `mohamtur1`, update the `huggingface.co/spaces/...` links in `index.html` to match your username and Space name.
+> If your Hugging Face username is not `mangathpup`, update the `huggingface.co/spaces/...` links in `index.html` to match your username and Space name.

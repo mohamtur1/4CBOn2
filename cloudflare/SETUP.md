@@ -4,8 +4,8 @@ This guide puts your own domain in front of the two public Hugging Face Spaces:
 
 | URL              | Backend Space                           | What it serves            |
 | ---------------- | --------------------------------------- | ------------------------- |
-| `https://app.4cbon.com` | `mohamtur1/4cbon2-app` (Gradio)   | The public **app**        |
-| `https://4cbon.com`     | `mohamtur1/4cbon2-static` (Static) | The public **landing page** |
+| `https://app.4cbon.com` | `mangathpup/4cbon2-app` (Gradio)   | The public **app**        |
+| `https://4cbon.com`     | `mangathpup/4cbon2-static` (Static) | The public **landing page** |
 
 The Worker in `worker.js` proxies both Spaces and rewrites `Host` / `Set-Cookie`
 / `Location` headers so the apps work on your domain. Gradio WebSockets
@@ -23,7 +23,7 @@ The Worker in `worker.js` proxies both Spaces and rewrites `Host` / `Set-Cookie`
 
 > **Update the origins** in `worker.js` (or set them as Worker bindings) to the
 > real `*.hf.space` URLs for **your** account. The defaults assume username
-> `mohamtur1`. If the token's username differs, run the deploy script and copy
+> `mangathpup`. If the token's username differs, run the deploy script and copy
 > the actual URLs it prints.
 
 ---
@@ -42,8 +42,8 @@ compatibility_date = "2026-08-25"
 # Optional bindings — uncomment and adjust to override the defaults in worker.js:
 # [vars]
 # ROUTE_DOMAIN = "4cbon.com"
-# HF_APP_ORIGIN = "https://mohamtur1-4cbon2-app.hf.space"
-# HF_STATIC_ORIGIN = "https://mohamtur1-4cbon2-static.hf.space"
+# HF_APP_ORIGIN = "https://mangathpup-4cbon2-app.hf.space"
+# HF_STATIC_ORIGIN = "https://mangathpup-4cbon2-static.hf.space"
 ```
 
 2. Deploy:

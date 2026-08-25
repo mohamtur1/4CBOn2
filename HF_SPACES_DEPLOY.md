@@ -28,11 +28,11 @@ https://huggingface.co/spaces/<your-user>/4cbon2-app
 ```
 
 The username shown by `whoami` for this token is where the Spaces are created;
-if it is `mohamtur1`, the URLs are:
+if it is `mangathpup`, the URLs are:
 
 ```
-https://huggingface.co/spaces/mohamtur1/4cbon2-static   (landing page)
-https://huggingface.co/spaces/mohamtur1/4cbon2-app      (public app)
+https://huggingface.co/spaces/mangathpup/4cbon2-static   (landing page)
+https://huggingface.co/spaces/mangathpup/4cbon2-app      (public app)
 ```
 
 First build takes a few minutes. Watch it at

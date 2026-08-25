@@ -3,8 +3,8 @@
  *
  * Routes traffic to the two public Spaces and hides the `hf.space` backend:
  *
- *   app.<DOMAIN>        -> Gradio app Space   (mohamtur1-4cbon2-app.hf.space)
- *   <DOMAIN> and other  -> Static landing Space (mohamtur1-4cbon2-static.hf.space)
+ *   app.<DOMAIN>        -> Gradio app Space   (mangathpup-4cbon2-app.hf.space)
+ *   <DOMAIN> and other  -> Static landing Space (mangathpup-4cbon2-static.hf.space)
  *
  * Everything (HTTP and Gradio WebSockets) is proxied, so relative URLs,
  * cookies and redirects inside the apps keep working on your own domain.
@@ -12,13 +12,13 @@
  * CONFIGURATION
  *   Edit the DEFAULT_* constants below, or set Worker bindings (recommended):
  *     ROUTE_DOMAIN     = 4cbon.com
- *     HF_APP_ORIGIN    = https://mohamtur1-4cbon2-app.hf.space
- *     HF_STATIC_ORIGIN = https://mohamtur1-4cbon2-static.hf.space
+ *     HF_APP_ORIGIN    = https://mangathpup-4cbon2-app.hf.space
+ *     HF_STATIC_ORIGIN = https://mangathpup-4cbon2-static.hf.space
  */
 
 const DEFAULT_DOMAIN = "4cbon.com";
-const DEFAULT_APP_ORIGIN = "https://mohamtur1-4cbon2-app.hf.space";
-const DEFAULT_STATIC_ORIGIN = "https://mohamtur1-4cbon2-static.hf.space";
+const DEFAULT_APP_ORIGIN = "https://mangathpup-4cbon2-app.hf.space";
+const DEFAULT_STATIC_ORIGIN = "https://mangathpup-4cbon2-static.hf.space";
 
 // Hop-by-hop headers that must never be forwarded to the origin.
 const HOP_BY_HOP = [
