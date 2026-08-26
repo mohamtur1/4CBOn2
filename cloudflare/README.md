@@ -38,6 +38,10 @@ This Worker:
 2. Proxies `app.4cbon.com` to `mangathpup-4cbon2-app.hf.space`.
 3. Strips `Host`, `X-Forwarded-Host`, and Cloudflare forwarding headers so HF does not treat the request as an unregistered custom domain.
 4. Returns a 503 fallback if Hugging Face still replies 403.
+5. Rewrites Gradio `/config` `root` from the HF host to `https://app.4cbon.com` so the iframe talks to the Worker, not `*.hf.space`.
+6. Rewrites the landing-page iframe to `https://app.4cbon.com/?embed=true` and allows framing from `4cbon.com`.
+
+Do **not** deploy the “sample” Worker that targets `mangathpup-4cbon2-static.hf.space` or that forwards `request.headers` unchanged. That combination is what produced the original 404/403.
 
 ## How to apply (Cloudflare dashboard)
 
