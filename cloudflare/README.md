@@ -26,8 +26,9 @@ Hugging Face static Spaces live on `*.static.hf.space`, not `*.hf.space`.
 | `https://mangathpup-4cbon2-app.hf.space` | Gradio app **200** |
 | `https://mangathpup-4cbon2-app.hf.space?embed=True` | Gradio app **200** |
 | `https://app.4cbon.com` | Gradio app **200** |
-| `https://4cbon.com` | Hugging Face **404** (Worker is hitting the wrong static host) |
+| `https://4cbon.com` | Landing page **200** (verified after Worker redeploy) |
 | `https://www.4cbon.com` | Redirects to `https://4cbon.com` |
+| `https://4cbon.com/health` | `{"status":"ok",...}` **200** |
 
 The `403 Forbidden: requests to …hf.space are not allowed` message is Hugging Face rejecting a proxied request whose `Host` / `X-Forwarded-Host` is the custom domain (`4cbon.com`), or whose target is the unused `*.hf.space` alias for a static Space.
 

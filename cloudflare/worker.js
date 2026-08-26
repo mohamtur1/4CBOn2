@@ -105,6 +105,14 @@ export default {
       return Response.redirect(url.toString(), 301);
     }
 
+    // Local health check — do not proxy this to Hugging Face.
+    if (url.pathname === "/health") {
+      return new Response(
+        JSON.stringify({ status: "ok", time: new Date().toISOString() }),
+        { status: 200, headers: { "content-type": "application/json; charset=utf-8" } },
+      );
+    }
+
     const origin = pickUpstream(hostname);
     const target = new URL(url.pathname + url.search, origin);
     const method = request.method === "HEAD" ? "GET" : request.method;
