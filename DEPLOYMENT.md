@@ -1,5 +1,7 @@
 # 4CBON2 replacement deployment
 
+Hugging Face + Cloudflare custom-domain notes (2026-08-26) live in [`cloudflare/README.md`](cloudflare/README.md). The Worker source that fixes the static-host 404 / 403 is [`cloudflare/worker.js`](cloudflare/worker.js).
+
 This change set is a **separate preview build**. It does not modify the existing production site at `4cbon.com`, the existing Vercel app, or the blueprint notebook. Malik must review and approve the preview before any DNS change.
 
 ## Deliverables
