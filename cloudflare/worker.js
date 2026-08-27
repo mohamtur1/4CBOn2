@@ -1,15 +1,19 @@
 /**
  * 4CBON2 Cloudflare Worker — Hugging Face Spaces proxy
  *
- * Routes (leave these bound as they already are):
- *   4cbon.com / www.4cbon.com  → static landing Space
- *   app.4cbon.com              → Gradio Space
+ * Worker name: 4cbon-proxy
+ * Format:      ES module  (export default { fetch })
  *
- * Do NOT use mangathpup-4cbon2-static.hf.space — that host 404s.
- * Do NOT forward Host / X-Forwarded-* / CF-* headers — HF then 403s.
+ * Routes (do not change):
+ *   *4cbon.com/*        → this Worker
+ *   *app.4cbon.com/*    → this Worker
  *
- * Paste this entire file into the existing Worker (ES module format).
- * Do not change DNS records or Worker route bindings.
+ * Upstreams:
+ *   4cbon.com / www.4cbon.com  → mangathpup-4cbon2-static.static.hf.space
+ *   app.4cbon.com              → mangathpup-4cbon2-app.hf.space
+ *
+ * Paste this entire file into the existing Worker. DNS and route
+ * bindings stay as they are.
  */
 
 const UPSTREAM = {
@@ -40,6 +44,17 @@ const STRIP_TO_HF = [
   "true-client-ip",
 ];
 
+const HOP_BY_HOP = [
+  "connection",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailers",
+  "transfer-encoding",
+  "upgrade",
+];
+
 function pickUpstream(hostname) {
   const host = (hostname || "").toLowerCase().split(":")[0];
   if (APP_HOSTS.has(host)) return UPSTREAM.app;
@@ -52,21 +67,7 @@ function sanitizeHeaders(incoming, { websocket = false } = {}) {
   for (const [key, value] of incoming.entries()) {
     const lower = key.toLowerCase();
     if (STRIP_TO_HF.includes(lower)) continue;
-    if (
-      !websocket &&
-      [
-        "connection",
-        "keep-alive",
-        "proxy-authenticate",
-        "proxy-authorization",
-        "te",
-        "trailers",
-        "transfer-encoding",
-        "upgrade",
-      ].includes(lower)
-    ) {
-      continue;
-    }
+    if (!websocket && HOP_BY_HOP.includes(lower)) continue;
     headers.set(key, value);
   }
   if (!headers.has("User-Agent")) {
@@ -80,12 +81,20 @@ function sanitizeHeaders(incoming, { websocket = false } = {}) {
 }
 
 function rewritePublicUrls(text) {
+  const appHost = "mangathpup-4cbon2-app.hf.space";
   return text
-    .replaceAll(UPSTREAM.app, PUBLIC.app)
+    .replaceAll(`https://${appHost}`, PUBLIC.app)
+    .replaceAll(`http://${appHost}`, PUBLIC.app)
+    .replaceAll(`wss://${appHost}`, "wss://app.4cbon.com")
+    .replaceAll(`ws://${appHost}`, "wss://app.4cbon.com")
     .replaceAll("https://mangathpup-4cbon2-static.hf.space", PUBLIC.static)
     .replaceAll(UPSTREAM.static, PUBLIC.static)
     .replaceAll('src="https://app.4cbon.com"', 'src="https://app.4cbon.com/?embed=true"')
-    .replaceAll('src="https://app.4cbon.com/"', 'src="https://app.4cbon.com/?embed=true"');
+    .replaceAll('src="https://app.4cbon.com/"', 'src="https://app.4cbon.com/?embed=true"')
+    .replaceAll(
+      'src="https://app.4cbon.com?"',
+      'src="https://app.4cbon.com/?embed=true"',
+    );
 }
 
 function rewriteLocation(location, requestUrl, upstreamOrigin) {
@@ -101,7 +110,7 @@ function rewriteLocation(location, requestUrl, upstreamOrigin) {
   } catch {
     /* leave as-is */
   }
-  return location;
+  return rewritePublicUrls(location);
 }
 
 function unavailable() {
@@ -109,6 +118,14 @@ function unavailable() {
     "⚠️ 4CBON2 is temporarily unavailable. Please try again later.",
     { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } },
   );
+}
+
+function withEmbed(url, request) {
+  const dest = (request.headers.get("Sec-Fetch-Dest") || "").toLowerCase();
+  if (dest === "iframe" && !url.searchParams.has("embed")) {
+    url.searchParams.set("embed", "true");
+  }
+  return url;
 }
 
 export default {
@@ -123,16 +140,20 @@ export default {
 
     if (url.pathname === "/health") {
       return new Response(
-        JSON.stringify({ status: "ok", time: new Date().toISOString() }),
+        JSON.stringify({
+          status: "ok",
+          time: new Date().toISOString(),
+          host: hostname,
+        }),
         { status: 200, headers: { "content-type": "application/json; charset=utf-8" } },
       );
     }
 
     const origin = pickUpstream(hostname);
-    const target = new URL(url.pathname + url.search, origin);
-    const isWebsocket = (request.headers.get("Upgrade") || "").toLowerCase() === "websocket";
+    const target = withEmbed(new URL(url.pathname + url.search, origin), request);
+    const isWebsocket =
+      (request.headers.get("Upgrade") || "").toLowerCase() === "websocket";
 
-    // Gradio SSE / websocket must pass through without buffering.
     if (isWebsocket) {
       try {
         return await fetch(target.toString(), {
@@ -163,6 +184,7 @@ export default {
     const outHeaders = new Headers(upstreamResponse.headers);
     for (const name of STRIP_TO_HF) outHeaders.delete(name);
     outHeaders.set("Access-Control-Allow-Origin", "*");
+    outHeaders.set("Access-Control-Allow-Headers", "*");
     outHeaders.set(
       "Content-Security-Policy",
       "frame-ancestors 'self' https://4cbon.com https://www.4cbon.com https://app.4cbon.com",
@@ -181,7 +203,9 @@ export default {
       request.method !== "HEAD" &&
       (contentType.includes("text/html") ||
         contentType.includes("json") ||
-        contentType.includes("javascript"));
+        contentType.includes("javascript") ||
+        url.pathname === "/config" ||
+        url.pathname.endsWith("/config"));
 
     if (shouldRewrite) {
       const text = rewritePublicUrls(await upstreamResponse.text());
