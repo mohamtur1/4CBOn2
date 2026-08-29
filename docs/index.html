@@ -1,323 +1,247 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>4CBON2 – An Autonomous Agent</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500;700&family=Playfair+Display:wght@700;900&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #03030a;
-    --surface: #06060f;
-    --border: #0f0f1e;
-    --text: #c0c0e0;
-    --muted: #444466;
-    --orange: #ff6b35;
-    --cyan: #00d4ff;
-    --green: #10b981;
-    --purple: #7c3aed;
-    --amber: #f59e0b;
-    --red: #ef4444;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; overflow-x: hidden; line-height: 1.6; }
-  body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events: none; z-index: 0; opacity: 0.4; }
-  body::after { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--orange), var(--cyan), var(--green), transparent); animation: scan 8s linear infinite; z-index: 100; opacity: 0.6; }
-  @keyframes scan { 0% { top: 0; } 100% { top: 100vh; } }
-  
-  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 50; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; background: rgba(3,3,10,0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
-  .nav-logo { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 900; background: linear-gradient(110deg, var(--orange), var(--cyan), var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.02em; }
-  .nav-links { display: flex; gap: 24px; align-items: center; }
-  .nav-links a { font-size: 10px; letter-spacing: 0.2em; color: var(--muted); text-decoration: none; text-transform: uppercase; transition: color 0.2s; }
-  .nav-links a:hover { color: var(--text); }
-  .nav-cta { background: transparent !important; border: 1px solid var(--orange) !important; color: var(--orange) !important; padding: 6px 16px !important; border-radius: 4px !important; font-size: 10px !important; letter-spacing: 0.15em !important; cursor: pointer !important; transition: all 0.2s !important; }
-  .nav-cta:hover { background: var(--orange) !important; color: #03030a !important; }
-  
-  section { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 0 24px; }
-  .hero { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding-top: 80px; max-width: 900px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
-  .hero-tag { font-size: 9px; letter-spacing: 0.35em; color: var(--orange); text-transform: uppercase; margin-bottom: 24px; display: flex; align-items: center; gap: 10px; }
-  .hero-tag::before { content: ''; display: inline-block; width: 24px; height: 1px; background: var(--orange); }
-  
-  h1 { font-family: 'Playfair Display', serif; font-size: clamp(44px, 8vw, 88px); font-weight: 900; line-height: 1.0; letter-spacing: -0.03em; margin-bottom: 32px; }
-  h1 .line1 { color: var(--text); }
-  h1 .line2 { background: linear-gradient(110deg, var(--orange), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  h1 .line3 { color: var(--green); }
-  
-  .hero-sub { font-size: 14px; color: var(--muted); max-width: 480px; margin-bottom: 48px; line-height: 1.8; font-family: 'DM Mono', monospace; }
-  .hero-sub strong { color: var(--text); font-weight: 500; }
-  
-  .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 40px; }
-  .btn-primary { background: linear-gradient(135deg, var(--orange), var(--cyan)); border: none; border-radius: 6px; color: #03030a; font-family: 'DM Mono', monospace; font-weight: 500; font-size: 12px; padding: 14px 28px; letter-spacing: 0.1em; cursor: pointer; text-decoration: none; display: inline-block; transition: opacity 0.2s; }
-  .btn-primary:hover { opacity: 0.85; }
-  .btn-secondary { background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 12px; padding: 14px 28px; letter-spacing: 0.1em; cursor: pointer; text-decoration: none; display: inline-block; transition: all 0.2s; }
-  .btn-secondary:hover { border-color: var(--text); color: var(--text); }
-  .free-badge { font-size: 10px; color: var(--green); margin-left: 12px; letter-spacing: 0.1em; }
-  
-  .app-iframe { margin-top: 40px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); }
-  .app-iframe-header { padding: 8px 16px; background: var(--surface); font-size: 9px; color: var(--muted); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-  .app-iframe-header .status { color: var(--green); }
-  .app-iframe-header .status::before { content: '● '; }
-  .app-iframe iframe { display: block; background: var(--bg); }
-  
-  .divider { border: none; border-top: 1px solid var(--border); margin: 80px 0; max-width: 900px; margin-left: auto; margin-right: auto; }
-  .section-tag { font-size: 9px; letter-spacing: 0.3em; color: var(--muted); text-transform: uppercase; margin-bottom: 16px; }
-  h2 { font-family: 'Playfair Display', serif; font-size: clamp(28px, 4vw, 48px); font-weight: 900; line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 20px; color: var(--text); }
-  .section-sub { font-size: 13px; color: var(--muted); max-width: 540px; line-height: 1.8; margin-bottom: 48px; }
-  
-  .flavors-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 48px; }
-  .flavor-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; position: relative; overflow: hidden; transition: border-color 0.2s; }
-  .flavor-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
-  .flavor-card:hover { border-color: #1a1a3e; }
-  .flavor-card.agent::before { background: linear-gradient(90deg, var(--orange), var(--cyan)); }
-  .flavor-card.rewriter::before { background: linear-gradient(90deg, var(--cyan), var(--purple)); }
-  .flavor-card.ask::before { background: linear-gradient(90deg, var(--green), var(--cyan)); }
-  .flavor-icon { font-size: 28px; margin-bottom: 12px; }
-  .flavor-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 8px; letter-spacing: 0.05em; }
-  .flavor-desc { font-size: 11px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
-  .flavor-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-  .flavor-tag { font-size: 9px; letter-spacing: 0.1em; padding: 3px 8px; border-radius: 3px; border: 1px solid var(--border); color: var(--muted); text-transform: uppercase; }
-  
-  .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 48px; }
-  .price-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 28px 24px; position: relative; }
-  .price-card.featured { border-color: var(--orange); background: rgba(255,107,53,0.04); }
-  .price-badge { position: absolute; top: -1px; right: 20px; background: var(--orange); color: #03030a; font-size: 8px; font-weight: 700; letter-spacing: 0.15em; padding: 4px 10px; border-radius: 0 0 4px 4px; text-transform: uppercase; }
-  .price-tier { font-size: 9px; letter-spacing: 0.25em; color: var(--muted); text-transform: uppercase; margin-bottom: 12px; }
-  .price-amount { font-family: 'Barlow Condensed', sans-serif; font-size: 48px; font-weight: 900; line-height: 1; color: var(--text); margin-bottom: 4px; }
-  .price-period { font-size: 10px; color: var(--muted); margin-bottom: 20px; }
-  .price-features { list-style: none; margin-bottom: 24px; }
-  .price-features li { font-size: 11px; color: var(--muted); padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
-  .price-features li:last-child { border-bottom: none; }
-  .price-features li::before { content: '·'; color: var(--green); font-weight: 900; }
-  .price-features li.highlight { color: var(--text); }
-  .price-btn { display: block; width: 100%; padding: 10px; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-align: center; cursor: pointer; text-decoration: none; transition: all 0.2s; }
-  .price-btn.outline { background: transparent; border: 1px solid var(--border); color: var(--muted); }
-  .price-btn.outline:hover { border-color: var(--text); color: var(--text); }
-  .price-btn.filled { background: linear-gradient(135deg, var(--orange), var(--cyan)); border: none; color: #03030a; }
-  .price-btn.filled:hover { opacity: 0.85; }
-  
-  .request-section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 32px; margin-bottom: 48px; }
-  .request-section h3 { font-size: 16px; color: var(--text); margin-bottom: 8px; }
-  .request-section p { font-size: 11px; color: var(--muted); line-height: 1.8; margin-bottom: 20px; }
-  .request-btn { background: transparent; border: 1px solid var(--purple); border-radius: 6px; color: var(--purple); font-family: 'DM Mono', monospace; font-size: 11px; padding: 10px 20px; letter-spacing: 0.1em; cursor: pointer; text-decoration: none; display: inline-block; transition: all 0.2s; }
-  .request-btn:hover { background: rgba(124,58,237,0.1); }
-  
-  .cta-section { text-align: center; padding: 80px 24px; max-width: 900px; margin: 0 auto; }
-  .cta-eyebrow { font-size: 9px; letter-spacing: 0.3em; color: var(--muted); text-transform: uppercase; margin-bottom: 24px; }
-  .cta-title { font-family: 'Playfair Display', serif; font-size: clamp(32px, 5vw, 64px); font-weight: 900; line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 20px; }
-  .cta-sub { font-size: 13px; color: var(--muted); max-width: 440px; margin: 0 auto 40px; line-height: 1.8; }
-  .cta-pipeline { font-size: 9px; letter-spacing: 0.15em; color: #1a1a2e; margin-top: 48px; }
-  
-  footer { border-top: 1px solid var(--border); padding: 32px 24px; max-width: 900px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
-  .footer-logo { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 900; background: linear-gradient(110deg, var(--orange), var(--cyan), var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .footer-links { display: flex; gap: 20px; }
-  .footer-links a { font-size: 9px; letter-spacing: 0.15em; color: var(--muted); text-decoration: none; text-transform: uppercase; transition: color 0.2s; }
-  .footer-links a:hover { color: var(--text); }
-  .footer-copy { font-size: 9px; color: #1a1a2e; letter-spacing: 0.1em; }
-  
-  .animate-in { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
-  .animate-in.visible { opacity: 1; transform: translateY(0); }
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-  .animate-item { animation: fadeUp 0.4s ease forwards; opacity: 0; }
-  .animate-item:nth-child(1) { animation-delay: 0.05s; }
-  .animate-item:nth-child(2) { animation-delay: 0.1s; }
-  .animate-item:nth-child(3) { animation-delay: 0.15s; }
-  .animate-item:nth-child(4) { animation-delay: 0.2s; }
-  .animate-item:nth-child(5) { animation-delay: 0.25s; }
-  
-  @media (max-width: 600px) {
-    .hero-actions { flex-direction: column; }
-    .hero-actions a { width: 100%; text-align: center; }
-    .pricing-grid { grid-template-columns: 1fr; }
-    .nav-links { gap: 12px; }
-    .nav-links a:not(.nav-cta) { display: none; }
-    .request-section { padding: 20px; }
-    footer { flex-direction: column; text-align: center; }
-  }
-  @media (max-width: 420px) {
-    .app-iframe iframe { height: 600px !important; }
-  }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="4CBON2 is an agent for asking, orchestrating, rewriting, and learning.">
+  <title>4CBON2 — An Agent. Request Custom Agents.</title>
+  <style>
+    :root {
+      --ink: #07131c;
+      --muted: #536471;
+      --paper: #f6fbfc;
+      --white: #ffffff;
+      --line: #dcecef;
+      --orange: #f26b38;
+      --cyan: #06a9c7;
+      --green: #12a66b;
+      --navy: #092530;
+      --shadow: 0 20px 60px rgba(7, 42, 53, .10);
+      --radius: 22px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; color: var(--ink); background: var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+    }
+    a { color: inherit; }
+    .wrap { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+    .topbar {
+      position: sticky; top: 0; z-index: 20; backdrop-filter: blur(16px);
+      background: rgba(246,251,252,.88); border-bottom: 1px solid rgba(220,236,239,.9);
+    }
+    nav { display: flex; justify-content: space-between; align-items: center; min-height: 76px; gap: 24px; }
+    .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 900; letter-spacing: -.04em; font-size: 1.15rem; }
+    .brand-mark { width: 30px; height: 30px; flex: 0 0 30px; border-radius: 9px; background: linear-gradient(135deg, var(--orange), var(--cyan) 56%, var(--green)); box-shadow: 0 6px 18px rgba(6,169,199,.25); }
+    .brand-tagline { color: var(--muted); font-size: .7rem; font-weight: 700; letter-spacing: 0; }
+    .nav-links { display: flex; align-items: center; gap: 24px; font-size: .86rem; color: var(--muted); }
+    .nav-links a { text-decoration: none; }
+    .nav-links a:hover { color: var(--ink); }
+    .button {
+      display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: 0; border-radius: 10px;
+      padding: 13px 19px; font-weight: 800; font-size: .88rem; text-decoration: none; cursor: pointer; transition: transform .2s, box-shadow .2s;
+    }
+    .button:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(7,42,53,.13); }
+    .button-primary { color: #06151c; background: linear-gradient(110deg, #ff8650, #35cbe1); }
+    .button-dark { color: var(--white); background: var(--navy); }
+    .button-outline { color: var(--navy); border: 1px solid #bddde3; background: transparent; }
+    .hero { padding: 108px 0 92px; position: relative; overflow: hidden; }
+    .hero:before, .hero:after { content: ""; position: absolute; border-radius: 999px; filter: blur(1px); pointer-events: none; }
+    .hero:before { width: 410px; height: 410px; right: -160px; top: -170px; background: rgba(6,169,199,.14); }
+    .hero:after { width: 260px; height: 260px; left: -150px; bottom: -130px; background: rgba(242,107,56,.12); }
+    .hero-grid { display: grid; grid-template-columns: 1.02fr .98fr; gap: 70px; align-items: center; position: relative; z-index: 1; }
+    .eyebrow { color: var(--orange); font-size: .75rem; font-weight: 900; letter-spacing: .19em; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 720px; margin: 17px 0 22px; font-size: clamp(3.1rem, 7vw, 6.1rem); line-height: .98; letter-spacing: -.075em; }
+    h1 .gradient { background: linear-gradient(105deg, var(--orange), var(--cyan) 52%, var(--green)); color: transparent; background-clip: text; -webkit-background-clip: text; }
+    .hero-copy { max-width: 560px; color: var(--muted); font-size: 1.1rem; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 31px 0 20px; }
+    .microcopy { color: #70818a; font-size: .8rem; }
+    .agent-card { background: var(--white); border: 1px solid var(--line); border-radius: 26px; padding: 22px; box-shadow: var(--shadow); transform: rotate(1.5deg); }
+    .agent-card-top { display: flex; justify-content: space-between; align-items: center; color: #6f8288; font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .status { color: var(--green); display: inline-flex; align-items: center; gap: 6px; }
+    .status:before { content: ""; width: 7px; height: 7px; background: var(--green); border-radius: 50%; box-shadow: 0 0 0 5px rgba(18,166,107,.13); }
+    .pipeline { display: flex; flex-wrap: wrap; gap: 7px; margin: 25px 0; padding: 18px; border-radius: 15px; background: #f1f8f9; }
+    .chip { border-radius: 7px; padding: 5px 8px; color: #176476; background: #e0f4f7; font: 800 .7rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .chip:nth-child(3n) { color: #a84d2c; background: #fff0e9; }
+    .chip:nth-child(4n) { color: #08764d; background: #e6f8ef; }
+    .score { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; border-top: 1px solid var(--line); padding-top: 19px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .score strong { font-size: 1.6rem; }
+    .score strong:last-child { color: var(--green); }
+    .bar { height: 8px; border-radius: 99px; background: #e8f1f2; overflow: hidden; }
+    .bar span { display: block; width: 84%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--orange), var(--green)); }
+    .section { padding: 100px 0; }
+    .section-head { max-width: 660px; margin-bottom: 38px; }
+    .section h2 { margin: 12px 0 13px; font-size: clamp(2.2rem, 4.5vw, 4rem); line-height: 1.04; letter-spacing: -.055em; }
+    .section-lead { color: var(--muted); font-size: 1.05rem; }
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .feature { min-height: 205px; padding: 25px; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 25px rgba(7,42,53,.04); }
+    .feature-icon { display: inline-flex; width: 39px; height: 39px; align-items: center; justify-content: center; border-radius: 12px; color: var(--white); font-weight: 900; background: linear-gradient(135deg, var(--orange), var(--cyan)); }
+    .feature:nth-child(3n) .feature-icon { background: linear-gradient(135deg, var(--cyan), var(--green)); }
+    .feature h3 { margin: 19px 0 7px; font-size: 1.07rem; }
+    .feature p { margin: 0; color: var(--muted); font-size: .92rem; }
+    .dark-section { color: var(--white); background: var(--navy); }
+    .dark-section .section-lead { color: #a8c1c7; }
+    .split { display: grid; grid-template-columns: .9fr 1.1fr; gap: 70px; align-items: start; }
+    .principles { display: grid; gap: 12px; }
+    .principle { display: grid; grid-template-columns: 35px 1fr; gap: 13px; padding: 16px 0; border-bottom: 1px solid rgba(168,193,199,.18); }
+    .principle b { color: #68d9e7; }
+    .principle p { margin: 3px 0 0; color: #a8c1c7; font-size: .93rem; }
+    .layers { display: flex; flex-wrap: wrap; gap: 9px; }
+    .layer { padding: 9px 11px; border: 1px solid rgba(104,217,231,.3); border-radius: 8px; color: #d8f8fa; background: rgba(6,169,199,.08); font: 800 .74rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .pricing { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; max-width: 780px; }
+    .price-card { padding: 30px; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); }
+    .price-card.pro { border: 2px solid var(--orange); box-shadow: var(--shadow); position: relative; }
+    .popular { position: absolute; right: 19px; top: -13px; padding: 5px 10px; border-radius: 99px; color: #702c17; background: #ffc4a7; font-size: .68rem; font-weight: 900; letter-spacing: .08em; }
+    .price-card h3 { margin: 0 0 9px; font-size: 1.05rem; }
+    .price { margin: 0 0 5px; font-size: 3.6rem; line-height: 1; letter-spacing: -.08em; font-weight: 900; }
+    .price small { font-size: .9rem; color: var(--muted); letter-spacing: 0; }
+    .price-note { margin: 0 0 22px; color: var(--muted); font-size: .9rem; }
+    .price-card ul { margin: 0 0 25px; padding: 0; list-style: none; color: var(--muted); font-size: .9rem; }
+    .price-card li { padding: 7px 0; border-top: 1px solid #edf4f5; }
+    .price-card li:before { content: "✓"; margin-right: 9px; color: var(--green); font-weight: 900; }
+    .price-card .button { width: 100%; }
+    .custom { display: grid; grid-template-columns: 1.2fr .8fr; gap: 24px; align-items: center; padding: 35px; border: 1px solid #bfe8df; border-radius: var(--radius); background: linear-gradient(120deg, #effcf7, #effaff); }
+    .custom h2 { margin-bottom: 10px; font-size: clamp(1.8rem, 3vw, 2.8rem); }
+    .custom p { margin-bottom: 0; color: var(--muted); }
+    .custom-cta { justify-self: end; text-align: center; }
+    footer { padding: 30px 0 45px; color: var(--muted); border-top: 1px solid var(--line); font-size: .84rem; }
+    footer .footer-row { display: flex; justify-content: space-between; gap: 20px; }
+    footer a { text-decoration: none; }
+    footer a:hover { color: var(--cyan); }
+    @media (max-width: 820px) {
+      .nav-links a:not(.button) { display: none; }
+      .brand-tagline { display: none; }
+      .hero { padding: 75px 0 65px; }
+      .hero-grid, .split, .custom { grid-template-columns: 1fr; gap: 35px; }
+      .agent-card { transform: none; }
+      .features { grid-template-columns: repeat(2, 1fr); }
+      .custom-cta { justify-self: start; }
+    }
+    @media (max-width: 540px) {
+      .wrap { width: min(100% - 28px, 1120px); }
+      nav { min-height: 65px; }
+      .nav-links { gap: 8px; }
+      .nav-links .button { padding: 10px 12px; font-size: .77rem; }
+      h1 { font-size: 3.2rem; }
+      .features, .pricing { grid-template-columns: 1fr; }
+      .section { padding: 70px 0; }
+      footer .footer-row { flex-direction: column; }
+    }
+  </style>
 </head>
 <body>
-
-<nav>
-  <div class="nav-logo">4CBON</div>
-  <div class="nav-links">
-    <a href="#features">Features</a>
-    <a href="#pricing">Pricing</a>
-    <a href="#request">Custom Agent</a>
-    <a href="https://4175358678144.gumroad.com/l/tbphpi" class="nav-cta">UPGRADE →</a>
-  </div>
-</nav>
-
-<div class="hero">
-  <div class="hero-tag">Upload Databases · Ask a Question · Autonomous Agent · AI Rewriter · 16 Layers · Self-Improving</div>
-  <h1>
-    <div class="line1">AI is AI</div>
-    <div class="line2">Agents are just Agents</div>
-    <div class="line3">4CBON is multifaceted</div>
-  </h1>
-  <p class="hero-sub">
-    <strong>4CBON2 is an autonomous agent.</strong><br><br>
-    4CBON2 is multifaceted. It is not just an AI. It is not just an agent. It is a complete ecosystem — upload databases, ask research questions, orchestrate 12 specialized agents, rewrite AI outputs through a 16-layer pipeline, visualize task history, and request custom agents — all in one place.
-  </p>
-
-  <div class="hero-actions">
-    <a href="#app" class="btn-primary">★ Try Free — 3 Runs</a>
-    <a href="https://4175358678144.gumroad.com/l/tbphpi" class="btn-secondary">UPGRADE TO PRO — $9/month</a>
-    <span class="free-badge">⚡ No credit card required</span>
-  </div>
-  <p style="font-size:9px;color:#444466;letter-spacing:0.1em;">API costs are real — Pro users keep the pipeline running for everyone.</p>
-
-  <div id="app" class="app-iframe">
-    <div class="app-iframe-header">
-      <span>4CBON2 App</span>
-      <span class="status">Live</span>
-    </div>
-    <iframe
-        src="https://app.4cbon.com"
-        width="100%"
-        height="750"
-        frameborder="0"
-        allow="autoplay; camera; microphone; clipboard-read; clipboard-write;"
-        style="background: #03030a;"
-    ></iframe>
-  </div>
-</div>
-
-<hr class="divider">
-
-<section id="features" class="animate-in">
-  <div class="section-tag">What 4CBON2 Does</div>
-  <h2>Your autonomous agent.</h2>
-  <p class="section-sub">4CBON2 is a complete agentic ecosystem. Ask, delegate, rewrite, research, and build — all in one place.</p>
-
-  <div class="flavors-grid">
-    <div class="flavor-card agent animate-item">
-      <div class="flavor-icon">🤖</div>
-      <div class="flavor-title">12‑Agent Orchestrator</div>
-      <div class="flavor-desc">Sales, Legal, Competitive Intelligence, Customer Engagement, Content, Marketing, Evidence, Scheduling, Legal Intake, Scientific Research — plus an Autonomous Orchestrator.</div>
-      <div class="flavor-tags">
-        <span class="flavor-tag">Autonomous</span>
-        <span class="flavor-tag">Delegation</span>
-        <span class="flavor-tag">Tools</span>
+  <header class="topbar">
+    <nav class="wrap" aria-label="Main navigation">
+      <a class="brand" href="#top" aria-label="4CBON2 – An Agent. Request Custom Agents."><span class="brand-mark" aria-hidden="true"></span><span>4CBON2 <small class="brand-tagline">– An Agent. Request Custom Agents.</small></span></a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#custom-agents">Custom agents</a>
+        <a class="button button-dark" href="https://app.4cbon.com" target="_blank" rel="noopener">Try free <span aria-hidden="true">↗</span></a>
       </div>
-    </div>
+    </nav>
+  </header>
 
-    <div class="flavor-card rewriter animate-item" style="animation-delay:0.1s">
-      <div class="flavor-icon">🧬</div>
-      <div class="flavor-title">16‑Layer AI Rewriter</div>
-      <div class="flavor-desc">A deterministic pipeline that improves AI-generated answers through interpretation, parsing, world modelling, adversarial testing, compression integrity, hypothesis generation, evaluation, planning, rewriting, regret analysis, and audit.</div>
-      <div class="flavor-tags">
-        <span class="flavor-tag">L0–L10</span>
-        <span class="flavor-tag">Self-Improving</span>
-        <span class="flavor-tag">Auditable</span>
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <div class="eyebrow">An agent · Request custom agents</div>
+          <h1>What is <span class="gradient">4CBON2?</span><br>It is an agent.</h1>
+          <p class="hero-copy">A practical agentic workspace for asking better questions, coordinating specialists, and turning rough AI output into something you can inspect and use.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="https://app.4cbon.com" target="_blank" rel="noopener">Try Free — 3 runs <span aria-hidden="true">→</span></a>
+            <a class="button button-outline" href="https://4175358678144.gumroad.com/l/tbphpi" target="_blank" rel="noopener">Subscribe — $9/month</a>
+          </div>
+          <div class="microcopy">Bring your Gemini API key. No production switch required — just try it.</div>
+        </div>
+        <div class="agent-card" aria-label="Illustration of a pipeline run">
+          <div class="agent-card-top"><span>Live agent run</span><span class="status">Ready</span></div>
+          <div class="pipeline" aria-hidden="true">
+            <span class="chip">Ask</span><span class="chip">Ground</span><span class="chip">Plan</span><span class="chip">Attack</span><span class="chip">Rewrite</span><span class="chip">Audit</span>
+          </div>
+          <p style="font-weight:800; margin-bottom:9px;">From question to useful next step.</p>
+          <p style="color:var(--muted); font-size:.88rem; margin-bottom:22px;">The workspace makes research, agent delegation, and answer improvement visible instead of hiding the work behind one reply.</p>
+          <div class="score"><strong>62</strong><div class="bar"><span></span></div><strong>72</strong></div>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <div class="flavor-card ask animate-item" style="animation-delay:0.2s">
-      <div class="flavor-icon">❓</div>
-      <div class="flavor-title">Source‑Grounded Research</div>
-      <div class="flavor-desc">Ask ambitious questions. The system routes to strong local databases and retrieves current scholarly records from arXiv, OpenAlex, Semantic Scholar, Crossref, PubMed, Europe PMC, OEIS, and official sites.</div>
-      <div class="flavor-tags">
-        <span class="flavor-tag">RAG</span>
-        <span class="flavor-tag">Scholarly</span>
-        <span class="flavor-tag">Evidence-Based</span>
+    <section class="section" id="features">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">One workspace, several ways to think</div>
+          <h2>Ask. Delegate. Rewrite.</h2>
+          <p class="section-lead">4CBON2 brings the useful parts of an agent ecosystem into one environment.</p>
+        </div>
+        <div class="features">
+          <article class="feature"><span class="feature-icon">⌕</span><h3>Ask a Question</h3><p>Source-grounded RAG with five-lens reasoning and live scholarly databases when current evidence matters.</p></article>
+          <article class="feature"><span class="feature-icon">◎</span><h3>Agent Mode</h3><p>A 12-agent orchestrator delegates subtasks to the right specialist and synthesizes the result.</p></article>
+          <article class="feature"><span class="feature-icon">↻</span><h3>AI Rewriter</h3><p>A visible 16-layer pipeline from L0 to L10 that scores, challenges, rewrites, remembers, and audits.</p></article>
+          <article class="feature"><span class="feature-icon">▦</span><h3>Data Dashboard</h3><p>Plotly visualizations make task history, response patterns, and subtask distribution easier to explore.</p></article>
+          <article class="feature"><span class="feature-icon">◌</span><h3>Agent Status</h3><p>Review conversation histories across the specialist agents and see what the ecosystem has retained.</p></article>
+          <article class="feature"><span class="feature-icon">+</span><h3>Custom Agents</h3><p>Request an agent for a workflow that is unique to you. It may be free or paid based on complexity.</p></article>
+        </div>
       </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<hr class="divider">
+    <section class="section dark-section">
+      <div class="wrap split">
+        <div>
+          <div class="eyebrow" style="color:#ff9b72;">A visible execution path</div>
+          <h2>Less magic.<br>More signal.</h2>
+          <p class="section-lead">The AI Rewriter keeps its artifacts visible so you can see what was interpreted, challenged, changed, and certified.</p>
+        </div>
+        <div>
+          <div class="layers" aria-label="Pipeline stages">
+            <span class="layer">L0 Interpret</span><span class="layer">P Parse</span><span class="layer">W Ground</span><span class="layer">LX Adjudicate</span><span class="layer">LA Attack</span><span class="layer">LC Decompress</span><span class="layer">L1 Hypothesize</span><span class="layer">L2 Evaluate</span><span class="layer">LP Policy</span><span class="layer">L3 Plan</span><span class="layer">L4 Rewrite</span><span class="layer">LR Regret</span><span class="layer">L6 Trace</span><span class="layer">L7 Learn</span><span class="layer">L8 Identity</span><span class="layer">L9 Question</span><span class="layer">L10 Audit</span>
+          </div>
+          <div class="principles" style="margin-top:25px;">
+            <div class="principle"><b>01</b><div><strong>Ground claims</strong><p>Separate established evidence from inference and uncertainty.</p></div></div>
+            <div class="principle"><b>02</b><div><strong>Challenge structure</strong><p>Look for hidden assumptions, compressed distinctions, and failure modes.</p></div></div>
+            <div class="principle"><b>03</b><div><strong>Keep humans in the loop</strong><p>Every audit ends with a verdict a person can review before acting.</p></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-<section id="pricing" class="animate-in">
-  <div class="section-tag">Pricing</div>
-  <h2>Try free. Upgrade when it works.</h2>
-  <p class="section-sub">You get 3 free runs — total, across all features. No credit card required. When the pipeline proves its value, upgrade to Pro.</p>
+    <section class="section" id="pricing">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">Simple access</div>
+          <h2>Start free. Keep going when it earns a place in your workflow.</h2>
+          <p class="section-lead">Get 3 free runs with your Gemini API key. Subscribe for unlimited access.</p>
+        </div>
+        <div class="pricing">
+          <article class="price-card">
+            <h3>Free</h3><div class="price">$0</div><p class="price-note">3 runs, lifetime access to try the workflow.</p>
+            <ul><li>Ask, delegate, and rewrite</li><li>16-layer AI Rewriter</li><li>Source-grounded research</li><li>No credit card</li></ul>
+            <a class="button button-outline" href="https://app.4cbon.com" target="_blank" rel="noopener">Try Free</a>
+          </article>
+          <article class="price-card pro">
+            <span class="popular">MOST POPULAR</span><h3>Pro</h3><div class="price">$9 <small>/ month</small></div><p class="price-note">Unlimited runs for serious workflows.</p>
+            <ul><li>Everything in Free</li><li>Unlimited pipeline runs</li><li>Persistent memory when configured</li><li>Priority custom-agent review</li></ul>
+            <a class="button button-primary" href="https://4175358678144.gumroad.com/l/tbphpi" target="_blank" rel="noopener">Subscribe</a>
+          </article>
+        </div>
+      </div>
+    </section>
 
-  <div class="pricing-grid">
-    <div class="price-card">
-      <div class="price-tier">Free</div>
-      <div class="price-amount">$0</div>
-      <div class="price-period">3 runs, lifetime</div>
-      <ul class="price-features">
-        <li class="highlight">Ask a Question (RAG)</li>
-        <li class="highlight">12‑Agent Orchestrator</li>
-        <li class="highlight">16‑Layer AI Rewriter</li>
-        <li class="highlight">Data Dashboard</li>
-        <li class="highlight">Agent Status</li>
-        <li class="highlight">Request Custom Agents</li>
-        <li>3 total runs</li>
-        <li>No credit card</li>
-      </ul>
-      <a href="#app" class="price-btn outline">Try free →</a>
-    </div>
+    <section class="section" id="custom-agents">
+      <div class="wrap">
+        <div class="custom">
+          <div><div class="eyebrow" style="color:var(--green);">Need something more specific?</div><h2>Request a custom agent.</h2><p>Describe the workflow, the inputs, and the outcome you want. Custom agents may be free or paid depending on complexity. We will review the request and reply by email.</p></div>
+          <div class="custom-cta"><a class="button button-dark" href="https://app.4cbon.com" target="_blank" rel="noopener">Open Request Form <span aria-hidden="true">→</span></a><div class="microcopy" style="margin-top:11px;">The app includes the form.</div></div>
+        </div>
+      </div>
+    </section>
+  </main>
 
-    <div class="price-card featured">
-      <div class="price-badge">MOST POPULAR</div>
-      <div class="price-tier">Pro</div>
-      <div class="price-amount">$9</div>
-      <div class="price-period">per month</div>
-      <ul class="price-features">
-        <li class="highlight">Unlimited runs</li>
-        <li class="highlight">All features</li>
-        <li class="highlight">Priority speed</li>
-        <li>Full Supabase memory</li>
-        <li>L8 identity persistence</li>
-        <li>L9 self-questions</li>
-        <li>AI feedback generator</li>
-      </ul>
-      <a href="https://4175358678144.gumroad.com/l/tbphpi" class="price-btn filled">UPGRADE TO PRO</a>
-    </div>
-  </div>
-</section>
-
-<hr class="divider">
-
-<section id="request" class="animate-in">
-  <div class="request-section">
-    <h3>📝 Request a Custom Agent</h3>
-    <p>Need a specialized agent? Tell us what you need and we'll build it for you. Custom agents available as a Pro add-on.</p>
-    <a href="https://app.4cbon.com" target="_blank" class="request-btn">Open Request Form in App →</a>
-  </div>
-</section>
-
-<hr class="divider">
-
-<div class="cta-section">
-  <div class="cta-eyebrow">Ready to try?</div>
-  <h2 class="cta-title">Start with free. Scale with Pro.</h2>
-  <p class="cta-sub">3 free runs to explore. Unlimited runs when you upgrade. No credit card required to start.</p>
-  <a href="#app" class="btn-primary">★ Try Free Now</a>
-  <div class="cta-pipeline">THINK → PARSE → GROUND → HYPOTHESIZE → EVALUATE → PLAN → REWRITE → REFLECT → REMEMBER → LEARN → EVOLVE</div>
-</div>
-
-<hr class="divider">
-
-<footer>
-  <div class="footer-logo">4CBON2</div>
-  <div class="footer-links">
-    <a href="#features">Features</a>
-    <a href="#pricing">Pricing</a>
-    <a href="https://github.com/mohamtur1/4CBOn2" target="_blank">GitHub</a>
-    <a href="mailto:mohamtur1@gmail.com">Contact</a>
-  </div>
-  <div class="footer-copy">© 2026 4CBON. All rights reserved.</div>
-</footer>
-
-<script>
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('visible');
-      }
-    });
-  }, { threshold: 0.1 });
-  document.querySelectorAll('.animate-in').forEach(el => observer.observe(el));
-</script>
-
+  <footer>
+    <div class="wrap footer-row"><div>© 2026 4CBON2. Built for better agent workflows.</div><div><a href="#features">Features</a> · <a href="#pricing">Pricing</a> · <a href="mailto:mohamtur1@gmail.com">Contact</a> · <a href="https://github.com/mohamtur1/4CBOn2" target="_blank" rel="noopener">GitHub</a></div></div>
+  </footer>
 </body>
 </html>
