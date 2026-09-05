@@ -43,6 +43,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # CELL 1 — Environment Setup (Hugging Face Space Edition)
 # ============================================================
 
+import collections
 import contextvars
 import contextlib
 import concurrent.futures
@@ -85,6 +86,22 @@ print("✅ Environment ready.")
 #
 # Keys are held in memory only and scoped PER REQUEST via contextvars, because a
 # Space serves many visitors from one shared process. Nothing is written to disk.
+#
+# ── WHY THE TOKEN BUDGET POLICY BELOW EXISTS ─────────────────
+# In the Colab notebooks `generate_text(prompt, max_tokens=..., temperature=...)`
+# accepted those two arguments and then DROPPED them — the single call site was
+#     ai.generate_text(prompt=prompt, model_name=MODEL_NAME, stream=True)
+# so there was no output cap at all. Every `max_tokens` in the pipeline (LP=5,
+# scorer=10, L2=50) was decorative and never constrained the model.
+#
+# This API *does* honour the cap, and on Gemini 3 `max_output_tokens` is a
+# COMBINED budget for thinking tokens + visible output. A cap of 5 is consumed
+# entirely by internal reasoning and returns finish_reason=MAX_TOKENS with zero
+# visible characters — which is exactly how LP started failing.
+#
+# So the notebook's numbers are treated as hints and floored, thinking is pinned
+# low, and the cap is always set (omitting it can hang indefinitely).
+# See build_src/WHY_COLAB_DIFFERED.md.
 
 from google import genai
 from google.genai import types as genai_types
@@ -106,6 +123,15 @@ if MODEL_NAME not in MODEL_CHOICES:
     MODEL_CHOICES.insert(0, MODEL_NAME)
 
 API_KEY_HELP = "Get a free key at https://aistudio.google.com/apikey"
+
+# ── Thinking + token budget policy ──────────────────────────
+# LOW measured ~1,377 thinking tokens vs ~15,726 at HIGH for identical output.
+# Support varies by model (gemini-3.7-flash rejects "minimal"), so a rejected
+# thinking_config is retried without it rather than failing the call.
+THINKING_LEVEL = os.environ.get("GEMINI_THINKING_LEVEL", "LOW").strip().upper()
+MIN_OUTPUT_TOKENS = int(os.environ.get("GEMINI_MIN_OUTPUT_TOKENS", "4096"))
+MAX_OUTPUT_TOKENS_CEILING = int(os.environ.get("GEMINI_MAX_OUTPUT_TOKENS_CEILING", "16384"))
+BUDGET_ESCALATION_FACTOR = 4
 
 # Per-request binding. Threads do not inherit a parent context automatically, so
 # every ThreadPoolExecutor submit below uses contextvars.copy_context().
@@ -148,11 +174,147 @@ def gemini_session(api_key, model_name=None):
     """Bind this visitor's key/model for the duration of a request."""
     key_token = _API_KEY_VAR.set((api_key or "").strip() or None)
     model_token = _MODEL_VAR.set(str(model_name).strip() if model_name and str(model_name).strip() else None)
+    diag_token = _REQUEST_DIAG.set([])
     try:
         yield
     finally:
         _API_KEY_VAR.reset(key_token)
         _MODEL_VAR.reset(model_token)
+        _REQUEST_DIAG.reset(diag_token)
+
+
+# ════════════════════════════════════════════════════════════
+# DIAGNOSTICS — every Gemini call records its finish reason and token split
+# ════════════════════════════════════════════════════════════
+DIAGNOSTICS = collections.deque(maxlen=400)
+_DIAG_LOCK = threading.Lock()
+# Per-request view, so a run's stats are not polluted by other visitors' calls.
+_REQUEST_DIAG = contextvars.ContextVar("gemini_request_diag", default=None)
+
+
+def _record_diagnostic(**fields):
+    fields.setdefault("when", datetime.now().strftime("%H:%M:%S"))
+    with _DIAG_LOCK:
+        DIAGNOSTICS.append(fields)
+        bucket = _REQUEST_DIAG.get()
+        if bucket is not None:
+            bucket.append(fields)
+
+
+def request_diagnostics_summary():
+    """One-line summary of the Gemini calls made by *this* request."""
+    rows = _REQUEST_DIAG.get()
+    if not rows:
+        return "no Gemini calls recorded"
+    out = sum(r.get("out_tokens") or 0 for r in rows)
+    think = sum(r.get("think_tokens") or 0 for r in rows)
+    failed = sum(1 for r in rows if r.get("status") in ("error", "empty"))
+    retries = sum(1 for r in rows if r.get("status") == "retry")
+    seconds = sum(r.get("latency_s") or 0 for r in rows)
+    parts = [f"{len(rows)} Gemini call(s)", f"{out:,} output / {think:,} thinking tokens",
+             f"{seconds:.0f}s"]
+    if failed:
+        parts.append(f"⚠️ {failed} failed")
+    if retries:
+        parts.append(f"{retries} retried")
+    return " · ".join(parts)
+
+
+def _infer_call_label(prompt):
+    """Name a call from its prompt, so no call site needs changing."""
+    text = prompt or ""
+    match = re.search(r"YOU ARE NOW EXECUTING:\s*([A-Z0-9]+)", text)
+    if match:
+        return f"Rewriter:{match.group(1)}"
+    if "Reply with ONLY a single integer" in text:
+        return "Rewriter:SCORER"
+    if "You are the Autonomous Orchestrator Agent" in text:
+        return "Agent:PLANNER"
+    if "Synthesise part" in text:
+        return "Agent:BATCH-SYNTHESIS"
+    if "Create the final strategic report" in text:
+        return "Agent:FINAL-SYNTHESIS"
+    if "respond with ONLY this JSON" in text:
+        return "Agent:SPECIALIST"
+    if "Provide a best-practice framework" in text:
+        return "Agent:SPECIALIST-FALLBACK"
+    if "4CBON2 Frontier Research Assistant" in text:
+        return "RAG:ANSWER"
+    return "LLM"
+
+
+def budget_policy_summary():
+    return (
+        f"model default **`{DEFAULT_MODEL_NAME}`** · thinking level **{THINKING_LEVEL or 'model default'}** · "
+        f"output floor **{MIN_OUTPUT_TOKENS}** tokens · ceiling **{MAX_OUTPUT_TOKENS_CEILING}** · "
+        f"escalation **×{BUDGET_ESCALATION_FACTOR}** on MAX_TOKENS"
+    )
+
+
+def build_diagnostics_view(limit=80):
+    """Return (summary_markdown, table_rows) for the Diagnostics tab."""
+    with _DIAG_LOCK:
+        rows = list(DIAGNOSTICS)
+    if not rows:
+        return ("No Gemini calls recorded yet in this Space session. Run a question, an agent "
+                "goal or a Rewriter pipeline and refresh."), []
+
+    recent = rows[-limit:][::-1]
+    calls = len(rows)
+    empties = sum(1 for r in rows if r.get("status") == "empty")
+    errors = sum(1 for r in rows if r.get("status") == "error")
+    out_tokens = sum(r.get("out_tokens") or 0 for r in rows)
+    think_tokens = sum(r.get("think_tokens") or 0 for r in rows)
+    latency = sum(r.get("latency_s") or 0 for r in rows)
+
+    summary = (
+        f"**{calls}** Gemini call(s) since boot · **{errors}** error(s) · **{empties}** empty "
+        f"(MAX_TOKENS-style) · output tokens **{out_tokens:,}** · thinking tokens "
+        f"**{think_tokens:,}** · total latency **{latency:.1f}s**\n\n"
+        f"Policy: {budget_policy_summary()}"
+    )
+    if think_tokens and not out_tokens:
+        summary += ("\n\n⚠️ **Thinking consumed the entire output budget.** Every call returned "
+                    "zero visible tokens. Lower `GEMINI_THINKING_LEVEL` or raise "
+                    "`GEMINI_MIN_OUTPUT_TOKENS`.")
+
+    table = [[
+        r.get("when", ""), r.get("label", ""), r.get("model", ""), r.get("status", ""),
+        r.get("finish_reason", "") or "—",
+        r.get("out_tokens") if r.get("out_tokens") is not None else "—",
+        r.get("think_tokens") if r.get("think_tokens") is not None else "—",
+        r.get("prompt_tokens") if r.get("prompt_tokens") is not None else "—",
+        r.get("requested", ""), r.get("budget", ""),
+        f"{r.get('latency_s', 0):.1f}", (r.get("detail") or "")[:110],
+    ] for r in recent]
+    return summary, table
+
+
+DIAGNOSTIC_HEADERS = ["When", "Call", "Model", "Status", "Finish reason", "Out tok",
+                      "Think tok", "Prompt tok", "Requested", "Budget", "Secs", "Detail"]
+
+
+# ════════════════════════════════════════════════════════════
+# ERROR INTERPRETATION
+# ════════════════════════════════════════════════════════════
+def is_llm_error(text):
+    """True when a 'response' is really an error or empty placeholder.
+
+    The Rewriter cell has its own ``_llm_error``; this is the same idea exposed
+    to the orchestrator, so an API error can never be accepted as a specialist's
+    finding and silently propagated into the final synthesis.
+    """
+    value = str(text or "").strip()
+    if not value:
+        return True
+    return (value.startswith("⚠️") or value.startswith("❌")
+            or value.startswith('{"error"') or value.startswith("{\\\"error\\\""))
+
+
+def _is_thinking_config_rejected(message):
+    lowered = str(message).lower()
+    return ("thinking" in lowered and ("not supported" in lowered or "invalid" in lowered
+                                       or "unsupported" in lowered or "unknown" in lowered))
 
 
 def _friendly_api_error(exc):
@@ -166,69 +328,150 @@ def _friendly_api_error(exc):
     if "quota" in lowered or "rate limit" in lowered or "resource_exhausted" in lowered:
         return f"rate limit / quota exceeded for this key. Wait a moment or use another model — {text}"
     if "not found" in lowered and "model" in lowered:
-        return (
-            f"model '{current_model_name()}' was not available for this key. "
-            f"Try another model in the dropdown — {text}"
-        )
+        return (f"model '{current_model_name()}' was not available for this key. "
+                f"Try another model in the dropdown — {text}")
     return text
 
 
-def _empty_response_reason(response):
-    """Explain a response with no text (usually a safety block)."""
+def _unpack_response(response):
+    """Pull (text, finish_reason, usage) out of a GenerateContentResponse."""
+    finish = ""
     try:
         candidate = (getattr(response, "candidates", None) or [None])[0]
         if candidate is not None:
-            reason = getattr(getattr(candidate, "finish_reason", None), "name", None)
-            if reason:
-                return f"model returned no text (finish reason: {reason})."
+            reason = getattr(candidate, "finish_reason", None)
+            finish = getattr(reason, "name", None) or (str(reason) if reason else "")
+    except Exception:
+        pass
+
+    usage = {}
+    metadata = getattr(response, "usage_metadata", None)
+    if metadata is not None:
+        usage = {
+            "prompt_tokens": getattr(metadata, "prompt_token_count", None),
+            "out_tokens": getattr(metadata, "candidates_token_count", None),
+            "think_tokens": getattr(metadata, "thoughts_token_count", None),
+            "total_tokens": getattr(metadata, "total_token_count", None),
+        }
+
+    try:
+        text = response.text
+    except Exception:
+        text = None
+    return (text or ""), finish, usage
+
+
+def _empty_response_reason(response, finish, usage):
+    """Explain a response with no visible text — usually thinking ate the budget."""
+    think = usage.get("think_tokens")
+    out = usage.get("out_tokens")
+    if think and not out:
+        return (f"model returned no visible text — all {think} output token(s) went to internal "
+                f"thinking (finish reason: {finish or 'unknown'}). Raise GEMINI_MIN_OUTPUT_TOKENS "
+                f"or lower GEMINI_THINKING_LEVEL.")
+    try:
         feedback = getattr(response, "prompt_feedback", None)
         if feedback is not None and getattr(feedback, "block_reason", None):
             return f"prompt was blocked (block reason: {feedback.block_reason})."
     except Exception:
         pass
+    if finish:
+        return f"model returned no text (finish reason: {finish})."
     return "model returned no text. Try rephrasing, or shorten the input."
+
+
+def _budget_ladder(requested):
+    """(thinking_config, budget) attempts, cheapest first, escalating on failure."""
+    base = max(int(requested or 0), MIN_OUTPUT_TOKENS)
+    budgets = [base]
+    escalated = min(base * BUDGET_ESCALATION_FACTOR, MAX_OUTPUT_TOKENS_CEILING)
+    if escalated > base:
+        budgets.append(escalated)
+
+    thinking = None
+    if THINKING_LEVEL and THINKING_LEVEL not in ("OFF", "NONE", "DISABLED", "DEFAULT"):
+        try:
+            thinking = genai_types.ThinkingConfig(thinking_level=THINKING_LEVEL)
+        except Exception:
+            thinking = None
+
+    plan = [(thinking, budget) for budget in budgets]
+    if thinking is not None:
+        # Some models reject the parameter outright; give them a chance without it.
+        plan += [(None, budget) for budget in budgets]
+    return plan
 
 
 def generate_text(prompt, max_tokens=2048, temperature=0.7, stream=False):
     """Generate text with the Google Generative AI API.
 
     Returns a plain string in both modes — ``ask_stream`` does its own
-    word-by-word chunking for the UI, exactly as in the notebook.
+    word-by-word chunking for the UI, exactly as in the notebook. Any failure is
+    returned as a ``⚠️``-prefixed string so ``is_llm_error`` can catch it.
     """
     api_key = _current_api_key()
     if not api_key:
-        return (
-            "⚠️ Error: no Google API key for this request. Paste your Gemini API key "
-            f"into the **Google API Key** field ({API_KEY_HELP})."
-        )
-    model = current_model_name()
-    try:
-        # A fresh client per call keeps keys out of module state entirely.
-        client = genai.Client(api_key=api_key)
-        config = genai_types.GenerateContentConfig(
-            max_output_tokens=int(max_tokens),
-            temperature=float(temperature),
-        )
-        if stream:
-            parts = []
-            for chunk in client.models.generate_content_stream(
-                model=model, contents=str(prompt), config=config
-            ):
-                text = getattr(chunk, "text", None)
-                if text:
-                    parts.append(text)
-            return "".join(parts)
+        return ("⚠️ Error: no Google API key for this request. Paste your Gemini API key "
+                f"into the **Google API Key** field ({API_KEY_HELP}).")
 
-        response = client.models.generate_content(model=model, contents=str(prompt), config=config)
+    model = current_model_name()
+    prompt_text = str(prompt)
+    label = _infer_call_label(prompt_text)
+    last_detail = "no attempt completed"
+
+    for thinking, budget in _budget_ladder(int(max_tokens)):
+        kwargs = {"max_output_tokens": int(budget), "temperature": float(temperature)}
+        if thinking is not None:
+            kwargs["thinking_config"] = thinking
+        started = time.time()
         try:
-            text = response.text
-        except Exception:
-            text = None
-        if text is None:
-            return f"⚠️ API Error: {_empty_response_reason(response)}"
-        return text
-    except Exception as exc:
-        return f"⚠️ API Error: {_friendly_api_error(exc)}"
+            # A fresh client per call keeps keys out of module state entirely.
+            client = genai.Client(api_key=api_key)
+            config = genai_types.GenerateContentConfig(**kwargs)
+            if stream:
+                parts, final_chunk = [], None
+                for chunk in client.models.generate_content_stream(
+                        model=model, contents=prompt_text, config=config):
+                    final_chunk = chunk
+                    piece = getattr(chunk, "text", None)
+                    if piece:
+                        parts.append(piece)
+                text, finish, usage = _unpack_response(final_chunk) if final_chunk is not None else ("", "", {})
+                if not text:
+                    text = "".join(parts)
+            else:
+                response = client.models.generate_content(model=model, contents=prompt_text, config=config)
+                text, finish, usage = _unpack_response(response)
+        except Exception as exc:
+            latency = time.time() - started
+            message = str(exc)
+            if thinking is not None and _is_thinking_config_rejected(message):
+                last_detail = f"thinking_config rejected; retrying without it ({message[:90]})"
+                _record_diagnostic(label=label, model=model, status="retry", finish_reason="",
+                                   requested=int(max_tokens), budget=int(budget), latency_s=latency,
+                                   out_tokens=None, think_tokens=None, prompt_tokens=None,
+                                   detail=last_detail)
+                continue
+            _record_diagnostic(label=label, model=model, status="error", finish_reason="",
+                               requested=int(max_tokens), budget=int(budget), latency_s=latency,
+                               out_tokens=None, think_tokens=None, prompt_tokens=None,
+                               detail=message[:160])
+            return f"⚠️ API Error: {_friendly_api_error(exc)}"
+
+        latency = time.time() - started
+        if text.strip():
+            _record_diagnostic(label=label, model=model, status="ok", finish_reason=finish,
+                               requested=int(max_tokens), budget=int(budget), latency_s=latency,
+                               detail="", **usage)
+            return text
+
+        # Empty: thinking almost certainly consumed the budget. Escalate.
+        last_detail = _empty_response_reason(None, finish, usage)
+        _record_diagnostic(label=label, model=model, status="empty", finish_reason=finish,
+                           requested=int(max_tokens), budget=int(budget), latency_s=latency,
+                           detail=last_detail[:160], **usage)
+
+    return f"⚠️ API Error: {last_detail}"
 
 
 def ask_raw(prompt, max_tokens=4096):
@@ -253,17 +496,15 @@ def check_api_key(api_key, model_name=None):
     """UI helper: verify a key with the cheapest possible call."""
     with gemini_session(api_key, model_name):
         if not _current_api_key():
-            return (
-                "⚠️ No Google API key provided. Paste your Gemini API key "
-                f"({API_KEY_HELP}), or set GEMINI_API_KEY as a Space secret."
-            )
+            return ("⚠️ No Google API key provided. Paste your Gemini API key "
+                    f"({API_KEY_HELP}), or set GEMINI_API_KEY as a Space secret.")
         probe = generate_text("Reply with the single word: ready", max_tokens=8, temperature=0.0)
-        if str(probe).startswith("⚠️"):
+        if is_llm_error(probe):
             return f"❌ {probe}"
-        return (
-            f"✅ Connected to **{current_model_name()}**. "
-            f"This key will be used for the rest of this browser session."
-        )
+        last = DIAGNOSTICS[-1] if DIAGNOSTICS else {}
+        return (f"✅ Connected to **{current_model_name()}** in {last.get('latency_s', 0):.1f}s "
+                f"({last.get('out_tokens') or 0} output / {last.get('think_tokens') or 0} thinking tokens). "
+                f"This key will be used for the rest of this browser session.")
 
 
 def ask_stream(question, context=None):
@@ -980,6 +1221,82 @@ print("Tools:", list(TOOL_REGISTRY.keys()))
 
 
 # ============================================================
+# CELL 5a — Orchestrator resilience helpers
+# ============================================================
+#
+# Agent Mode is the fragile part of this app: a 12-subtask plan with up to 3 tool
+# iterations each is 30+ sequential Gemini calls. On a Space that can outlive a
+# proxy timeout, and when Gradio cancels the generator it raises GeneratorExit —
+# which derives from BaseException, so the notebook's `except Exception` never
+# sees it and the run died without recording anything.
+
+AGENT_DEADLINE_SECONDS = int(os.environ.get("FOURCBON2_AGENT_DEADLINE", "600"))
+HEARTBEAT_INTERVAL_SECONDS = int(os.environ.get("FOURCBON2_HEARTBEAT", "15"))
+
+# Live view of the in-flight run, so a cancelled run can still be persisted.
+_ACTIVE_RUN = {"goal": None, "results": []}
+
+
+def call_with_heartbeat(fn, *args, label="the model", interval=None, **kwargs):
+    """Run ``fn`` in a worker thread, yielding heartbeats until it returns.
+
+    Yields ``("hb", text)`` tuples while waiting and a final ``("result", value)``.
+    The worker gets a copy of this request's context so it can still see the
+    visitor's API key.
+    """
+    interval = interval or HEARTBEAT_INTERVAL_SECONDS
+    box = {}
+    ctx = contextvars.copy_context()
+
+    def runner():
+        try:
+            box["value"] = ctx.run(fn, *args, **kwargs)
+        except BaseException as exc:          # re-raised in the caller's thread
+            box["error"] = exc
+
+    worker = threading.Thread(target=runner, daemon=True, name=f"4cbon2-{label}")
+    worker.start()
+    waited = 0
+    while worker.is_alive():
+        worker.join(interval)
+        if worker.is_alive():
+            waited += interval
+            yield ("hb", f"⏱️ `{label}` still working… {waited}s elapsed\n")
+    if "error" in box:
+        raise box["error"]
+    yield ("result", box.get("value"))
+
+
+def persist_partial_run(reason):
+    """Save whatever a cancelled/interrupted run produced, so the work is not lost.
+
+    Called from the UI's GeneratorExit handler: by then the generator can no
+    longer yield to the browser, but it can still write to task memory, which the
+    Data Dashboard reads.
+    """
+    goal = _ACTIVE_RUN.get("goal")
+    results = list(_ACTIVE_RUN.get("results") or [])
+    try:
+        log_event("orchestrator_interrupted", {"goal": goal, "reason": reason,
+                                               "completed": len(results)})
+    except Exception:
+        pass
+    if not goal or not results:
+        return 0
+    try:
+        summary = "\n".join(f"Step {s['step']}: {s['subtask']} → {s['specialist']}" for s in results)
+        body = "\n\n".join(
+            f"### Step {s['step']}: {s['subtask']} ({s['specialist']})\n{s['result']}" for s in results)
+        save_task_memory(goal, summary,
+                         f"⚠️ {reason}. Synthesis never ran; these are the raw specialist "
+                         f"reports recovered from the interrupted session.\n\n{body}")
+    except Exception as exc:
+        print(f"⚠️ Could not persist partial run: {exc}")
+        return 0
+    return len(results)
+
+
+# ============================================================
 # CELL 5 — Streaming Multi-Agent Orchestrator
 # ============================================================
 
@@ -1162,11 +1479,14 @@ Valid JSON only. Max {max_tool_iterations} tool calls before final_answer."""
         parsed = _parse_agent_json(raw_response)
         final_content = parsed.get("content", raw_response) if parsed else raw_response
 
-    if not final_content or final_content.strip() == "" or "could not generate" in final_content.lower():
+    if is_llm_error(final_content) or "could not generate" in str(final_content or "").lower():
         fallback_prompt = f"You are a {agent_id} specialist. Provide a best-practice framework for your domain with key metrics, benchmarks, workflows, data collection methods, and improvement strategies."
         final_content = safe_ask_raw(fallback_prompt, max_tokens=1024)
-        if not final_content or final_content.strip() == "":
-            final_content = f"⚠️ {agent_id} could not generate a response. Please provide more specific instructions or data."
+        if is_llm_error(final_content):
+            detail = str(final_content or "").strip()[:220]
+            final_content = (f"⚠️ {agent_id} could not generate a response. "
+                             f"Please provide more specific instructions or data. "
+                             f"Last error: {detail}")
 
     if tool_call_log:
         tools_used_note = "\n\n---\n🔧 **Tools used:** " + ", ".join(t["tool"] for t in tool_call_log)
@@ -1261,9 +1581,17 @@ def enforce_explicit_specialists(plan, goal):
             })
     return plan
 
-def run_orchestrator_stream(goal, model_name=None):
+def run_orchestrator_stream(goal, model_name=None, deadline_seconds=None):
+    # A wall-clock deadline, because 12 subtasks x up to 3 tool iterations is
+    # 30+ sequential Gemini calls and a Space proxy will drop a run that takes
+    # too long. On expiry we stop and report what completed, rather than dying.
+    if deadline_seconds is None:
+        deadline_seconds = AGENT_DEADLINE_SECONDS
+    started_at = time.time()
+    deadline_hit = False
     yield f"🚀 **Orchestrator started:** {goal}\n\n---\n"
-    log_event("orchestrator_start", {"goal": goal})
+    yield f"⏱️ Deadline {int(deadline_seconds)}s · thinking {THINKING_LEVEL or 'model default'} · output floor {MIN_OUTPUT_TOKENS} tokens\n\n"
+    log_event("orchestrator_start", {"goal": goal, "deadline_seconds": deadline_seconds})
 
     yield "🔄 **Step 1:** Clearing orchestrator history...\n"
     clear_agent_history("New Autonomous Agent")
@@ -1309,7 +1637,19 @@ Valid JSON only. No other text."""
         yield f"🛡️ Guardrail: added {len(plan) - before} specialist(s).\n\n"
 
     subtask_results = []
+    # Same list object, so _ACTIVE_RUN always reflects live progress.
+    _ACTIVE_RUN["goal"] = goal
+    _ACTIVE_RUN["results"] = subtask_results
     for i, item in enumerate(plan, 1):
+        elapsed = time.time() - started_at
+        if deadline_seconds and elapsed > deadline_seconds:
+            deadline_hit = True
+            yield (f"\n⏹️ **Deadline reached** ({int(deadline_seconds)}s) after "
+                   f"{len(subtask_results)} of {len(plan)} subtask(s).\n"
+                   f"Synthesising a partial report from what completed.\n\n")
+            log_event("orchestrator_deadline", {"goal": goal, "elapsed_s": round(elapsed, 1),
+                                                "completed": len(subtask_results), "planned": len(plan)})
+            break
         subtask = item.get("subtask", f"Subtask {i}")
         specialist = item.get("specialist", "Default General Assistant")
         instructions = item.get("instructions", "Analyze thoroughly.")
@@ -1326,10 +1666,17 @@ Valid JSON only. No other text."""
         ], indent=2)
 
         yield f"⏳ Executing `{specialist}`...\n"
-        result = execute_agent(
+        result = None
+        for kind, payload in call_with_heartbeat(
+            execute_agent,
             specialist,
-            f"Task: {subtask}\n\nInstructions: {instructions}\n\nContext: {context}"
-        )
+            f"Task: {subtask}\n\nInstructions: {instructions}\n\nContext: {context}",
+            label=specialist,
+        ):
+            if kind == "hb":
+                yield payload
+            else:
+                result = payload
         subtask_results.append({"step": i, "subtask": subtask, "specialist": specialist, "result": result})
         yield f"✅ `{specialist}` done.\n📄 {result[:300]}{'...' if len(result) > 300 else ''}\n\n"
 
@@ -1363,9 +1710,16 @@ Valid JSON only. No other text."""
         yield "## 📊 Reports\n"
         for s in subtask_results:
             yield f"\n### Step {s['step']}: {s['subtask']} ({s['specialist']})\n{s['result']}\n"
+    if deadline_hit:
+        yield ("\n> ⚠️ **Partial run** — the deadline expired before every planned subtask "
+               f"ran. {len(subtask_results)} of {len(plan)} completed.\n")
     yield f"\n## 🧬 Final Answer\n{final_answer}\n\n---\n*Generated by 4CBON2 (Gemini Edition)*\n"
 
-    log_event("orchestrator_complete", {"goal": goal, "steps": len(subtask_results)})
+    log_event("orchestrator_complete", {"goal": goal, "steps": len(subtask_results),
+                                        "deadline_hit": deadline_hit,
+                                        "elapsed_s": round(time.time() - started_at, 1)})
+    _ACTIVE_RUN["goal"] = None
+    _ACTIVE_RUN["results"] = []
 
 def run_orchestrator(goal, model_name=None):
     full = ""
@@ -2396,32 +2750,45 @@ def run_agent(goal, api_key, stored_key, model_name, use_gemini_only, enable_add
         log += chunk
         return log, gr.update(value=key)
 
+    def release_optional_keys():
+        for name in OPTIONAL_KEY_NAMES:
+            os.environ.pop(name, None)
+
     with gemini_session(key, model):
-        yield emit(f"✅ Using Google Generative AI ({current_model_name()}) — key supplied in the UI, memory only.\n\n")
-
-        # Checkbox logic for additional APIs
-        if use_gemini_only:
-            yield emit("🔒 **Gemini Only mode** — all additional API keys ignored.\n\n")
-        elif enable_additional:
-            yield emit("🔓 **Additional APIs enabled** — injecting optional API keys.\n\n")
-            key_names = ["CALENDAR_API_KEY", "CRM_API_KEY", "COMM_API_KEY", "VISION_API_KEY",
-                         "DOCUSIGN_API_KEY", "SOCIAL_SCRAPER_API_KEY", "SEO_API_KEY", "S3_VAULT_KEY", "PUBMED_API_KEY"]
-            for name, val in zip(key_names, api_keys):
-                if val and val.strip():
-                    os.environ[name] = val.strip()
-        else:
-            yield emit("🔒 **Additional APIs disabled** — using Gemini only.\n\n")
-
         try:
-            for chunk in run_orchestrator_stream(goal):
-                yield emit(chunk)
-        except Exception as e:
-            yield emit(f"❌ Orchestrator error: {str(e)}")
+            yield emit(f"✅ Using Google Generative AI ({current_model_name()}) — key supplied in the UI, memory only.\n\n")
+
+            # Checkbox logic for additional APIs
+            if use_gemini_only:
+                yield emit("🔒 **Gemini Only mode** — all additional API keys ignored.\n\n")
+            elif enable_additional:
+                yield emit("🔓 **Additional APIs enabled** — injecting optional API keys.\n\n")
+                for name, val in zip(OPTIONAL_KEY_NAMES, api_keys):
+                    if val and val.strip():
+                        os.environ[name] = val.strip()
+            else:
+                yield emit("🔒 **Additional APIs disabled** — using Gemini only.\n\n")
+
+            try:
+                for chunk in run_orchestrator_stream(goal):
+                    yield emit(chunk)
+                yield emit(f"\n📈 _{request_diagnostics_summary()}_\n")
+            except GeneratorExit:
+                # Gradio cancelled the generator: the browser disconnected or a
+                # proxy timed out. Yielding here is illegal, so the only thing we
+                # can do — and the thing that was missing — is persist the work.
+                saved = persist_partial_run(
+                    "Run cancelled: the browser disconnected or the request timed out")
+                print(f"⚠️ Agent Mode cancelled; recovered {saved} partial specialist report(s).")
+                raise
+            except Exception as e:
+                yield emit(f"❌ Orchestrator error: {str(e)}\n\n📈 _{request_diagnostics_summary()}_\n")
+            except BaseException as e:
+                saved = persist_partial_run(f"Run interrupted by {type(e).__name__}")
+                print(f"⚠️ Agent Mode interrupted by {type(e).__name__}; recovered {saved} report(s).")
+                raise
         finally:
-            key_names = ["CALENDAR_API_KEY", "CRM_API_KEY", "COMM_API_KEY", "VISION_API_KEY",
-                         "DOCUSIGN_API_KEY", "SOCIAL_SCRAPER_API_KEY", "SEO_API_KEY", "S3_VAULT_KEY", "PUBMED_API_KEY"]
-            for name in key_names:
-                os.environ.pop(name, None)
+            release_optional_keys()
 
 
 def check_key_and_remember(api_key, stored_key, model_name):
@@ -2433,6 +2800,12 @@ def check_key_and_remember(api_key, stored_key, model_name):
 # The layer heading is generated from PIPELINE_ORDER so it can never drift out of
 # sync with the boxes below it (the revised pipeline runs L3 before LP).
 PIPELINE_ORDER_LABEL = " → ".join(PIPELINE_ORDER)
+
+# Optional third-party keys injected into the environment for tool use. Defined
+# once so the setup and teardown paths cannot drift apart.
+OPTIONAL_KEY_NAMES = ["CALENDAR_API_KEY", "CRM_API_KEY", "COMM_API_KEY", "VISION_API_KEY",
+                      "DOCUSIGN_API_KEY", "SOCIAL_SCRAPER_API_KEY", "SEO_API_KEY",
+                      "S3_VAULT_KEY", "PUBMED_API_KEY"]
 
 with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
     # Shared per-browser-session store for the API key and model choice, so a
@@ -2683,8 +3056,13 @@ with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
                     return _result_to_ui(blocked)[:-1] + [list(prior_questions or []), int(free_runs or 0), gr.update()]
                 with gemini_session(key, model):
                     outputs = run_public_rewriter(answer, context, prior_questions, free_runs)
+                    # Must be read inside the session: the per-request bucket is
+                    # torn down on exit.
+                    summary_line = request_diagnostics_summary()
                 # outputs = [score_before, score_after, status, *17 layers, audit, l9, count]
-                return list(outputs) + [gr.update(value=key)]
+                outputs = list(outputs)
+                outputs[2] = f"{outputs[2]}\n\n📈 _{summary_line}_"
+                return outputs + [gr.update(value=key)]
 
             _rewriter_outputs = (
                 [rewriter_score_before, rewriter_score_after, rewriter_status]
@@ -2807,6 +3185,44 @@ with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
             refresh_btn.click(fn=get_agent_status, outputs=[agent_status_display])
             demo.load(fn=get_agent_status, outputs=[agent_status_display])
 
+        # ── Diagnostics Tab ──
+        with gr.TabItem("🩺 Diagnostics"):
+            gr.Markdown(f"""
+            ## Gemini Call Diagnostics
+
+            Every Gemini call this Space process has made, newest first. Use this when a run
+            fails or returns nothing — the **Finish reason** and the **Out tok / Think tok**
+            split say immediately whether thinking ate the output budget.
+
+            `MAX_TOKENS` with `Out tok = 0` and a large `Think tok` means the cap was too
+            small for the model's internal reasoning.
+
+            **Active policy:** {budget_policy_summary()}
+            """)
+            diag_btn = gr.Button("🔄 Refresh", variant="primary")
+            diag_clear_btn = gr.Button("🗑 Clear log", variant="secondary")
+            diag_summary = gr.Markdown("No Gemini calls recorded yet.")
+            diag_table = gr.Dataframe(
+                headers=DIAGNOSTIC_HEADERS,
+                type="array",
+                label="Recent Gemini calls (newest first)",
+                interactive=False,
+                wrap=True,
+                max_height=420,
+            )
+
+            def refresh_diagnostics():
+                summary, rows = build_diagnostics_view()
+                return summary, rows
+
+            def clear_diagnostics():
+                with _DIAG_LOCK:
+                    DIAGNOSTICS.clear()
+                return "Cleared. No Gemini calls recorded yet.", []
+
+            diag_btn.click(fn=refresh_diagnostics, inputs=[], outputs=[diag_summary, diag_table])
+            diag_clear_btn.click(fn=clear_diagnostics, inputs=[], outputs=[diag_summary, diag_table])
+
         # ── About Tab ──
         with gr.TabItem("ℹ️ About"):
             gr.Markdown(f"""
@@ -2835,7 +3251,31 @@ with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
             ### ⚠️ Cost awareness
             One **AI Rewriter** run makes roughly 20 Gemini calls (17 layers plus a 3-call median score
             before and after). One **Agent Mode** run can make 15–50 calls depending on the plan.
-            `gemini-3.6-flash` is billed per token on your key.
+            `gemini-3.6-flash` is billed per token on your key — and on Gemini 3 **thinking tokens are
+            billed as output tokens**.
+
+            ### 🧮 Token budget policy
+            {budget_policy_summary()}
+
+            In the original Colab notebooks `max_tokens` was accepted by the wrapper and then **silently
+            dropped** — the only call site was `ai.generate_text(prompt=..., model_name=..., stream=True)`.
+            There was never any output cap, so values like `max_tokens=5` on the LP layer were decorative.
+
+            This API honours the cap, and on Gemini 3 `max_output_tokens` is a **combined** budget for
+            thinking + visible output. A cap of 5 is consumed entirely by internal reasoning and returns
+            `finish_reason=MAX_TOKENS` with zero visible characters.
+
+            So the notebook's numbers are treated as **hints**: floored at `{MIN_OUTPUT_TOKENS}`,
+            escalating x{BUDGET_ESCALATION_FACTOR} to at most `{MAX_OUTPUT_TOKENS_CEILING}` when a call
+            comes back empty, with thinking pinned to `{THINKING_LEVEL}`. The cap is never omitted,
+            because an uncapped Gemini 3 call can hang indefinitely.
+
+            Tune via Space secrets: `GEMINI_THINKING_LEVEL`, `GEMINI_MIN_OUTPUT_TOKENS`,
+            `GEMINI_MAX_OUTPUT_TOKENS_CEILING`, `FOURCBON2_AGENT_DEADLINE`
+            (default `{AGENT_DEADLINE_SECONDS}`s), `FOURCBON2_HEARTBEAT`.
+
+            After any failure, open the **🩺 Diagnostics** tab — it shows the finish reason and the
+            output/thinking token split for every call.
 
             ### 🗂 Ephemeral storage
             Uploaded documents, cached live records, agent history and task memory live under `{DATA_DIR}`

@@ -1,12 +1,12 @@
 # ── 4CBON2 Gemini Space ─────────────────────────────────────
-# Verified set: `pip check` passes with gradio 5.50.0 / google-genai 2.8.0 /
+# Verified set: `pip check` passes with gradio 6.26.0 / google-genai 2.8.0 /
 # chromadb 1.5.9 / pydantic 2.12.3.
 #
 # The pydantic pin matters: an unpinned google-genai resolves pydantic 2.13.x,
-# which gradio 5.50.0 rejects (it requires pydantic<=2.12.3) and the Space build
-# fails. Keep this line.
+# which Gradio rejects (it requires pydantic<=2.12.3) and the Space build fails.
+# Keep this line.
 
-gradio>=5.0.0,<6
+gradio>=6.0.0,<7
 pydantic<=2.12.3
 
 # Google Generative AI API (modern unified SDK — replaces Colab's google.colab.ai)
