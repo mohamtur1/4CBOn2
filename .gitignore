@@ -1,0 +1,18 @@
+# Local runtime + test artifacts (never commit)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Space runtime data — ephemeral, regenerated on boot
+data/
+data_test/
+*.db
+*.sqlite3
+*.jsonl
+
+# Local exports produced by the agent tools
+4cbon2_notes/
+4cbon2_exports/
+4cbon2_reports/
+4cbon2_logs/
