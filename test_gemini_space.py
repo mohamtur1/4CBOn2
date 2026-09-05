@@ -377,6 +377,23 @@ check("NO layer call was starved by a tiny cap", not any(c["starved"] for c in C
 check("the old LP cap of 5 is gone", 5 not in [c["budget"] for c in CALLS])
 check("the old scorer cap of 10 is gone", 10 not in [c["budget"] for c in CALLS])
 
+# The notebook's tiny caps were NOT typos — they were sized to each layer's
+# visible output (LP is a YES/NO halt gate, the scorer emits a bare integer).
+# The port must REINTERPRET them as hints, not delete them: the call sites keep
+# expressing each layer's output contract, and the units translation happens
+# once, in the LLM adapter. These two assertions pin that invariant from both
+# sides so a future edit can neither drop the hints nor let them reach the wire.
+check("the notebook's LP hint of 5 survives at the call site",
+      re.search(r'LAYER_PROMPTS\["LP"\][\s\S]{0,120}?max_tokens=5\)', source) is not None)
+check("the notebook's scorer hint of 10 survives at the call site",
+      "safe_ask_raw(prompt, max_tokens=10)" in source)
+check("the notebook's L2 HIGH_QUALITY hint of 50 survives at the call site",
+      'max_tokens=50 if operating_mode == "HIGH_QUALITY"' in source)
+_lp_call = next((c for c in CALLS if "EXECUTING: LP" in c["prompt"]), None)
+check("LP's hint of 5 reaches the wire floored, not raw",
+      _lp_call is not None and _lp_call["budget"] >= namespace["MIN_OUTPUT_TOKENS"],
+      f"budget={_lp_call['budget'] if _lp_call else 'no LP call recorded'}")
+
 _LAYER_RE = re.compile(r"YOU ARE NOW EXECUTING: (\S+)")
 layer_calls = [(c, _LAYER_RE.search(c["prompt"]).group(1)) for c in CALLS if _LAYER_RE.search(c["prompt"])]
 executed = [name for _, name in layer_calls]

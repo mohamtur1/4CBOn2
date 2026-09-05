@@ -74,7 +74,7 @@ with the boxes beneath it.
 | LLM | `google.colab.ai` (OAuth, no key) | `google-genai` with a user-supplied key |
 | Model | first of `ai.list_models()` | `gemini-3.6-flash` (UI-selectable) |
 | Key scope | single user | per-request `contextvars` |
-| `max_tokens` / `temperature` | accepted then **silently dropped** | honoured, with a floor + escalation ladder (see below) |
+| `max_tokens` / `temperature` | accepted by the notebook's wrapper, then **never forwarded** | honoured, with a floor + escalation ladder (see below) |
 | Thinking | n/a on `gemini-2.5-flash` via Colab | pinned `LOW`, with a retry if the model rejects it |
 | Failure visibility | errors returned as strings | finish reason + token split recorded in 🩺 Diagnostics |
 | Long runs | none in Colab | deadline → labelled partial report; heartbeat; cancellation persisted |
@@ -89,21 +89,37 @@ Set them as Space secrets; never commit the service-role key.
 
 ## 🧮 Token budget policy — and why Colab never hit this
 
-In the Colab notebooks, `generate_text(prompt, max_tokens=..., temperature=...)` accepted
-those two arguments and then **silently dropped them**. Every call site was:
+Two things were true in the Colab notebooks, and only their combination broke this port.
+
+**The caps were never forwarded — by the notebook's own wrapper, not by Colab.** Cell 2
+defines a generic-looking signature that wires through only `prompt`:
 
 ```python
-ai.generate_text(prompt=prompt, model_name=MODEL_NAME, stream=True)
+def generate_text(prompt, max_tokens=4096, temperature=0.4, stream=False):
+    for chunk in ai.generate_text(prompt=prompt, model_name=MODEL_NAME, stream=True):
 ```
 
-Verified across all three Colab editions — 4 call sites, none forwarding `max_tokens` or
-`temperature`. So there was **no output cap at all**, and values like `max_tokens=5` on the
-LP layer and `max_tokens=10` on the scorer were decorative.
+`max_tokens` and `temperature` were accepted and dropped; `stream` was inert too, hardcoded
+to `True`. Verified across all 4 call sites in the 3 Colab editions.
 
-The Google Generative AI API honours the cap. On Gemini 3, `max_output_tokens` is a
-**combined** budget for thinking tokens *plus* visible output, and thinking is on by
-default — so a cap of 5 is consumed entirely by internal reasoning and returns
-`finish_reason=MAX_TOKENS` with zero visible characters. That is what broke LP.
+**The numbers were nonetheless correct.** Each tiny cap was sized to the *visible* output
+that layer emits:
+
+| Layer | Cap | Returns |
+| --- | --- | --- |
+| LP | 5 | `YES`/`NO` — the caller only tests `startswith("YES")` to halt |
+| scorer | 10 | a bare integer — "Reply with ONLY a single integer 0-100" |
+| L2 (HIGH_QUALITY) | 50 | `PRESERVE`/`ESCALATE`/a one-line rationale |
+
+**The mismatch is one of units, not intent.** This API honours the cap, and on Gemini 3
+`max_output_tokens` is a **combined** budget for thinking tokens *plus* visible output, with
+thinking on by default. A field that meant "visible characters I expect" now has to also fit
+the reasoning, so a cap of 5 is consumed entirely before any visible character is emitted and
+returns `finish_reason=MAX_TOKENS` with an empty answer. Colab also ran
+`google/gemini-2.5-flash`, which had less thinking overhead to absorb.
+
+The fix therefore **reinterprets** those numbers rather than deleting them — they stay as
+visible-output hints:
 
 | Guard | Behaviour |
 | --- | --- |

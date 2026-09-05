@@ -91,19 +91,40 @@ print("✅ Environment ready.")
 # Space serves many visitors from one shared process. Nothing is written to disk.
 #
 # ── WHY THE TOKEN BUDGET POLICY BELOW EXISTS ─────────────────
-# In the Colab notebooks `generate_text(prompt, max_tokens=..., temperature=...)`
-# accepted those two arguments and then DROPPED them — the single call site was
-#     ai.generate_text(prompt=prompt, model_name=MODEL_NAME, stream=True)
-# so there was no output cap at all. Every `max_tokens` in the pipeline (LP=5,
-# scorer=10, L2=50) was decorative and never constrained the model.
+# Two separate things were true in the Colab notebooks, and only their
+# combination is what broke this port.
 #
-# This API *does* honour the cap, and on Gemini 3 `max_output_tokens` is a
-# COMBINED budget for thinking tokens + visible output. A cap of 5 is consumed
-# entirely by internal reasoning and returns finish_reason=MAX_TOKENS with zero
-# visible characters — which is exactly how LP started failing.
+# (1) THE CAPS WERE NEVER FORWARDED — but not by Colab. The notebook's own
+#     wrapper accepted the parameters and dropped them one level up:
 #
-# So the notebook's numbers are treated as hints and floored, thinking is pinned
-# low, and the cap is always set (omitting it can hang indefinitely).
+#         def generate_text(prompt, max_tokens=4096, temperature=0.4, stream=False):
+#             for chunk in ai.generate_text(prompt=prompt, model_name=MODEL_NAME,
+#                                           stream=True):
+#
+#     `max_tokens` and `temperature` were accepted and never passed on, so no
+#     output cap was ever sent to the model. `stream` was inert too — the call
+#     hardcoded stream=True regardless of what the caller asked for. The entire
+#     parameter surface was decorative except `prompt`. Verified across all 4
+#     call sites in the 3 Colab editions.
+#
+# (2) THE NUMBERS WERE NONETHELESS CORRECT. They were sized to the VISIBLE
+#     output each layer emits, which is the right unit for a non-thinking model:
+#         LP      max_tokens=5   — a YES/NO halt gate (`startswith("YES")`)
+#         scorer  max_tokens=10  — "Reply with ONLY a single integer 0-100"
+#         L2      max_tokens=50  — a short verdict
+#     None of these was a typo. A one-word verdict genuinely fits in 5 tokens.
+#
+# The mismatch is one of UNITS, not of intent. This API honours the cap, and on
+# Gemini 3 `max_output_tokens` is a COMBINED budget for thinking tokens plus
+# visible output, with thinking on by default. A field the notebook used to mean
+# "visible characters I expect" now means "reasoning + visible", so a cap of 5 is
+# consumed entirely by internal reasoning and returns finish_reason=MAX_TOKENS
+# with zero visible characters. That is exactly how LP started failing.
+#
+# So the fix REINTERPRETS the notebook's numbers rather than discarding them:
+# they stay as visible-output hints, get floored to leave room for reasoning,
+# thinking is pinned low, and the cap is always set (omitting it entirely can
+# hang indefinitely — an uncapped Gemini 3 call has no ceiling to fall back on).
 # See build_src/WHY_COLAB_DIFFERED.md.
 
 from google import genai
@@ -1167,15 +1188,22 @@ with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
             ### 🧮 Token budget policy
             {budget_policy_summary()}
 
-            In the original Colab notebooks `max_tokens` was accepted by the wrapper and then **silently
-            dropped** — the only call site was `ai.generate_text(prompt=..., model_name=..., stream=True)`.
-            There was never any output cap, so values like `max_tokens=5` on the LP layer were decorative.
+            In the original Colab notebooks `max_tokens` was accepted by the wrapper and then **never
+            forwarded** — the only call site was `ai.generate_text(prompt=..., model_name=...,
+            stream=True)`, so there was no output cap at all (`temperature` and even `stream=False`
+            were dropped the same way).
 
-            This API honours the cap, and on Gemini 3 `max_output_tokens` is a **combined** budget for
-            thinking + visible output. A cap of 5 is consumed entirely by internal reasoning and returns
-            `finish_reason=MAX_TOKENS` with zero visible characters.
+            Those numbers were still **correct**: they were sized to the *visible* output each layer
+            emits. LP is a YES/NO halt gate, so `max_tokens=5` was right; the scorer is told to
+            "reply with ONLY a single integer", so `max_tokens=10` was right.
 
-            So the notebook's numbers are treated as **hints**: floored at `{MIN_OUTPUT_TOKENS}`,
+            What changed is the **unit**. This API honours the cap, and on Gemini 3
+            `max_output_tokens` is a **combined** budget for thinking tokens plus visible output. A
+            field that used to mean "visible characters I expect" now has to also fit the reasoning,
+            so a cap of 5 is consumed entirely before any visible character is emitted — returning
+            `finish_reason=MAX_TOKENS` with an empty answer.
+
+            So the notebook's numbers are treated as **hints** rather than deleted: floored at `{MIN_OUTPUT_TOKENS}`,
             escalating x{BUDGET_ESCALATION_FACTOR} to at most `{MAX_OUTPUT_TOKENS_CEILING}` when a call
             comes back empty, with thinking pinned to `{THINKING_LEVEL}`. The cap is never omitted,
             because an uncapped Gemini 3 call can hang indefinitely.
