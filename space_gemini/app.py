@@ -2746,24 +2746,14 @@ def _require_key(key):
     )
 
 
-def run_agent(goal, api_key, stored_key, model_name, use_gemini_only, enable_additional, *api_keys):
-    """Run the orchestrator with optional API key injection controlled by checkboxes.
+def _agent_stream(goal, key, model, use_gemini_only, enable_additional, *api_keys):
+    """Run one Agent Mode request inside its dedicated, long-lived Context.
 
-    Yields ``(accumulated_log, key_update)`` tuples. Two details differ from the
-    notebook on purpose:
-
-    * Gradio *replaces* a Textbox on every yield rather than appending, so the
-      notebook's incremental ``yield chunk`` left only the final chunk visible.
-      Accumulating gives the intended progressive execution log.
-    * The second output persists the key into session state so the visitor types
-      it once and every tab reuses it.
+    ``run_agent`` owns the Context that resumes this generator. Keeping the
+    session here means that the ContextVar tokens created by ``gemini_session``
+    are reset in precisely the Context in which they were created, including
+    when Gradio cancels the outer stream.
     """
-    key, model = _resolve_session(api_key, stored_key, model_name)
-    missing = _require_key(key)
-    if missing:
-        yield missing, gr.update()
-        return
-
     log = ""
 
     def emit(chunk):
@@ -2810,6 +2800,45 @@ def run_agent(goal, api_key, stored_key, model_name, use_gemini_only, enable_add
                 raise
         finally:
             release_optional_keys()
+
+
+def run_agent(goal, api_key, stored_key, model_name, use_gemini_only, enable_additional, *api_keys):
+    """Gradio-facing Agent Mode stream with stable ContextVar propagation.
+
+    Gradio resumes generator callbacks in a fresh ``copy_context()`` on every
+    yield. A ``gemini_session`` around this public generator would therefore
+    bind the visitor key only in its first temporary context. Instead, create
+    one Context here and resume the inner stream in that same Context for the
+    lifetime of the request.
+    """
+    key, model = _resolve_session(api_key, stored_key, model_name)
+    missing = _require_key(key)
+    if missing:
+        yield missing, gr.update()
+        return
+
+    # Fail before an expensive multi-agent run. This uses the same focused probe
+    # as the explicit Test Connection button, so a rejected key surfaces
+    # Google's specific error instead of becoming a full stream of fallbacks.
+    preflight = check_api_key(key, model)
+    if not preflight.startswith("✅"):
+        yield preflight, gr.update()
+        return
+
+    inner = _agent_stream(goal, key, model, use_gemini_only, enable_additional, *api_keys)
+    stream_context = contextvars.copy_context()
+    try:
+        while True:
+            try:
+                chunk = stream_context.run(next, inner)
+            except StopIteration:
+                return
+            yield chunk
+    finally:
+        # Closing the inner generator through its own Context delivers
+        # GeneratorExit to its cancellation handler and lets gemini_session
+        # reset tokens in the Context that minted them.
+        stream_context.run(inner.close)
 
 
 def check_key_and_remember(api_key, stored_key, model_name):

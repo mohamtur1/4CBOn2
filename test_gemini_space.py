@@ -32,6 +32,7 @@ FAILURES = []
 MOCK = {
     "min_budget_for_text": None,   # empty MAX_TOKENS whenever budget < this
     "reject_thinking": False,      # raise if thinking_config is present
+    "invalid_keys": set(),         # reject these keys before an Agent Mode run
     "sleep_per_call": 0.0,
     "always_empty": False,
 }
@@ -44,7 +45,8 @@ def check(label, condition, detail=""):
 
 
 def reset_mock():
-    MOCK.update(min_budget_for_text=None, reject_thinking=False, sleep_per_call=0.0, always_empty=False)
+    MOCK.update(min_budget_for_text=None, reject_thinking=False, invalid_keys=set(),
+                sleep_per_call=0.0, always_empty=False)
 
 
 # ════════════════════════════════════════════════════════════
@@ -86,6 +88,7 @@ class FakeModels:
             time.sleep(MOCK["sleep_per_call"])
 
         rejected = MOCK["reject_thinking"] and thinking is not None
+        invalid_key = _CURRENT_KEY.get() in MOCK["invalid_keys"]
         starved = (MOCK["always_empty"]
                    or (MOCK["min_budget_for_text"] is not None and (budget or 0) < MOCK["min_budget_for_text"]))
         # Record BEFORE raising, so a rejected attempt is still visible to assertions.
@@ -95,8 +98,10 @@ class FakeModels:
                 "temperature": getattr(config, "temperature", None),
                 "thinking_level": getattr(thinking, "thinking_level", None) if thinking else None,
                 "prompt": prompt, "prompt_head": prompt[:90].replace("\n", " "),
-                "starved": starved, "rejected": rejected,
+                "starved": starved, "rejected": rejected, "invalid_key": invalid_key,
             })
+        if invalid_key:
+            raise ValueError("API key not valid. Please pass a valid API key.")
         if rejected:
             raise ValueError("thinking_level is not supported by this model")
         if starved:
@@ -332,21 +337,30 @@ except RuntimeError as exc:
     check("heartbeat propagates worker exceptions", "exploded" in str(exc))
 
 # ── 12. Cancellation persists partial work ─────────────────
+# Drive every resume in a fresh Context exactly as Gradio does. This also proves
+# that cancellation delivers GeneratorExit through the run's long-lived Context,
+# rather than trying to reset ContextVar tokens in this throwaway one.
 before = namespace["load_task_memory_data"]()[0] or []
 gen = namespace["run_agent"]("Analyse competitor positioning and contract liability",
                              "KEY_CANCEL", "", "gemini-3.6-flash", True, False)
 advanced = 0
+cancellation_error = None
 try:
     for _ in range(200):
-        log, _upd = next(gen)
+        log, _upd = contextvars.copy_context().run(next, gen)
         advanced += 1
         if "done." in log and "Step 1/2" in log:
             break
-    gen.close()                      # raises GeneratorExit inside the generator
+    contextvars.copy_context().run(gen.close)  # GeneratorExit reaches _agent_stream
     cancelled = True
 except StopIteration:
     cancelled = False
+except ValueError as exc:
+    cancellation_error = exc
+    cancelled = False
 check("generator was driven to a completed subtask before cancelling", advanced > 3, f"{advanced} yields")
+check("Gradio-style cancellation does not reset a token in the wrong Context",
+      cancellation_error is None, repr(cancellation_error))
 after = namespace["load_task_memory_data"]()[0] or []
 check("cancelling a run persists the partial report to task memory", len(after) > len(before),
       f"{len(before)} -> {len(after)}")
@@ -358,7 +372,104 @@ if len(after) > len(before):
 audit = open(os.path.join(namespace["DATA_DIR"], "4cbon2_audit.jsonl"), encoding="utf-8").read()
 check("the interruption was written to the audit log", "orchestrator_interrupted" in audit)
 
-# ── 13. Rewriter: full 17-layer pipeline ───────────────────
+# ── 13. Agent Mode ContextVar regression — exact Gradio resume model ──
+# Gradio invokes every `next()` in a new copy of the parent Context. The wrapper
+# must retain a separate Context for _agent_stream, so the UI's first success
+# yield and every later specialist yield see the same visitor key.
+reset_mock()
+CALLS.clear()
+original_orchestrator = namespace["run_orchestrator_stream"]
+original_gr_update = namespace["gr"].update
+stream_yield_keys = []
+emitted_yield_keys = []
+outer_resume_keys = []
+stream_chunks = []
+teardown_error = None
+
+
+def key_observing_orchestrator(_goal, **_kwargs):
+    for index in range(4):
+        stream_yield_keys.append(namespace["_current_api_key"]())
+        yield f"observed persistent key on streamed chunk {index}\n"
+
+
+def record_agent_emit(*args, **kwargs):
+    # _agent_stream calls gr.update() once through emit() for every value it
+    # yields to the public run_agent wrapper, including its first status line.
+    emitted_yield_keys.append(namespace["_current_api_key"]())
+    return original_gr_update(*args, **kwargs)
+
+
+namespace["run_orchestrator_stream"] = key_observing_orchestrator
+namespace["gr"].update = record_agent_emit
+try:
+    stream_gen = namespace["run_agent"]("verify ContextVar propagation", "KEY_GRADIO_STREAM", "",
+                                        "gemini-3.6-flash", True, False)
+    while True:
+        def resume_once():
+            outer_resume_keys.append(namespace["_current_api_key"]())
+            return next(stream_gen)
+        try:
+            # This is the production pattern: a fresh copy of the parent
+            # Context drives every single generator resumption.
+            stream_chunks.append(contextvars.copy_context().run(resume_once))
+        except StopIteration:
+            break
+        except ValueError as exc:
+            teardown_error = exc
+            break
+finally:
+    namespace["run_orchestrator_stream"] = original_orchestrator
+    namespace["gr"].update = original_gr_update
+
+check("run_agent owns one stable Context for its inner stream",
+      "stream_context = contextvars.copy_context()" in source
+      and "stream_context.run(next, inner)" in source)
+check("every Gradio-resumed Agent Mode yield has the visitor API key",
+      stream_chunks and len(emitted_yield_keys) == len(stream_chunks)
+      and all(key == "KEY_GRADIO_STREAM" for key in emitted_yield_keys),
+      repr(emitted_yield_keys))
+check("every orchestrator chunk sees the same visitor API key",
+      stream_yield_keys == ["KEY_GRADIO_STREAM"] * 4, repr(stream_yield_keys))
+check("fresh Gradio parent Contexts never receive the visitor key",
+      outer_resume_keys and all(not key for key in outer_resume_keys), repr(outer_resume_keys))
+check("Agent Mode completion does not raise a cross-Context token ValueError",
+      teardown_error is None, repr(teardown_error))
+check("Agent Mode leaves the caller Context without its visitor key",
+      not namespace["_current_api_key"](), repr(namespace["_current_api_key"]()))
+check("Agent Mode preflight uses the supplied visitor key",
+      CALLS and CALLS[0]["key"] == "KEY_GRADIO_STREAM", repr(CALLS[:1]))
+
+# A rejected key must stop before an orchestration plan or specialist fallback
+# can turn a single authentication failure into a full misleading transcript.
+reset_mock()
+CALLS.clear()
+invalid_orchestrator_calls = []
+
+
+def should_not_orchestrate(*args, **kwargs):
+    invalid_orchestrator_calls.append((args, kwargs))
+    yield "this must never be yielded\n"
+
+
+namespace["run_orchestrator_stream"] = should_not_orchestrate
+MOCK["invalid_keys"].add("KEY_INVALID")
+try:
+    invalid_chunks = list(namespace["run_agent"]("should fail preflight", "KEY_INVALID", "",
+                                                  "gemini-3.6-flash", True, False))
+finally:
+    namespace["run_orchestrator_stream"] = original_orchestrator
+invalid_log = invalid_chunks[0][0] if len(invalid_chunks) == 1 else ""
+check("Agent Mode preflight surfaces Google's invalid-key error immediately",
+      len(invalid_chunks) == 1 and "rejected by Google" in invalid_log and "not valid" in invalid_log,
+      invalid_log[:180])
+check("an invalid Agent Mode key never starts the orchestrator", not invalid_orchestrator_calls,
+      repr(invalid_orchestrator_calls))
+check("an invalid Agent Mode key makes only the preflight probe",
+      len(CALLS) == 1 and CALLS[0]["key"] == "KEY_INVALID", repr(CALLS))
+reset_mock()
+
+# ── 14. Rewriter: full 17-layer pipeline ───────────────────
 order = namespace["PIPELINE_ORDER"]
 check("PIPELINE_ORDER runs L3 before LP", order.index("L3") < order.index("LP"), " → ".join(order))
 check("PIPELINE_ORDER has 17 artifacts", len(order) == 17, str(len(order)))
@@ -409,13 +520,13 @@ check("score_before is a real score, not the silent 50 fallback", ui[0] == 45, s
 check("L9 produced 3 questions", len(ui[-2]) == 3)
 check("run counter incremented to 1", ui[-1] == 1, str(ui[-1]))
 
-# ── 14. The 3-free-run public gate ─────────────────────────
+# ── 15. The 3-free-run public gate ─────────────────────────
 with namespace["gemini_session"]("KEY_RW", "gemini-3.6-flash"):
     blocked = namespace["run_public_rewriter"]("Another answer.", "", [], 3)
 check("4th run is blocked by the paywall", "3 free runs" in blocked[2], blocked[2][:100])
 check("paywall surfaces the Gumroad URL", namespace["GUMROAD_URL"] in blocked[2])
 
-# ── 15. Tools write under DATA_DIR ─────────────────────────
+# ── 16. Tools write under DATA_DIR ─────────────────────────
 note = namespace["execute_tool"]("save_note", "hello from a test")
 check("save_note writes under the data dir", "data_test" in note and "/content/drive" not in note, note)
 pdf = namespace["execute_tool"]("generate_pdf", "Report line one\nReport line two\nLine three")
@@ -427,13 +538,13 @@ check("get_datetime tool works", "Date:" in namespace["execute_tool"]("get_datet
 check("query_database blocks non-SELECT",
       namespace["execute_tool"]("query_database", "DROP TABLE agents").startswith("❌"))
 
-# ── 16. Dashboard + report ─────────────────────────────────
+# ── 17. Dashboard + report ─────────────────────────────────
 figs, err = namespace["create_plotly_dashboard"]()
 check("dashboard renders figures", err is None and figs and len(figs) >= 2, f"err={err} figs={len(figs or [])}")
 report = namespace["copy_all_rewriter_report"](45, 62, "ok", *["text"] * len(order))
 check("Copy All report labels layers in pipeline order", report.index("\nL3") < report.index("\nLP"))
 
-# ── 17. UI callback arity ──────────────────────────────────
+# ── 18. UI callback arity ──────────────────────────────────
 agent_chunks = list(namespace["run_agent"](
     "Analyse competitor positioning", "KEY_UI", "", "gemini-3.6-flash", True, False))
 check("run_agent is a generator of 2-tuples (log, key_update)",
@@ -473,7 +584,7 @@ shown = namespace["update_keys_visibility"](False, True)
 check("update_keys_visibility hides keys in Gemini-only mode", getattr(hidden, "visible", None) is False)
 check("update_keys_visibility reveals keys when enabled", getattr(shown, "visible", None) is True)
 
-# ── 18. No secrets in the generated source ─────────────────
+# ── 19. No secrets in the generated source ─────────────────
 app_text = open(APP, encoding="utf-8").read()
 check("no hardcoded API key literal", not re.search(r"AIza[0-9A-Za-z_\-]{10,}", app_text))
 check("no Supabase service-role key literal", "eyJ" not in app_text)

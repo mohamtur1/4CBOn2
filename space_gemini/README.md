@@ -208,7 +208,7 @@ rewrites. Any pattern that fails to match aborts the build instead of silently s
 broken app, and a completeness guard fails the build if any notebook function goes missing
 from the output.
 
-Run the test suite (97 checks, no network needed — it mocks `genai.Client`):
+Run the test suite (112 checks, no network needed — it mocks `genai.Client`):
 
 ```bash
 python test_gemini_space.py
@@ -216,5 +216,5 @@ python test_gemini_space.py
 
 It reproduces the real production failures rather than just the happy path: an empty
 `MAX_TOKENS` response, a model that rejects `thinking_config`, overlapping requests from two
-different keys, the Agent Mode deadline, heartbeat emission, and `GeneratorExit`
-cancellation persistence.
+different keys, fresh-`Context` Gradio generator resumptions, invalid-key preflight, the
+Agent Mode deadline, heartbeat emission, and `GeneratorExit` cancellation persistence.
