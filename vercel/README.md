@@ -340,11 +340,34 @@ uvicorn api.index:app --reload --port 8000
 # Visit http://localhost:8000
 ```
 
+## Bundle Size Budget (500 MB limit)
+
+Vercel's Python runtime bundles **every** package in `requirements.txt` into each
+serverless function — used or not — and hard-fails the build above 500 MB
+(`Total bundle size ... exceeds the maximum function size`). Current bundle is
+~420 MB; the largest remaining items are `googleapiclient` (~100 MB, a hard
+dependency of `google-generativeai` 0.8.x) and the gradio stack (pandas,
+numpy, matplotlib — required by `gradio==4.44.0`).
+
+Rules to keep the deployment green:
+
+- **Never add** `chromadb`, `torch`, `sentence-transformers`, `plotly`, `fpdf2`,
+  `duckduckgo-search`, `PyPDF2`, `python-docx`, or `beautifulsoup4` to
+  `vercel/requirements.txt`. Those belong to the HF Space / Colab stack
+  (`space_gemini/`), not the serverless API — nothing under `vercel/` imports them.
+- `huggingface-hub` **must stay pinned below 1.0** (currently `==0.36.2`): gradio
+  4.44 imports `HfFolder`, which was removed in huggingface-hub 1.0, and nothing
+  else caps the resolver below 1.0 any more.
+- After any dependency change, re-measure and run `python3 test_vercel_package.py`.
+
 ## Troubleshooting
 
 ### "Module not found" errors
 ```bash
-pip install -r requirements.txt --upgrade
+# Reinstall exactly what requirements.txt pins. Do NOT use --upgrade here:
+# upgrading huggingface-hub past 0.36.x breaks `import gradio` (see
+# "Bundle Size Budget" above).
+pip install -r requirements.txt --force-reinstall
 ```
 
 ### Supabase connection errors

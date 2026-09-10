@@ -1,3 +1,32 @@
+# 4CBON2 — Vercel serverless dependencies (trimmed for the 500 MB function-size limit)
+#
+# Vercel's Python runtime bundles EVERY installed package into each serverless
+# function, whether or not the code imports it. The full dependency set must
+# therefore stay under Vercel's 500 MB hard cap per function.
+#
+# Removed on 2026-09-10 (measured site-packages 589.9 MB -> 400.3 MB exact bytes,
+# i.e. ~566 -> ~420 MB in Vercel's block accounting; Vercel build projected
+# ~567.42 MB -> ~421 MB against its reported 500 MB cap):
+#   chromadb==0.5.23        — never imported by vercel/ runtime code; its
+#                             transitive tree (onnxruntime, kubernetes, tokenizers,
+#                             grpcio, opentelemetry, chroma-hnswlib, ...) alone was
+#                             ~190 MB. Nothing in app.py / api/*.py references it.
+#   PyPDF2==3.0.1           — never imported by vercel/ runtime code.
+#   python-docx==1.1.2      — never imported (also pulled in 11 MB lxml).
+#   beautifulsoup4==4.12.3  — never imported by vercel/ runtime code.
+#
+# NOTE: google-api-python-client (~100 MB, bundled as `googleapiclient`) is a hard
+# dependency of google-generativeai 0.8.x and cannot be removed while we pin the
+# classic SDK that app.py imports (`import google.generativeai as genai`).
+# Do NOT re-add heavy packages here without re-measuring the bundle size.
+#
+# huggingface-hub is pinned explicitly: gradio 4.44 only declares
+# `huggingface-hub>=0.19.3` (no upper bound), and gradio 4.44 imports
+# `HfFolder`, which was removed in huggingface-hub 1.0. Without this pin a fresh
+# resolve installs huggingface-hub 1.x and `import gradio` crashes at cold start.
+# (0.36.2 is the last 0.x release; chromadb's `tokenizers<1.0` used to cap this
+# transitively — that cap disappeared when chromadb was removed.)
+
 fastapi==0.115.0
 uvicorn==0.30.6
 gradio==4.44.0
@@ -6,7 +35,4 @@ supabase==2.7.4
 python-multipart==0.0.9
 pydantic==2.9.2
 requests==2.32.3
-chromadb==0.5.23
-PyPDF2==3.0.1
-python-docx==1.1.2
-beautifulsoup4==4.12.3
+huggingface-hub==0.36.2
