@@ -10,8 +10,8 @@
 # A fresh install is ~540 MB on disk but only ~402 MB of that ships: ~112 MB is
 # __pycache__ bytecode and ~26 MB is tests/, neither of which reaches a lambda.
 # Counting them overstates the bundle by ~35% and produces a false "over budget"
-# alarm. Current: ~402 MB shipped -> ~423 MB in Vercel's accounting, ~77 MB of
-# margin. Last verified 2026-09-12, including a live boot of app.py + api/*.
+# alarm. Current: 401.8 MB shipped -> 422.6 MB in Vercel's accounting, 77.4 MB
+# of margin. Last verified 2026-09-13, including a live boot of app.py + api/*.
 #
 # Removed on 2026-09-10 (measured site-packages 589.9 MB -> 400.3 MB exact bytes,
 # i.e. ~566 -> ~420 MB in Vercel's block accounting; Vercel build projected
@@ -36,11 +36,26 @@
 # (0.36.2 is the last 0.x release; chromadb's `tokenizers<1.0` used to cap this
 # transitively — that cap disappeared when chromadb was removed.)
 
+# supabase is pinned to 2.16.0 — the LOWEST release that accepts Supabase's
+# new key format. supabase-py <= 2.15.3 validates the key handed to
+# create_client() against a JWT regex and raises
+# SupabaseException("Invalid API key") for Supabase's current opaque
+# sb_secret_... / sb_publishable_... keys, while legacy JWT-shaped keys pass
+# silently — a fresh Supabase project's keys therefore broke every data call
+# at cold start with no obvious cause (verified on 2.7.4 and 2.15.3; the check
+# is gone from the 2.16.0 wheel). The new keys are NOT JWTs; that is the
+# format trap, and nothing in the codebase may decode or shape-check keys.
+#
+# Do NOT bump this without re-checking pydantic: 2.17.0+ pulls realtime>=2.6.0,
+# which requires pydantic>=2.11.7 and conflicts with this file's pydantic==2.9.2
+# pin (pip ResolutionImpossible, verified for 2.17.0, 2.18.1, 2.22.3, 2.22.4).
+# 2.16.0 caps realtime<2.6.0, so pydantic 2.9.2 resolves untouched. (2.20.0 was
+# yanked upstream for unpinned dependencies.)
 fastapi==0.115.0
 uvicorn==0.30.6
 gradio==4.44.0
 google-generativeai==0.8.3
-supabase==2.7.4
+supabase==2.16.0
 python-multipart==0.0.9
 pydantic==2.9.2
 requests==2.32.3

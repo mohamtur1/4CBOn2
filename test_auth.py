@@ -248,6 +248,7 @@ import auth as auth_api       # noqa: E402
 import gate as gate_api       # noqa: E402
 import gate_core              # noqa: E402
 import auth_core              # noqa: E402
+import db as vercel_db        # noqa: E402
 
 
 class FakeSupabase:
@@ -654,6 +655,24 @@ try:
               str(exc))
 finally:
     os.environ["SUPABASE_SERVICE_ROLE_KEY"] = saved
+
+saved = os.environ.pop("SUPABASE_SERVICE_ROLE_KEY")
+os.environ["SUPABASE_SECRET_KEY"] = "sb_secret_000000000000000000000000000000000000000"
+try:
+    # FORMAT TRAP, end to end: Supabase's current keys are opaque tokens, not
+    # JWTs. supabase-py <= 2.15.3 rejected them in create_client() ("Invalid
+    # API key") and failed every data call closed; the requirements.txt pin to
+    # 2.16.0 is what makes this pass.
+    try:
+        client = vercel_db.supabase_client()
+        check("a new-style sb_secret_ key builds the data client (supabase-py accepts non-JWT keys)",
+              client is not None)
+    except vercel_db.GateError as exc:
+        check("a new-style sb_secret_ key builds the data client (supabase-py accepts non-JWT keys)",
+              False, str(exc))
+finally:
+    os.environ["SUPABASE_SERVICE_ROLE_KEY"] = saved
+    os.environ.pop("SUPABASE_SECRET_KEY", None)
 
 # A signed-in visitor, established while Supabase is still healthy, so the
 # outage tests below observe a real session rather than an anonymous one.

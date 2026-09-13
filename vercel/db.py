@@ -22,9 +22,11 @@ def supabase_client():
         raise GateError(
             "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SECRET_KEY)"
             " are not configured")
-    # Imported here, not at module scope: create_client validates the key format
-    # and raises SupabaseException on a malformed one, and that must surface as
-    # a denial rather than as an import error at cold start.
+    # Imported here, not at module scope: if the supabase install is broken,
+    # that must surface as a denial at request time rather than as an import
+    # error at cold start. (supabase-py 2.16.0 — pinned in requirements.txt —
+    # no longer validates the key's shape; its <= 2.15.3 versions rejected
+    # Supabase's new opaque sb_secret_... keys with "Invalid API key".)
     from supabase import create_client
     try:
         return create_client(url, key)
