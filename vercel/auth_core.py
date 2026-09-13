@@ -62,11 +62,22 @@ class AuthConfigError(AuthError):
     a missing environment variable sends them chasing a phantom."""
 
 
-def _cfg(name: str) -> str:
-    value = (os.environ.get(name) or "").strip()
-    if not value:
-        raise AuthConfigError(f"{name} is not configured")
-    return value
+def _cfg(names) -> str:
+    """The first non-empty value among `names`, else AuthConfigError.
+
+    `names` is one environment variable name, or an ordered tuple of names
+    tried in order. Supabase renamed its key pair (anon -> publishable,
+    service_role -> secret) and deployments carry whichever name they were
+    configured with, so one code path must accept both rather than forcing a
+    specific naming.
+    """
+    if isinstance(names, str):
+        names = (names,)
+    for name in names:
+        value = (os.environ.get(name) or "").strip()
+        if value:
+            return value
+    raise AuthConfigError(f"{' or '.join(names)} is not configured")
 
 
 def supabase_url() -> str:
@@ -74,7 +85,32 @@ def supabase_url() -> str:
 
 
 def anon_key() -> str:
-    return _cfg("SUPABASE_ANON_KEY")
+    """The public key, sent as the `apikey` header on every auth call.
+
+    Supabase renamed the key pair: the classic name is SUPABASE_ANON_KEY, the
+    new one SUPABASE_PUBLISHABLE_KEY. Both hold the same public key, so accept
+    either and prefer the classic name when a deployment set both.
+
+    FORMAT TRAP: the value is not guaranteed to be a JWT. Supabase's current
+    keys are opaque tokens (sb_publishable_...), while legacy keys are
+    JWT-shaped. Nothing in this codebase may decode, regex, or "validate"
+    these keys — treat the key as an opaque credential and hand it to
+    Supabase. (Older supabase-py versions enforced a JWT shape in
+    create_client() and rejected the new tokens outright; see the pin in
+    vercel/requirements.txt.)
+    """
+    return _cfg(("SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEY"))
+
+
+def service_role_key() -> str:
+    """The service-role key — server-side only. It bypasses row-level
+    security and must never reach the browser or the page.
+
+    Classic name SUPABASE_SERVICE_ROLE_KEY, renamed SUPABASE_SECRET_KEY;
+    same preference rule as anon_key(). Same format trap: current values are
+    opaque sb_secret_... tokens, not JWTs — never decode or validate them.
+    """
+    return _cfg(("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY"))
 
 
 def public_url() -> str:

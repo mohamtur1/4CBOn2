@@ -16,11 +16,18 @@ from supabase import create_client, Client
 # SUPABASE CLIENT
 # ═══════════════════════════════════════════════════════════
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 def get_supabase() -> Optional[Client]:
-    if SUPABASE_URL and SUPABASE_KEY:
-        return create_client(SUPABASE_URL, SUPABASE_KEY)
+    # Resolved per call, under either name Supabase ships (classic
+    # SUPABASE_SERVICE_ROLE_KEY or renamed SUPABASE_SECRET_KEY) — see
+    # auth_core.service_role_key for the rule and the format trap.
+    from auth_core import AuthConfigError, service_role_key
+    try:
+        key = service_role_key()
+    except AuthConfigError:
+        return None
+    if SUPABASE_URL:
+        return create_client(SUPABASE_URL, key)
     return None
 
 # ═══════════════════════════════════════════════════════════

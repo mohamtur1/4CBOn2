@@ -103,6 +103,7 @@
   "env": {
     "SUPABASE_URL": "",
     "SUPABASE_SERVICE_ROLE_KEY": "",
+    "SUPABASE_SECRET_KEY": "",
     "SUPABASE_JWT_SECRET": "",
     "GATE_SHARED_SECRET": "",
     "SPACE_URL": "",
@@ -110,6 +111,7 @@
     "GUMROAD_URL": "https://4175358678144.gumroad.com/l/tbphpi",
     "ADMIN_EMAIL": "mohamtur1@gmail.com",
     "SUPABASE_ANON_KEY": "",
+    "SUPABASE_PUBLISHABLE_KEY": "",
     "PUBLIC_URL": "https://app.4cbon.com",
     "COOKIE_SECURE": "true"
   }
