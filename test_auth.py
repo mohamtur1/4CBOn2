@@ -558,6 +558,103 @@ try:
 finally:
     os.environ["SUPABASE_ANON_KEY"] = saved
 
+print("\n" + "=" * 74)
+print("Supabase key naming (classic and renamed)")
+print("=" * 74)
+# Supabase renamed its keys (anon -> publishable, service_role -> secret). A
+# deployment configured under either name must work identically; when both are
+# set the classic name wins, so an in-flight migration never changes behaviour.
+check("anon_key() reads the classic name when it is the only one set",
+      auth_core.anon_key() == "anon-key-for-test")
+
+saved = os.environ.pop("SUPABASE_ANON_KEY")
+os.environ["SUPABASE_PUBLISHABLE_KEY"] = "sb_publishable_test000"
+try:
+    check("anon_key() falls back to SUPABASE_PUBLISHABLE_KEY when the classic name is unset",
+          auth_core.anon_key() == "sb_publishable_test000")
+
+    # Not just the helper: the whole sign-in flow must work through the new name,
+    # because that is what a fresh deployment will have configured.
+    r = TestClient(auth_api.app).post("/api/auth/login",
+                                      json={"email": KNOWN_EMAIL, "password": PASSWORD})
+    check("sign-in still succeeds when only the renamed key is configured",
+          r.status_code == 200 and r.json().get("authenticated") is True,
+          f"{r.status_code} {r.text[:70]}")
+finally:
+    os.environ["SUPABASE_ANON_KEY"] = saved
+    os.environ.pop("SUPABASE_PUBLISHABLE_KEY", None)
+
+os.environ["SUPABASE_PUBLISHABLE_KEY"] = "sb_publishable_other"
+try:
+    check("anon_key() prefers SUPABASE_ANON_KEY when both names are set",
+          auth_core.anon_key() == "anon-key-for-test")
+finally:
+    os.environ.pop("SUPABASE_PUBLISHABLE_KEY", None)
+
+saved = os.environ.pop("SUPABASE_ANON_KEY")
+os.environ["SUPABASE_PUBLISHABLE_KEY"] = "   "
+try:
+    try:
+        auth_core.anon_key()
+        check("a whitespace-only renamed key is treated as unset, not as a key",
+              False)
+    except auth_core.AuthConfigError:
+        check("a whitespace-only renamed key is treated as unset, not as a key",
+              True)
+finally:
+    os.environ["SUPABASE_ANON_KEY"] = saved
+    os.environ.pop("SUPABASE_PUBLISHABLE_KEY", None)
+
+saved = os.environ.pop("SUPABASE_ANON_KEY")
+os.environ["SUPABASE_PUBLISHABLE_KEY"] = "  sb_publishable_trimmed  "
+try:
+    check("the renamed key value is stripped before use",
+          auth_core.anon_key() == "sb_publishable_trimmed")
+finally:
+    os.environ["SUPABASE_ANON_KEY"] = saved
+    os.environ.pop("SUPABASE_PUBLISHABLE_KEY", None)
+
+check("service_role_key() reads the classic name when it is the only one set",
+      auth_core.service_role_key() == "service-role-key")
+
+saved = os.environ.pop("SUPABASE_SERVICE_ROLE_KEY")
+os.environ["SUPABASE_SECRET_KEY"] = "sb_secret_test000"
+try:
+    check("service_role_key() falls back to SUPABASE_SECRET_KEY when the classic name is unset",
+          auth_core.service_role_key() == "sb_secret_test000")
+
+    # The gate's health probe must agree with the code path that actually
+    # builds the client — a probe that only knows the classic name would report
+    # "service_key: false" on a deployment that is fully configured.
+    r = TestClient(gate_api.app).get("/api/gate/health")
+    check("the gate's health endpoint sees the renamed secret key as configured",
+          r.status_code == 200 and r.json()["configured"]["service_key"] is True,
+          str(r.json().get("configured")))
+finally:
+    os.environ["SUPABASE_SERVICE_ROLE_KEY"] = saved
+    os.environ.pop("SUPABASE_SECRET_KEY", None)
+
+os.environ["SUPABASE_SECRET_KEY"] = "sb_secret_other"
+try:
+    check("service_role_key() prefers SUPABASE_SERVICE_ROLE_KEY when both names are set",
+          auth_core.service_role_key() == "service-role-key")
+finally:
+    os.environ.pop("SUPABASE_SECRET_KEY", None)
+
+saved = os.environ.pop("SUPABASE_SERVICE_ROLE_KEY")
+os.environ.pop("SUPABASE_SECRET_KEY", None)
+try:
+    try:
+        auth_core.service_role_key()
+        check("a missing service key is a configuration error, not a silent default",
+              False)
+    except auth_core.AuthConfigError as exc:
+        check("a missing service key is a configuration error, not a silent default",
+              "SUPABASE_SERVICE_ROLE_KEY" in str(exc) and "SUPABASE_SECRET_KEY" in str(exc),
+              str(exc))
+finally:
+    os.environ["SUPABASE_SERVICE_ROLE_KEY"] = saved
+
 # A signed-in visitor, established while Supabase is still healthy, so the
 # outage tests below observe a real session rather than an anonymous one.
 outage = TestClient(auth_api.app)

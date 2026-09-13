@@ -273,8 +273,15 @@ async def consume(request: Request):
 # ═══════════════════════════════════════════════════════════
 @app.get("/api/gate/health")
 async def health():
+    # The key may be configured under either name (classic or renamed) — the
+    # same rule as everywhere else in the app, resolved in one place.
+    try:
+        auth_core.service_role_key()
+        service_key_configured = True
+    except AuthError:
+        service_key_configured = False
     configured = {"supabase": bool(os.environ.get("SUPABASE_URL", "").strip()),
-                  "service_key": bool(os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()),
+                  "service_key": service_key_configured,
                   "space_url": bool(SPACE_URL)}
     try:
         gate_secret()
