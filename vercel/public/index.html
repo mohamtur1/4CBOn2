@@ -756,6 +756,8 @@
 <nav>
   <div class="nav-logo">4CBON</div>
   <div class="nav-links">
+    <!-- Populated by the auth script: "SIGN IN", or the email + runs left. -->
+    <span id="nav-account"></span>
     <a href="#pipeline">How it works</a>
     <a href="#flavors">Use cases</a>
     <a href="#pricing">Pricing</a>
@@ -1072,3 +1074,488 @@
     </div>
 
 
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     THE APP, FRAMED
+     Hugging Face sends no X-Frame-Options and no CSP frame-ancestors
+     (verified 2026-09-12), so the Space can be framed and the session
+     cookie stays first-party. A redirect fallback is kept regardless:
+     those headers are set at the proxy layer and can appear at any time,
+     and a blocked frame fails silently in most browsers.
+     ══════════════════════════════════════════════════════════════ -->
+<div id="app-shell" class="app-shell" hidden>
+  <div class="app-bar">
+    <span class="app-title">4CBON</span>
+    <span class="app-hint" id="app-hint">Loading…</span>
+    <a class="app-pop" id="app-pop" href="#" target="_blank" rel="noopener">Open in a new tab ↗</a>
+    <button type="button" class="app-close" id="app-close">Close</button>
+  </div>
+  <iframe id="app-frame" class="app-frame" title="4CBON" referrerpolicy="no-referrer-when-downgrade"></iframe>
+</div>
+
+<style>
+  .app-shell {
+    position: fixed; inset: 0; z-index: 800;
+    background: var(--bg); display: flex; flex-direction: column;
+  }
+  .app-shell[hidden] { display: none; }
+  .app-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 14px; border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .app-title {
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+    font-size: 17px; letter-spacing: 0.06em; color: var(--orange);
+  }
+  .app-hint { font-size: 11px; color: var(--muted); flex: 1; }
+  .app-pop, .app-close {
+    font-size: 11px; color: var(--text); background: none;
+    border: 1px solid var(--border); border-radius: 5px;
+    padding: 5px 10px; cursor: pointer; text-decoration: none;
+  }
+  .app-pop:hover, .app-close:hover { border-color: var(--cyan); color: var(--cyan); }
+  .app-frame { flex: 1; width: 100%; border: 0; background: #fff; }
+</style>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SIGN-IN MODAL
+     The session itself lives in an httpOnly cookie set by /api/auth/*.
+     Nothing below can read that cookie, and no Supabase key or access
+     token is ever placed in JavaScript — this page only talks to our own
+     endpoints, which hold the keys server-side.
+     ══════════════════════════════════════════════════════════════ -->
+<div id="auth-modal" class="auth-overlay" hidden>
+  <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <button type="button" class="auth-close" id="auth-close" aria-label="Close">&times;</button>
+    <div class="auth-title" id="auth-title">Sign in to 4CBON</div>
+    <p class="auth-sub">Your runs are counted per account, not per browser.
+       Three free runs a day, shared across Ask, the Rewriter and the Agent.</p>
+
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab is-on" data-tab="signin">Sign in</button>
+      <button type="button" class="auth-tab" data-tab="signup">Create account</button>
+    </div>
+
+    <form id="auth-form" autocomplete="on" novalidate>
+      <label class="auth-label" for="auth-email">Email</label>
+      <input class="auth-input" id="auth-email" name="email" type="email"
+             autocomplete="email" placeholder="you@example.com" required>
+
+      <label class="auth-label" for="auth-password">Password</label>
+      <input class="auth-input" id="auth-password" name="password" type="password"
+             autocomplete="current-password" placeholder="At least 8 characters"
+             minlength="8" required>
+
+      <div class="auth-error" id="auth-error" role="alert" hidden></div>
+      <button type="submit" class="auth-submit" id="auth-submit">Sign in</button>
+    </form>
+
+    <div class="auth-or">or</div>
+    <a class="auth-google" id="auth-google" href="/api/auth/google">Continue with Google</a>
+
+    <p class="auth-note">Google sign-in returns to this page. Your password never
+       leaves this site, and 4CBON never sees your Google credentials.</p>
+  </div>
+</div>
+
+<style>
+  /* ─── AUTH MODAL ─── */
+  .auth-overlay {
+    position: fixed; inset: 0; z-index: 900;
+    background: rgba(3, 3, 10, 0.88);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .auth-overlay[hidden] { display: none; }
+  .auth-card {
+    position: relative;
+    width: 100%; max-width: 400px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 26px 24px;
+  }
+  .auth-close {
+    position: absolute; top: 10px; right: 14px;
+    background: none; border: 0; color: var(--muted);
+    font-size: 26px; line-height: 1; cursor: pointer;
+  }
+  .auth-close:hover { color: var(--text); }
+  .auth-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 26px; font-weight: 700; letter-spacing: 0.02em;
+    color: #fff; margin-bottom: 6px;
+  }
+  .auth-sub { font-size: 11px; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+  .auth-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .auth-tab {
+    flex: 1; padding: 8px 0; font-family: inherit; font-size: 11px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+  }
+  .auth-tab.is-on { color: var(--orange); border-color: var(--orange); }
+  .auth-label {
+    display: block; font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); margin: 12px 0 5px;
+  }
+  .auth-input {
+    width: 100%; padding: 10px 12px;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    font-family: inherit; font-size: 13px;
+  }
+  .auth-input:focus { outline: none; border-color: var(--cyan); }
+  .auth-error {
+    margin-top: 12px; padding: 9px 11px; font-size: 11px; line-height: 1.5;
+    color: #fecaca; background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 6px;
+  }
+  .auth-error.is-warn {
+    color: #fde68a; background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.35);
+  }
+  .auth-submit {
+    width: 100%; margin-top: 16px; padding: 11px 0;
+    background: var(--orange); color: #0a0a12;
+    border: 0; border-radius: 6px; cursor: pointer;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .auth-submit[disabled] { opacity: 0.55; cursor: wait; }
+  .auth-or {
+    margin: 16px 0 12px; text-align: center;
+    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted);
+  }
+  .auth-google {
+    display: block; padding: 10px 0; text-align: center; text-decoration: none;
+    color: var(--text); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px;
+    font-size: 12px; letter-spacing: 0.05em;
+  }
+  .auth-google:hover { border-color: var(--cyan); color: var(--cyan); }
+  .auth-note { margin-top: 14px; font-size: 10px; color: var(--muted); line-height: 1.6; }
+
+  .nav-user { font-size: 11px; color: var(--cyan); letter-spacing: 0.05em; }
+  .nav-runs { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; }
+  #site-banner {
+    display: none; padding: 9px 14px; text-align: center;
+    font-size: 11px; color: #fde68a; background: rgba(245, 158, 11, 0.1);
+    border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+  }
+</style>
+
+<div id="site-banner"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var EP = {
+    session: "/api/auth/session",
+    login:   "/api/auth/login",
+    signup:  "/api/auth/signup",
+    logout:  "/api/auth/logout",
+    google:  "/api/auth/google",
+    pass:    "/api/pass"
+  };
+  var GUMROAD = "https://4175358678144.gumroad.com/l/tbphpi";
+  var FALLBACK_APP = "/app";
+
+  var state = { authenticated: false, email: null, remaining: null, unlimited: false };
+  var mode = "signin";
+
+  function $(id) { return document.getElementById(id); }
+
+  function call(url, options) {
+    var opts = options || {};
+    opts.credentials = "same-origin";
+    opts.headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
+    return fetch(url, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (body) {
+        return { status: r.status, body: body || {} };
+      });
+    });
+  }
+
+  /* ── banner: for problems that are ours, not the visitor's ── */
+  function banner(text, isError) {
+    var el = $("site-banner");
+    if (!el) { return; }
+    if (!text) { el.style.display = "none"; el.textContent = ""; return; }
+    el.style.display = "block";
+    el.textContent = text;
+    el.style.color = isError ? "#fecaca" : "#fde68a";
+  }
+
+  /* ── modal ── */
+  function openAuth(message) {
+    var modal = $("auth-modal");
+    if (!modal) { window.location.href = FALLBACK_APP; return; }
+    modal.hidden = false;
+    showFormError(message || "", false);
+    var input = $("auth-email");
+    if (input) { setTimeout(function () { input.focus(); }, 40); }
+  }
+  function closeAuth() { var m = $("auth-modal"); if (m) { m.hidden = true; } }
+
+  function showFormError(text, isWarn) {
+    var el = $("auth-error");
+    if (!el) { return; }
+    el.hidden = !text;
+    el.textContent = text || "";
+    el.className = "auth-error" + (isWarn ? " is-warn" : "");
+  }
+
+  function setMode(next) {
+    mode = next;
+    var tabs = document.querySelectorAll(".auth-tab");
+    for (var i = 0; i < tabs.length; i++) {
+      tabs[i].className = "auth-tab" + (tabs[i].getAttribute("data-tab") === mode ? " is-on" : "");
+    }
+    var pw = $("auth-password");
+    var submit = $("auth-submit");
+    if (pw) { pw.setAttribute("autocomplete", mode === "signup" ? "new-password" : "current-password"); }
+    if (submit) { submit.textContent = mode === "signup" ? "Create account" : "Sign in"; }
+    showFormError("", false);
+  }
+
+  /* ── nav / counter ── */
+  function paintAccount() {
+    var slot = $("nav-account");
+    if (!slot) { return; }
+    if (!state.authenticated) {
+      slot.innerHTML = '<a href="#" id="nav-signin" class="nav-cta">SIGN IN</a>';
+      var link = $("nav-signin");
+      if (link) { link.addEventListener("click", function (e) { e.preventDefault(); openAuth(); }); }
+      return;
+    }
+    var runs = state.unlimited ? "unlimited" :
+               (state.remaining === null ? "" : state.remaining + " left today");
+    slot.innerHTML =
+      '<span class="nav-user">' + escapeHtml(state.email || "") + "</span>" +
+      (runs ? ' <span class="nav-runs">(' + escapeHtml(runs) + ")</span>" : "") +
+      ' <a href="#" id="nav-signout">Sign out</a>';
+    var out = $("nav-signout");
+    if (out) {
+      out.addEventListener("click", function (e) {
+        e.preventDefault();
+        call(EP.logout, { method: "POST" }).then(function () {
+          state = { authenticated: false, email: null, remaining: null, unlimited: false };
+          paintAccount();
+        });
+      });
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function refreshSession() {
+    return call(EP.session).then(function (r) {
+      if (r.status === 503) {
+        // Sign-in is down, but the page still works. Say so rather than
+        // silently showing a "Sign in" button that cannot succeed.
+        banner("Sign-in is temporarily unavailable. The page still works — try again in a minute.", false);
+        return state;
+      }
+      if (r.status !== 200) { return state; }
+      state.authenticated = r.body.authenticated === true;
+      state.email = r.body.email || null;
+      state.remaining = (r.body.remaining === undefined ? null : r.body.remaining);
+      state.unlimited = r.body.unlimited === true;
+      banner("", false);
+      paintAccount();
+      return state;
+    }).catch(function () { return state; });
+  }
+
+  /* ── the gated action: mint a pass, then hand off to the app ── */
+  /* One pass per run. A pass is single-use, so the iframe asks for a fresh
+     one before every run and we mint it here, where the session cookie is.
+     The Space never sees the cookie and cannot mint a pass itself. */
+  function sendPass() {
+    var frame = $("app-frame");
+    if (!frame || !frame.contentWindow) { return Promise.resolve(); }
+    return call(EP.pass, { method: "POST" }).then(function (r) {
+      if (r.status === 200 && r.body.allowed && r.body.pass) {
+        frame.contentWindow.postMessage({ type: "cbon:pass", pass: r.body.pass }, "*");
+        return;
+      }
+      if (r.status === 401) { refreshSession(); }
+      if (r.status === 402) {
+        banner("Daily limit reached. " +
+               "Upgrade for unlimited runs: " + (r.body.upgrade || GUMROAD), true);
+      }
+    });
+  }
+
+  function openFrame(url) {
+    var shell = $("app-shell");
+    var frame = $("app-frame");
+    var hint = $("app-hint");
+    $("app-pop").href = url;
+    shell.hidden = false;
+    hint.textContent = "Loading the pipeline. A cold start can take a few seconds…";
+    frame.src = url;
+
+    // A cross-origin frame that is blocked by framing headers usually fires no
+    // useful error, so this is a timer rather than an event: if nothing has
+    // loaded, say so and offer the redirect instead of leaving a blank box.
+    var loaded = false;
+    frame.addEventListener("load", function () {
+      loaded = true;
+      hint.textContent = "Runs are counted per account — 3 free a day, shared across all three tools.";
+    });
+    setTimeout(function () {
+      if (!loaded) {
+        hint.textContent = "Taking a while. If it stays blank, the Space may refuse framing — " +
+                           "use “Open in a new tab”.";
+      }
+    }, 20000);
+  }
+
+  function closeFrame() {
+    var shell = $("app-shell");
+    if (!shell) { return; }
+    shell.hidden = true;
+    $("app-frame").src = "about:blank";
+    refreshSession();   // the counter may have moved
+  }
+
+  function enterApp() {
+    banner("", false);
+    return call(EP.pass, { method: "POST" }).then(function (r) {
+      if (r.status === 200 && r.body.allowed) {
+        var url = r.body.url || FALLBACK_APP;
+        if (!r.body.url) {
+          // No SPACE_URL configured, so there is nothing to frame.
+          window.location.href = FALLBACK_APP;
+          return;
+        }
+        openFrame(url);
+        return;
+      }
+      if (r.status === 401) {
+        openAuth(r.body.hint || "Sign in to use 4CBON.");
+        refreshSession();
+        return;
+      }
+      if (r.status === 402) {
+        var limit = r.body.limit || 3;
+        openAuth("You have used all " + limit + " free runs today. " +
+                 "They reset at midnight UTC. " +
+                 "Upgrade for unlimited runs: " + (r.body.upgrade || GUMROAD));
+        return;
+      }
+      if (r.status === 503) {
+        banner("4CBON cannot reach its run meter right now. Nothing was charged — try again shortly.", true);
+        return;
+      }
+      banner("Could not start the app (" + r.status + "). Please try again.", true);
+    });
+  }
+
+  /* ── wire up ── */
+  document.addEventListener("DOMContentLoaded", function () {
+    var nav = document.querySelector(".nav-links");
+    if (nav && !$("nav-account")) {
+      var slot = document.createElement("span");
+      slot.id = "nav-account";
+      nav.insertBefore(slot, nav.firstChild);
+    }
+    paintAccount();
+
+    var close = $("auth-close");
+    if (close) { close.addEventListener("click", closeAuth); }
+    var overlay = $("auth-modal");
+    if (overlay) {
+      overlay.addEventListener("click", function (e) { if (e.target === overlay) { closeAuth(); } });
+    }
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") { closeAuth(); }
+    });
+
+    var tabs = document.querySelectorAll(".auth-tab");
+    for (var i = 0; i < tabs.length; i++) {
+      tabs[i].addEventListener("click", function () { setMode(this.getAttribute("data-tab")); });
+    }
+
+    var form = $("auth-form");
+    if (form) {
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var email = ($("auth-email").value || "").trim();
+        var password = $("auth-password").value || "";
+        if (!email || !password) { showFormError("Enter your email and password.", false); return; }
+        if (mode === "signup" && password.length < 8) {
+          showFormError("Choose a password of at least 8 characters.", false); return;
+        }
+        var submit = $("auth-submit");
+        submit.disabled = true;
+        showFormError("", false);
+        var url = mode === "signup" ? EP.signup : EP.login;
+        call(url, { method: "POST", body: JSON.stringify({ email: email, password: password }) })
+          .then(function (r) {
+            submit.disabled = false;
+            if (r.status === 200 && r.body.authenticated) {
+              closeAuth();
+              $("auth-password").value = "";
+              return refreshSession().then(enterApp);
+            }
+            if (r.status === 503) {
+              // Not the visitor's fault. Do not tell them their password is wrong.
+              showFormError("Sign-in is temporarily unavailable. Your details were not rejected — try again shortly.", true);
+              return;
+            }
+            if (r.status === 401) {
+              var msg = r.body.message || r.body.detail || "Could not sign you in.";
+              if (mode === "signin" && /invalid credentials/i.test(msg)) {
+                msg = "That email and password do not match. Try again, or create an account.";
+              }
+              showFormError(msg, false);
+              return;
+            }
+            showFormError(r.body.detail || ("Unexpected response (" + r.status + ")."), false);
+          })
+          .catch(function () {
+            submit.disabled = false;
+            showFormError("Network error. Check your connection and try again.", true);
+          });
+      });
+    }
+
+    // Every "Try free" link on the page goes through the gate.
+    var ctas = document.querySelectorAll('a[href="/app"]');
+    for (var j = 0; j < ctas.length; j++) {
+      ctas[j].addEventListener("click", function (e) {
+        e.preventDefault();
+        enterApp();
+      });
+    }
+
+    var pop = $("app-close");
+    if (pop) { pop.addEventListener("click", closeFrame); }
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && $("app-shell") && !$("app-shell").hidden) { closeFrame(); }
+    });
+
+    // The iframe asks for a fresh pass before each run.
+    window.addEventListener("message", function (event) {
+      var data = event.data || {};
+      if (data.type === "cbon:need-pass") { sendPass(); }
+    });
+
+    refreshSession();
+  });
+})();
+</script>
+
+</body>
+</html>

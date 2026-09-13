@@ -78,6 +78,200 @@ print("✅ Environment ready.")
 
 
 # ============================================================
+# RUN GATE — the Space spends a pass; it never decides entitlement
+# ============================================================
+# The Space is the compute backend. Everything about *who may run what* lives on
+# app.4cbon.com, which authenticates the visitor, checks Supabase, and mints a
+# short-lived signed pass. This section only spends passes.
+#
+# Three rules, all of which are load-bearing:
+#
+#   1. **Fail closed.** If the gate is unreachable, misconfigured, or answers
+#      with anything but an explicit allow, the run does not happen. A gate that
+#      fails open is not a gate. `FOURCBON2_GATE_FAIL_OPEN` exists so a total
+#      outage can be worked around deliberately, and defaults to false.
+#
+#   2. **Consume exactly once, before any work.** `run_agent` is a generator:
+#      Gradio renders whatever it yields. Spending the pass after the first
+#      yield would hand the visitor the start of a run that was never paid for,
+#      and a generator that raises later leaves the UI in a broken state. So the
+#      pass is spent before the first yield, always.
+#
+#   3. **The pass arrives from the parent page, not from the visitor.** A pass
+#      is single-use, so each run needs a fresh one. The iframe asks the parent
+#      (which holds the httpOnly session cookie) over postMessage; the Space
+#      never sees a session token and cannot mint a pass itself.
+
+GATE_BASE_URL = os.environ.get("FOURCBON2_GATE_URL", "").strip().rstrip("/")
+GATE_TIMEOUT_SECONDS = float(os.environ.get("FOURCBON2_GATE_TIMEOUT", "8"))
+GATE_HOME_URL = os.environ.get("FOURCBON2_HOME_URL", "https://app.4cbon.com").strip().rstrip("/")
+GATE_FAIL_OPEN = str(os.environ.get("FOURCBON2_GATE_FAIL_OPEN", "false")).strip().lower() in (
+    "1", "true", "yes", "on")
+
+GATE_FEATURE_ASK = "ask"
+GATE_FEATURE_REWRITER = "rewriter"
+GATE_FEATURE_AGENT = "agent"
+
+
+def gate_configured() -> bool:
+    return bool(GATE_BASE_URL)
+
+
+def gate_consume(pass_token, feature):
+    """Spend one pass. Returns the gate's JSON, or a synthetic denial.
+
+    Never raises: every failure becomes a denial the caller can render. A
+    callback that raises mid-stream leaves Gradio showing a half-built answer.
+    """
+    if not pass_token:
+        return {"allowed": False, "error": "login_required"}
+    url = f"{GATE_BASE_URL}/api/consume"
+    try:
+        response = requests.post(
+            url,
+            json={"pass": pass_token, "feature": feature},
+            timeout=GATE_TIMEOUT_SECONDS,
+        )
+    except Exception as exc:
+        # Timeout, DNS failure, TLS error — all indistinguishable to the
+        # visitor, and all must not become a free run.
+        print(f"[gate] {feature}: could not reach the gate: {type(exc).__name__}")
+        return {"allowed": False, "error": "gate_unreachable"}
+    try:
+        payload = response.json()
+    except ValueError:
+        print(f"[gate] {feature}: non-JSON response {response.status_code}")
+        return {"allowed": False, "error": "gate_unreachable"}
+    if not isinstance(payload, dict):
+        return {"allowed": False, "error": "gate_unreachable"}
+    # An explicit allow is the only allow. A 200 with an unexpected body, or a
+    # missing "allowed", denies.
+    if response.status_code != 200 or payload.get("allowed") is not True:
+        payload["allowed"] = False
+        payload.setdefault("error", "denied")
+        print(f"[gate] {feature}: denied {response.status_code} {payload.get('error')}")
+    return payload
+
+
+def gate_check(pass_token, feature):
+    """Resolve a run request to (allowed, markdown_message).
+
+    The message is what the visitor sees, so it says what to do next rather
+    than echoing an error code.
+    """
+    if not gate_configured():
+        if GATE_FAIL_OPEN:
+            # Deliberate, logged, and off by default. Without this branch a
+            # missing FOURCBON2_GATE_URL would silently disable the product.
+            print(f"[gate] {feature}: FOURCBON2_GATE_URL unset and fail-open is ON — allowing")
+            return True, ""
+        print(f"[gate] {feature}: FOURCBON2_GATE_URL is not set — failing closed")
+        return False, (
+            "🔒 **This Space is not connected to its run gate.**\n\n"
+            "Nothing is wrong with your request. Please use 4CBON through "
+            f"[{GATE_HOME_URL}]({GATE_HOME_URL}) so runs can be counted."
+        )
+
+    result = gate_consume(pass_token, feature)
+    if result.get("allowed") is True:
+        return True, ""
+
+    error = str(result.get("error") or "denied")
+
+    if error in ("login_required", "invalid_session", "session_expired"):
+        return False, (
+            "🔒 **Sign in to run this.**\n\n"
+            f"Every run is counted per account. Sign in at [{GATE_HOME_URL}]({GATE_HOME_URL}) "
+            "and start again from there — you get 3 free runs a day, shared across "
+            "Ask, the Rewriter and Agent Mode."
+        )
+
+    if error == "daily_limit_reached":
+        used = result.get("used")
+        limit = result.get("limit", 3)
+        upgrade = result.get("upgrade") or f"{GATE_HOME_URL}/#pricing"
+        counted = f"You have used {used} of {limit} runs today. " if used is not None else ""
+        return False, (
+            "🔒 **Daily limit reached.**\n\n"
+            f"{counted}The free allowance is shared across Ask, the Rewriter and "
+            "Agent Mode, and resets at midnight UTC.\n\n"
+            f"➜ [Upgrade for unlimited runs]({upgrade})"
+        )
+
+    if error == "pass_already_used":
+        return False, (
+            "🔒 **That run pass was already spent.**\n\n"
+            "Each pass covers exactly one run. Reload from "
+            f"[{GATE_HOME_URL}]({GATE_HOME_URL}) to get a fresh one."
+        )
+
+    if error in ("gate_unavailable", "entitlement_unavailable", "gate_unreachable",
+                 "auth_unavailable", "denied"):
+        if GATE_FAIL_OPEN:
+            print(f"[gate] {feature}: gate unavailable and fail-open is ON — allowing")
+            return True, ""
+        return False, (
+            "⚠️ **The run gate is unreachable, so this run is blocked.**\n\n"
+            "4CBON fails closed rather than giving away uncounted runs. "
+            "Nothing was charged against your allowance — please try again in a minute."
+        )
+
+    return False, f"🔒 **Run blocked** (`{error}`). Please try again from [{GATE_HOME_URL}]({GATE_HOME_URL})."
+
+
+def gate_capture_pass(request: gr.Request):
+    """Read the one-time pass the parent page put in the iframe URL.
+
+    Runs once per page load via `demo.load`. Later passes arrive over
+    postMessage, because this one is spent by the first run.
+    """
+    try:
+        token = (request.query_params.get("pass") or "").strip()
+    except Exception:
+        token = ""
+    if not token:
+        print("[gate] page loaded without a ?pass= — runs will prompt for sign-in")
+    return token
+
+
+# Bridge between the parent page (which holds the session) and this iframe.
+# The parent mints a fresh single-use pass per run and posts it here; we write
+# it into the hidden textbox every gated callback reads. Nothing secret crosses
+# this channel — a pass is worth one run and expires in minutes.
+GATE_BRIDGE_JS = """
+() => {
+  const write = (token) => {
+    const wrap = document.getElementById('cbon-pass-box');
+    if (!wrap) { return; }
+    const el = wrap.querySelector('textarea') || wrap.querySelector('input');
+    if (!el || el.value === token) { return; }
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLTextAreaElement.prototype, 'value')?.set
+      || Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+    if (setter) { setter.call(el, token); } else { el.value = token; }
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  const ask = () => {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'cbon:need-pass' }, '*');
+    }
+  };
+  window.addEventListener('message', (event) => {
+    const data = event.data || {};
+    if (data.type === 'cbon:pass' && typeof data.pass === 'string') { write(data.pass); }
+  });
+  // Ask before each run so the callback reads a pass that is still unspent.
+  document.addEventListener('click', (event) => {
+    const btn = event.target && event.target.closest ? event.target.closest('button') : null;
+    if (btn) { ask(); }
+  }, true);
+  ask();
+}
+"""
+
+
+# ============================================================
 # CELL 2 — Core LLM (Google Generative AI API — user-supplied key)
 # ============================================================
 #
@@ -2802,7 +2996,8 @@ def _agent_stream(goal, key, model, use_gemini_only, enable_additional, *api_key
             release_optional_keys()
 
 
-def run_agent(goal, api_key, stored_key, model_name, use_gemini_only, enable_additional, *api_keys):
+def run_agent(goal, api_key, stored_key, model_name, use_gemini_only, enable_additional,
+              gate_pass, *api_keys):
     """Gradio-facing Agent Mode stream with stable ContextVar propagation.
 
     Gradio resumes generator callbacks in a fresh ``copy_context()`` on every
@@ -2811,6 +3006,15 @@ def run_agent(goal, api_key, stored_key, model_name, use_gemini_only, enable_add
     one Context here and resume the inner stream in that same Context for the
     lifetime of the request.
     """
+    # Spend the pass first, and specifically before the first yield. Gradio
+    # renders whatever a generator yields, so yielding before the gate would
+    # hand over the start of a run that was never paid for — and raising after
+    # a yield leaves the UI holding a half-built answer.
+    allowed, gate_msg = gate_check(gate_pass, GATE_FEATURE_AGENT)
+    if not allowed:
+        yield gate_msg, gr.update()
+        return
+
     key, model = _resolve_session(api_key, stored_key, model_name)
     missing = _require_key(key)
     if missing:
@@ -2857,7 +3061,11 @@ OPTIONAL_KEY_NAMES = ["CALENDAR_API_KEY", "CRM_API_KEY", "COMM_API_KEY", "VISION
                       "DOCUSIGN_API_KEY", "SOCIAL_SCRAPER_API_KEY", "SEO_API_KEY",
                       "S3_VAULT_KEY", "PUBMED_API_KEY"]
 
-with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
+with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition", js=GATE_BRIDGE_JS) as demo:
+    # Hidden, and deliberately not a gr.State: the parent page has to be able
+    # to write a fresh single-use pass into it over postMessage before each run.
+    gate_pass_box = gr.Textbox(value="", visible=False, elem_id="cbon-pass-box",
+                               label="Run pass")
     # Shared per-browser-session store for the API key and model choice, so a
     # visitor types their key once and every tab reuses it. Held in Gradio
     # session state (browser side), never on disk.
@@ -2935,7 +3143,10 @@ with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
             ask_status = gr.Textbox(label="Retrieval Report", lines=4, interactive=False)
             ask_btn = gr.Button("Research & Answer", variant="primary")
 
-            def ask_five_lens(question, use_live, api_key, stored, model_name):
+            def ask_five_lens(question, use_live, api_key, stored, model_name, gate_pass):
+                allowed, gate_msg = gate_check(gate_pass, GATE_FEATURE_ASK)
+                if not allowed:
+                    return gate_msg, "🔒 Blocked by the run gate", gr.update()
                 key, model = _resolve_session(api_key, stored, model_name)
                 missing = _require_key(key)
                 if missing:
@@ -2956,7 +3167,8 @@ with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
 
             ask_btn.click(
                 fn=ask_five_lens,
-                inputs=[question_box, use_live_databases, ask_api_key, session_key, ask_model],
+                inputs=[question_box, use_live_databases, ask_api_key, session_key, ask_model,
+                        gate_pass_box],
                 outputs=[ask_output, ask_status, session_key],
             )
             ask_check_btn.click(
@@ -3037,6 +3249,7 @@ with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
                     agent_goal,
                     agent_api_key, session_key, agent_model,
                     chk_gemini_only, chk_enable_additional,
+                    gate_pass_box,
                     t_cal, t_crm, t_comm, t_vision, t_ds, t_social, t_seo, t_s3, t_pubmed
                 ],
                 outputs=[agent_output, session_key]
@@ -3097,8 +3310,19 @@ with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
             rewriter_copy_btn = gr.Button("⊡ Copy All", variant="secondary")
             rewriter_report = gr.Textbox(label="Copy All report", lines=12, interactive=False)
 
-            def run_public_rewriter_ui(answer, context, prior_questions, free_runs, api_key, stored, model_name):
-                """Public gate: three free runs per browser session, then the CTA."""
+            def run_public_rewriter_ui(answer, context, prior_questions, free_runs, api_key, stored, model_name,
+                                       gate_pass):
+                """Runs are counted per account by the gate on app.4cbon.com.
+
+                `free_runs` still travels through the pipeline for its own
+                bookkeeping, but it no longer decides anything: the per-browser
+                counter reset on every reload, which is the weakness the gate
+                exists to close.
+                """
+                allowed, gate_msg = gate_check(gate_pass, GATE_FEATURE_REWRITER)
+                if not allowed:
+                    blocked = _empty_pipeline_result(gate_msg)
+                    return _result_to_ui(blocked)[:-1] + [list(prior_questions or []), int(free_runs or 0), gr.update()]
                 key, model = _resolve_session(api_key, stored, model_name)
                 missing = _require_key(key)
                 if missing:
@@ -3122,7 +3346,7 @@ with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
             rewriter_run_btn.click(
                 fn=run_public_rewriter_ui,
                 inputs=[rewriter_answer, rewriter_context, rewriter_l9_state, public_free_run_state,
-                        rewriter_api_key, session_key, rewriter_model],
+                        rewriter_api_key, session_key, rewriter_model, gate_pass_box],
                 outputs=_rewriter_outputs,
             )
             rewriter_copy_btn.click(
@@ -3339,6 +3563,10 @@ with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
             and **reset whenever the Space restarts or sleeps**. The curated AI / Mathematics / Science
             research indexes are reseeded automatically on every boot.
             """)
+
+# Seed the pass from the iframe URL once per page load. Later passes arrive
+# over postMessage, because this one is spent by the first run.
+demo.load(fn=gate_capture_pass, inputs=None, outputs=[gate_pass_box])
 
 demo.queue()
 demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", 7860)))

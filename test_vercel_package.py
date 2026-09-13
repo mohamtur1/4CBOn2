@@ -51,6 +51,7 @@ BANNED = [
 
 # requirement name -> top-level import name (None if not imported directly)
 IMPORT_NAMES = {
+    "cryptography": "cryptography",   # gate_core.py: JWKS / ES256 session-token verification
     "fastapi": "fastapi",
     "gradio": "gradio",
     "google-generativeai": "google",
@@ -59,6 +60,18 @@ IMPORT_NAMES = {
 }
 # Deliberate pins that vercel/ code does not import directly.
 ALLOWED_TRANSITIVE_PINS = {
+    # Heavy floaters pulled in by gradio 4.44. Pinned so a rebuild resolves the
+    # same versions and the 500 MB budget stays auditable. They are NOT the
+    # newest releases: gradio 4.44 requires pandas<3.0 and pillow<11.0, so
+    # pinning the current pandas 3.0.5 / pillow 12.3.0 would fail the resolve.
+    # Measured with tools/measure_bundle.py, which excludes __pycache__.
+    "numpy": "gradio 4.44 requires numpy<3.0; largest item after googleapiclient",
+    "pandas": "gradio 4.44 requires pandas<3.0; ~75 MB installed",
+    "matplotlib": "gradio 4.44 requires matplotlib~=3.0; ~35 MB installed",
+    "fonttools": "matplotlib dependency; ~29 MB installed",
+    "contourpy": "matplotlib dependency",
+    "kiwisolver": "matplotlib dependency",
+    "pillow": "gradio 4.44 requires pillow<11.0",
     "huggingface-hub": (
         "gradio 4.44 imports HfFolder (removed in huggingface-hub 1.0); "
         "chromadb's tokenizers<1.0 cap used to keep this below 1.0 and is gone"
@@ -168,7 +181,45 @@ def main():
             spec2.loader.exec_module(gw)
             check("vercel/api/gumroad-webhook.py imports", True)
 
+            # The gate and auth functions are separate deploy targets
+            # (vercel.json "builds") and never import app.py, so they need
+            # their own boot check: a typo in either would otherwise only
+            # surface as a 500 on the first real request after deploy.
+            spec3 = importlib.util.spec_from_file_location(
+                "vercel_gate", os.path.join(VERCEL_DIR, "api", "gate.py"))
+            gate = importlib.util.module_from_spec(spec3)
+            spec3.loader.exec_module(gate)
+            gate_routes = {getattr(r, "path", "") for r in gate.app.routes}
+            check("vercel/api/gate.py imports", True)
+            check("gate exposes /api/pass and /api/consume",
+                  {"/api/pass", "/api/consume"} <= gate_routes, str(sorted(gate_routes)))
+
+            spec4 = importlib.util.spec_from_file_location(
+                "vercel_auth", os.path.join(VERCEL_DIR, "api", "auth.py"))
+            auth = importlib.util.module_from_spec(spec4)
+            spec4.loader.exec_module(auth)
+            auth_routes = {getattr(r, "path", "") for r in auth.app.routes}
+            check("vercel/api/auth.py imports", True)
+            expected = {"/api/auth/signup", "/api/auth/login", "/api/auth/refresh",
+                        "/api/auth/logout", "/api/auth/google", "/api/auth/callback",
+                        "/api/auth/session", "/api/auth/health"}
+            check("auth exposes all eight endpoints",
+                  expected <= auth_routes, f"missing: {sorted(expected - auth_routes)}")
+
             from fastapi.testclient import TestClient
+
+            # An anonymous visitor with no Supabase env configured at all: the
+            # session endpoint must still answer 200 rather than 500.
+            ac = TestClient(auth.app)
+            r = ac.get("/api/auth/session")
+            check("anonymous /api/auth/session -> 200 authenticated:false",
+                  r.status_code == 200 and r.json().get("authenticated") is False,
+                  f"{r.status_code} {r.text[:60]}")
+            gc = TestClient(gate.app)
+            r = gc.get("/api/gate/health")
+            check("GET /api/gate/health -> 200 with no credentials",
+                  r.status_code == 200, f"{r.status_code} {r.text[:60]}")
+
             client = TestClient(index.app)
             r = client.get("/api/health")
             check("GET /api/health -> 200", r.status_code == 200, str(r.status_code))
