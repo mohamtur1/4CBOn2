@@ -334,34 +334,51 @@ def load_validated_critiques() -> list:
 
 
 def check_run_limit(ip: str) -> dict:
-    """Check if IP has exceeded free run limit."""
+    """Check if IP has exceeded free run limit.
+
+    Fails CLOSED when Supabase is configured but unreachable: a database blip
+    must not hand out unlimited free runs. The single deliberate fail-open is
+    a deployment with no Supabase configured at all — there is no meter to
+    enforce there, and denying would take the whole app offline.
+    """
     sb = get_supabase()
     if not sb:
-        return {"allowed": True, "remaining": 3, "used": 0}
+        print("[gate] WARNING: Supabase is not configured — run limits are NOT enforced.")
+        return {"allowed": True, "remaining": 3, "used": 0, "enforced": False}
     today = datetime.utcnow().strftime("%Y-%m-%d")
     try:
         result = sb.table("run_limits").select("run_count").eq("ip", ip).eq("run_date", today).execute()
         used = result.data[0]["run_count"] if result.data else 0
         remaining = max(0, 3 - used)
-        return {"allowed": used < 3, "remaining": remaining, "used": used}
-    except:
-        return {"allowed": True, "remaining": 3, "used": 0}
+        return {"allowed": used < 3, "remaining": remaining, "used": used, "enforced": True}
+    except Exception as e:
+        print(f"[gate] check_run_limit failed, DENYING (fail closed): {e}")
+        return {"allowed": False, "remaining": 0, "used": 3, "enforced": True,
+                "error": "meter_unavailable"}
 
 
-def increment_run_count(ip: str):
-    """Increment run count for IP."""
+def increment_run_count(ip: str) -> Optional[int]:
+    """Atomically add one to this IP's count for today and return the new total.
+
+    Previously this upserted `run_count: 1` on conflict, which *wrote* 1 rather
+    than adding 1 — so the count never passed 1 and check_run_limit() allowed
+    every request forever. It now calls the bump_run_limit RPC, which is a
+    single `INSERT ... ON CONFLICT DO UPDATE SET run_count = run_count + 1`
+    and therefore race-free. Returns None if the meter could not be reached.
+    """
     sb = get_supabase()
     if not sb:
-        return
+        return None
     today = datetime.utcnow().strftime("%Y-%m-%d")
     try:
-        sb.table("run_limits").upsert({
-            "ip": ip,
-            "run_date": today,
-            "run_count": 1
-        }, on_conflict="ip,run_date").execute()
+        result = sb.rpc("bump_run_limit", {"p_ip": ip, "p_day": today}).execute()
+        data = result.data
+        if isinstance(data, list):
+            data = data[0] if data else None
+        return int(data) if data is not None else None
     except Exception as e:
-        print(f"Supabase increment_run_count error: {e}")
+        print(f"[gate] increment_run_count failed: {e}")
+        return None
 
 
 # ═══════════════════════════════════════════════════════════

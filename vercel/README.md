@@ -128,13 +128,21 @@ ALTER TABLE feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE run_limits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 
--- Policies (read-only for anon, full access for service_role)
+-- Policies (read-only for anon on the non-sensitive tables only)
 CREATE POLICY "Allow anonymous read" ON event_log FOR SELECT USING (true);
 CREATE POLICY "Allow anonymous read" ON beliefs FOR SELECT USING (true);
 CREATE POLICY "Allow anonymous read" ON questions FOR SELECT USING (true);
 CREATE POLICY "Allow anonymous read" ON feedback FOR SELECT USING (true);
-CREATE POLICY "Allow anonymous read" ON run_limits FOR SELECT USING (true);
-CREATE POLICY "Allow anonymous read" ON subscriptions FOR SELECT USING (true);
+
+-- NOTE: run_limits and subscriptions deliberately have NO anonymous read
+-- policy. An earlier version of this README created "Allow anonymous read"
+-- for both, which exposed every subscriber's email and every visitor's usage
+-- counter to anyone with the anon key. Do not re-add them.
+--
+-- The canonical, complete schema — including the access-control block with
+-- run_usage, admin_emails, gate_passes, the atomic bump RPCs and the
+-- revocations — is in vercel/supabase.sql. Paste THAT file into the SQL
+-- editor; the block above is kept only for orientation.
 ```
 
 ### Step 2: Get Supabase Credentials

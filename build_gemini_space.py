@@ -519,6 +519,7 @@ def main():
     app = "\n\n\n".join([
         sections["header"],
         sections["imports"],
+        sections["gate"],
         sections["llm"],
         extract_ask_functions(cells[1]),
         sections["chroma_pre"],
