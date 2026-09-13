@@ -256,6 +256,15 @@ python3 tools/reconcile_subscribers.py --apply    # writes it, source='api'
 **Read the dry-run diff before applying.** `fetch_sales()` has never reached the
 live API, so the first real run is its first test.
 
+What counts as an active subscriber: a sale with a `subscription_id` that is not
+refunded, not charged back, not disputed-and-lost, and has none of
+`subscription_cancelled_at`, `subscription_ended_at` or `subscription_failed_at`
+set. A membership that simply ran out, or whose card failed to renew, is not
+paying and must not get unlimited runs — checking only the "cancelled" field was
+a defect that has been fixed. Both spellings of the chargeback field are
+accepted, because Gumroad's own docs and client libraries disagree on it by one
+letter.
+
 **Verify:**
 
 ```sql
@@ -415,7 +424,11 @@ Stated plainly, because each of these is a real risk rather than a formality.
   symptom if it is broken is specific: the first run works, and every later run
   says "pass already spent".
 - **`reconcile_subscribers.py` has never reached the live Gumroad API.**
-  `decide()` is unit-tested; `fetch_sales()` pagination is not.
+  `decide()` and `fetch_sales()` pagination are both unit-tested — the latter
+  against a fake Gumroad serving cursor-paginated pages — but the real response
+  shape is taken from Gumroad's documentation, not from a capture. **Read the
+  dry-run diff before `--apply`.** If a sale you know is active shows up as
+  `cancelled`, the field names are the first thing to check.
 - **No Gumroad ping has ever been received**, so the webhook has never met a
   real request. The field set comes from Gumroad's documentation, not a capture.
 - **The landing page has never been loaded in a browser.** Its JavaScript is

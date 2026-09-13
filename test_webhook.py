@@ -20,6 +20,7 @@ return no rows on a repeat, and an upsert keyed on email.
 Usage: /tmp/gateenv/bin/python test_webhook.py
 """
 import importlib.util
+import json
 import os
 import sys
 
@@ -375,6 +376,131 @@ check("on an exact timestamp tie the active sale wins (the safer error)",
 
 out = rec.decide([{"id": "S1", "email": "", "subscription_id": "sub_1"}])
 check("a sale with no email is skipped rather than crashing", out == {}, str(out))
+
+print("\n" + "=" * 74)
+print("decide() against the REAL /v2/sales response shape")
+print("=" * 74)
+# /v2/sales returns created_at, not sale_timestamp. Reading the wrong field
+# makes every sale tie on "", which silently disables the "newest wins" rule.
+api_sale = {"id": "S1", "email": "payer@example.com", "subscription_id": "sub_1",
+            "product_name": "4CBON Pro", "created_at": "2026-09-03T10:00:00Z",
+            "refunded": False, "chargedback": False,
+            "subscription_cancelled_at": None, "subscription_ended_at": None,
+            "subscription_failed_at": None}
+
+out = rec.decide([api_sale])
+check("created_at is read when sale_timestamp is absent",
+      out["payer@example.com"]["sale_timestamp"] == "2026-09-03T10:00:00Z",
+      str(out["payer@example.com"]["sale_timestamp"]))
+
+for field in ("subscription_cancelled_at", "subscription_ended_at",
+              "subscription_failed_at"):
+    out = rec.decide([dict(api_sale, **{field: "2026-09-05T00:00:00Z"})])
+    check(f"{field} set -> not an active subscriber",
+          out["payer@example.com"]["status"] == "cancelled",
+          "a membership that ended or failed to renew is not paying")
+
+# Written as explicit literals on purpose. dict(api_sale, chargebacked=True)
+# does NOT override: "chargedback" and "chargebacked" differ by one letter, so
+# it silently added a second key and the assertion tested nothing at all.
+for spelling in ("chargedback", "chargebacked"):
+    cb = dict(api_sale)
+    cb[spelling] = True
+    out = rec.decide([cb])
+    check(f"a chargeback revokes access (field spelled '{spelling}')",
+          out["payer@example.com"]["status"] == "cancelled",
+          out["payer@example.com"]["status"])
+
+out = rec.decide([dict(api_sale, disputed=True, dispute_won=False)])
+check("an open dispute revokes access", out["payer@example.com"]["status"] == "cancelled")
+out = rec.decide([dict(api_sale, disputed=True, dispute_won=True)])
+check("a WON dispute keeps access", out["payer@example.com"]["status"] == "active")
+
+out = rec.decide([
+    dict(api_sale, id="S1", created_at="2026-09-03T10:00:00Z",
+         subscription_cancelled_at="2026-09-05T00:00:00Z"),
+    dict(api_sale, id="S2", created_at="2026-10-03T10:00:00Z",
+         subscription_cancelled_at=None),
+])
+check("ordering works off created_at, so a later renewal wins",
+      out["payer@example.com"]["status"] == "active"
+      and out["payer@example.com"]["sale_id"] == "S2",
+      out["payer@example.com"]["status"])
+
+out = rec.decide([
+    dict(api_sale, id="S1", created_at="2026-10-03T10:00:00Z"),
+    dict(api_sale, id="S2", created_at="2026-06-02T10:00:00Z",
+         subscription_failed_at="2026-07-01T00:00:00Z"),
+])
+check("an older failed renewal does not override a current one",
+      out["payer@example.com"]["status"] == "active",
+      out["payer@example.com"]["status"])
+
+print("\n" + "=" * 74)
+print("fetch_sales() pagination — the bug that silently truncated")
+print("=" * 74)
+import http.server as _hs
+import threading as _th
+
+PAGES = {
+    "/v2/sales?access_token=t": {
+        "success": True,
+        "sales": [{"id": f"S{i}", "email": f"u{i}@example.com", "subscription_id": "s",
+                   "created_at": f"2026-09-0{i+1}T00:00:00Z"} for i in range(10)],
+        "next_page_url": "/v2/sales?page_key=cursor2",
+    },
+    "/v2/sales?page_key=cursor2": {
+        "success": True,
+        "sales": [{"id": f"S{i}", "email": f"u{i}@example.com", "subscription_id": "s",
+                   "created_at": f"2026-09-{i+1:02d}T00:00:00Z"} for i in range(10, 15)],
+    },
+}
+HITS = []
+
+
+class _PageHandler(_hs.BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+    def do_GET(self):
+        HITS.append(self.path)
+        body = PAGES.get(self.path)
+        if body is None:
+            self.send_response(404)
+            self.end_headers()
+            return
+        raw = json.dumps(body).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+
+_pages = _hs.ThreadingHTTPServer(("127.0.0.1", 0), _PageHandler)
+_th.Thread(target=_pages.serve_forever, daemon=True).start()
+_port = _pages.server_address[1]
+
+_saved_base, _saved_root = rec.API_BASE, rec.API_ROOT
+rec.API_ROOT = f"http://127.0.0.1:{_port}"
+rec.API_BASE = f"{rec.API_ROOT}/v2"
+try:
+    got = rec.fetch_sales("t")
+finally:
+    rec.API_BASE, rec.API_ROOT = _saved_base, _saved_root
+    _pages.shutdown()
+
+check("both pages are followed, not just the first ten sales",
+      len(got) == 15, f"got {len(got)}")
+check("the cursor URL was actually requested",
+      any("page_key=cursor2" in h for h in HITS), str(HITS))
+check("the deprecated page= parameter is not used",
+      not any("page=" in h for h in HITS), str(HITS))
+check("the relative next_page_url was resolved against the API root",
+      len(HITS) == 2 and HITS[1].startswith("/v2/sales?page_key="), str(HITS))
+check("every sale survived the walk",
+      {x["id"] for x in got} == {f"S{i}" for i in range(15)},
+      f"{len(set(x['id'] for x in got))} distinct ids")
 
 print("\n" + "=" * 74)
 print(f"ran {CHECKS} checks")

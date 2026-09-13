@@ -39,8 +39,12 @@ import urllib.request
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-API_BASE = "https://api.gumroad.com/v2"
+API_ROOT = "https://api.gumroad.com"
+API_BASE = f"{API_ROOT}/v2"
 TIMEOUT = 20
+# Ten sales per page, so this is ~5,000 sales. A hard stop beats an
+# infinite loop if the cursor ever fails to terminate.
+MAX_PAGES = 500
 
 
 class ReconcileError(Exception):
@@ -48,6 +52,27 @@ class ReconcileError(Exception):
 
 
 # ── the decision, in one testable function ────────────────────────
+# /v2/sales returns `created_at`; the Ping and license-verify payloads use
+# `sale_timestamp`. Accept either rather than guessing which endpoint we are
+# reading — reading the wrong one silently makes every sale tie on "".
+TIMESTAMP_FIELDS = ("created_at", "sale_timestamp")
+
+# Three separate ways a subscription stops, and all three mean "not paying".
+# Checking only the first was a real defect: a membership that ended on its own,
+# or whose card failed to renew, would have been granted unlimited runs.
+ENDED_FIELDS = ("subscription_cancelled_at",   # cancelled by customer or creator
+                "subscription_ended_at",       # fixed-length membership ran out
+                "subscription_failed_at")      # renewal failed, usually a card error
+
+
+def _timestamp(sale: Dict[str, Any]) -> str:
+    for field in TIMESTAMP_FIELDS:
+        value = sale.get(field)
+        if value:
+            return str(value)
+    return ""
+
+
 def decide(sales: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     """Turn a list of Gumroad sales into {email: entitlement}.
 
@@ -55,12 +80,13 @@ def decide(sales: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
 
       * a subscription (carries a `subscription_id`) — a one-off purchase of a
         monthly product is not an open-ended entitlement;
-      * not refunded;
-      * not cancelled (`subscription_cancelled_at` empty).
+      * not refunded and not charged back;
+      * not disputed, unless the dispute was won;
+      * not ended by any of the three subscription-end timestamps.
 
     Everything else resolves to `cancelled`, which `is_active_subscriber()`
-    treats as the free tier. An email is only ever written once, keyed on the
-    newest qualifying sale, so repeated runs are stable.
+    treats as the free tier. An email is written once, keyed on the newest
+    qualifying sale, so repeated runs are stable.
     """
     out: Dict[str, Dict[str, Any]] = {}
     for sale in sales:
@@ -68,17 +94,25 @@ def decide(sales: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         if not email:
             continue
 
-        refunded = _truthy(sale.get("refunded"))
-        cancelled_at = sale.get("subscription_cancelled_at")
         is_subscription = bool(sale.get("subscription_id"))
-        active = bool(is_subscription and not refunded and not cancelled_at)
+        refunded = _truthy(sale.get("refunded"))
+        # Both spellings, deliberately. Gumroad's own docs and client libraries
+        # do not agree on whether this field is "chargedback" or "chargebacked",
+        # and the two differ by a single letter. Guessing wrong silently
+        # disables a control that decides whether someone pays — so accept
+        # either rather than pick one.
+        chargebacked = _truthy(sale.get("chargedback")) or _truthy(sale.get("chargebacked"))
+        disputed = _truthy(sale.get("disputed")) and not _truthy(sale.get("dispute_won"))
+        ended = any(sale.get(f) for f in ENDED_FIELDS)
 
-        stamp = str(sale.get("sale_timestamp") or "")
+        active = bool(is_subscription and not refunded and not chargebacked
+                      and not disputed and not ended)
+        stamp = _timestamp(sale)
         status = "active" if active else "cancelled"
 
         current = out.get(email)
-        # A later sale wins. If two sales tie on timestamp, prefer the active
-        # one: downgrading a paying customer on a tie is the worse error.
+        # A later sale wins. On an exact tie prefer the active one: downgrading
+        # a paying customer is the worse of the two errors.
         if current is not None:
             if stamp < current["sale_timestamp"]:
                 continue
@@ -88,7 +122,7 @@ def decide(sales: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         out[email] = {
             "email": email,
             "status": status,
-            "sale_id": str(sale.get("id") or ""),
+            "sale_id": str(sale.get("id") or sale.get("sale_id") or ""),
             "subscription_id": str(sale.get("subscription_id") or "") or None,
             "product_name": sale.get("product_name"),
             "sale_timestamp": stamp or None,
@@ -104,14 +138,30 @@ def _truthy(value: Any) -> bool:
 
 # ── Gumroad API ───────────────────────────────────────────────────
 def fetch_sales(access_token: str, product_permalink: str = "") -> List[Dict[str, Any]]:
-    """Read every sale through the API. Paginated; Gumroad caps page size."""
+    """Read every sale through the API.
+
+    Gumroad paginates `/v2/sales` with a cursor: the response carries
+    `next_page_url` (a path like `/v2/sales?page_key=...`) which has to be
+    followed, and results come back ten at a time. The older `page=N` parameter
+    is deprecated. An earlier version of this function incremented `page` and
+    looked for a `next_url` key that does not exist, so it always stopped after
+    the first ten sales — invisible on a small account and silently truncating
+    on a large one.
+    """
+    params = {"access_token": access_token}
+    if product_permalink:
+        params["product_permalink"] = product_permalink
+    url = f"{API_BASE}/sales?{urllib.parse.urlencode(params)}"
+
     sales: List[Dict[str, Any]] = []
-    page = 1
-    while True:
-        params = {"access_token": access_token, "page": str(page)}
-        if product_permalink:
-            params["product_permalink"] = product_permalink
-        url = f"{API_BASE}/sales?{urllib.parse.urlencode(params)}"
+    pages = 0
+    while url:
+        pages += 1
+        if pages > MAX_PAGES:
+            raise ReconcileError(
+                f"stopped after {MAX_PAGES} pages; the cursor never ended. "
+                "Nothing was written — this is a bug, not a data condition.")
+
         request = urllib.request.Request(url, headers={"Accept": "application/json"})
         try:
             with urllib.request.urlopen(request, timeout=TIMEOUT) as resp:
@@ -126,9 +176,12 @@ def fetch_sales(access_token: str, product_permalink: str = "") -> List[Dict[str
 
         batch = payload.get("sales") or []
         sales.extend(batch)
-        if len(batch) < 10 or not payload.get("next_url"):
+
+        # next_page_url is a path, not an absolute URL.
+        nxt = payload.get("next_page_url") or payload.get("next_url") or ""
+        if not batch or not nxt:
             break
-        page += 1
+        url = nxt if nxt.startswith("http") else f"{API_ROOT}{nxt}"
     return sales
 
 
