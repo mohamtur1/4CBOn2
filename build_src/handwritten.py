@@ -972,7 +972,7 @@ OPTIONAL_KEY_NAMES = ["CALENDAR_API_KEY", "CRM_API_KEY", "COMM_API_KEY", "VISION
                       "DOCUSIGN_API_KEY", "SOCIAL_SCRAPER_API_KEY", "SEO_API_KEY",
                       "S3_VAULT_KEY", "PUBMED_API_KEY"]
 
-with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition", js=GATE_BRIDGE_JS) as demo:
+with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
     # Hidden, and deliberately not a gr.State: the parent page has to be able
     # to write a fresh single-use pass into it over postMessage before each run.
     gate_pass_box = gr.Textbox(value="", visible=False, elem_id="cbon-pass-box",
@@ -1475,9 +1475,22 @@ with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition", js=GATE_BRID
             research indexes are reseeded automatically on every boot.
             """)
 
-# Seed the pass from the iframe URL once per page load. Later passes arrive
-# over postMessage, because this one is spent by the first run.
-demo.load(fn=gate_capture_pass, inputs=None, outputs=[gate_pass_box])
+    # Seed the pass from the iframe URL once per page load. Later passes arrive
+    # over postMessage, because this one is spent by the first run.
+    #
+    # Two constraints here are load-bearing, and both were gotten wrong once:
+    #
+    #   * This must stay INSIDE the `with gr.Blocks(...) as demo:` block. Gradio
+    #     registers events against the active Blocks context, so calling .load()
+    #     at module level raises "Cannot call load outside of a gradio.Blocks
+    #     context" and the Space dies before it serves a single request.
+    #   * `js` rides along on this event, not on the Blocks constructor. Gradio
+    #     6.0 moved the parameter to launch()/events and only warns when it is
+    #     passed to Blocks — so putting it there silently drops the pass bridge,
+    #     the first run works off the ?pass= in the iframe URL and every run
+    #     after that fails with "Sign in to run this."
+    demo.load(fn=gate_capture_pass, inputs=None, outputs=[gate_pass_box],
+              js=GATE_BRIDGE_JS)
 
 demo.queue()
 demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", 7860)))

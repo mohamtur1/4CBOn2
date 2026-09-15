@@ -1,0 +1,768 @@
+================================================================================
+4CBON2 — AI-DRIVEN DEPLOYMENT WALKTHROUGH
+Prepared 2026-09-15 for mohamtur1, to be driven step-by-step by an AI assistant
+================================================================================
+
+--------------------------------------------------------------------------------
+HOW TO USE THIS FILE (read this first, AI)
+--------------------------------------------------------------------------------
+You are walking a non-programmer through a deployment. Rules for you:
+
+1. Do ONE numbered step at a time. Wait for them to confirm before the next.
+2. Every step has a VERIFY block. Never move on until VERIFY passes. If it
+   fails, stop and diagnose — do not stack more changes on top.
+3. Never ask them for passwords, API keys, tokens or 2FA codes in chat. When a
+   secret is needed, tell them to paste it into the dashboard field themselves
+   and only report back "done".
+4. Say the click-path out loud: "In the left sidebar click X, then the tab Y".
+5. If a step says BLOCKER, it must be finished before anything downstream.
+
+--------------------------------------------------------------------------------
+THE OBJECTIVE, IN ONE SENTENCE
+--------------------------------------------------------------------------------
+A visitor lands on 4cbon.com, signs in, clicks "Run 4CBOn2", and the real
+3,572-line app (space_gemini/app.py) opens from the Hugging Face Space
+mangathpup/4cbon2-app — with Vercel (app.4cbon.com) acting as the gatekeeper
+that counts runs and checks Supabase for entitlement.
+
+--------------------------------------------------------------------------------
+THE CHAIN THAT MUST WORK
+--------------------------------------------------------------------------------
+  visitor  ->  4cbon.com            (landing page, docs/index.html)
+           ->  app.4cbon.com        (Vercel: login + gate, mints a one-time pass)
+           ->  Supabase             (who are you, how many runs left, subscribed?)
+           ->  mangathpup-4cbon2-app.hf.space/?pass=XXXX   (the actual app runs)
+           ->  the Space calls back to app.4cbon.com/api/consume to spend the pass
+
+Every arrow above is a separate thing that can break. This file is ordered so
+that each arrow is proven before the next one is attempted.
+
+================================================================================
+PHASE 0 — BLOCKER: THE APP CANNOT BOOT ON HUGGING FACE  [DO THIS FIRST]
+================================================================================
+
+STATUS: REPRODUCED AND ROOT-CAUSED. Fix is verified but NOT yet applied.
+
+Nothing else in this file matters until this is fixed. No amount of Vercel or
+Supabase configuration can help an app that dies before it starts serving.
+
+0.1  WHAT IS ACTUALLY WRONG
+--------------------------------------------------------------------------------
+The gated app.py contains TWO defects, both introduced by commit 2afff5e
+("Real run-limit enforcement, accounts, and a working Gumroad webhook",
+2026-09-13 02:41).
+
+DEFECT A — FATAL, this is your "Runtime error"
+  The line that seeds the run pass sits OUTSIDE the Gradio Blocks context:
+
+      with gr.Blocks(...) as demo:
+          ...  (3,500 lines of UI, all indented)
+
+      demo.load(fn=gate_capture_pass, inputs=None, outputs=[gate_pass_box])   <-- column 0
+
+  Gradio refuses this. On boot it raises:
+
+      AttributeError: Cannot call load outside of a gradio.Blocks context.
+
+  The process exits. Hugging Face shows "Runtime error". This is exactly what
+  you saw when you pasted the file in.
+
+DEFECT B — SILENT, this would break every run after the first one
+  The bridge JavaScript is attached to the Blocks constructor:
+
+      with gr.Blocks(title="...", js=GATE_BRIDGE_JS) as demo:
+
+  Gradio 6.0 MOVED the `js` parameter off Blocks and onto launch(). Gradio only
+  prints a warning and drops it:
+
+      UserWarning: The parameters have been moved from the Blocks constructor
+      to the launch() method in Gradio 6.0: js.
+
+  That JavaScript is the postMessage bridge that asks the parent page for a
+  fresh one-time pass before each run. If it never loads, the very first run
+  works (it uses the ?pass= in the iframe URL) and every run after that fails
+  with "Sign in to run this." — a much more confusing bug to chase later.
+
+0.2  WHERE TO FIX IT (important — do not edit the wrong file)
+--------------------------------------------------------------------------------
+space_gemini/app.py is a GENERATED file. It is rebuilt from
+build_src/handwritten.py by build_gemini_space.py.
+
+  If you edit space_gemini/app.py directly, the next regeneration silently
+  puts the bug back.
+
+  Fix the SOURCE:  build_src/handwritten.py  lines 975 and 1480
+  Then regenerate: python3 build_gemini_space.py
+
+0.3  THE FIX (verified — see 0.4)
+--------------------------------------------------------------------------------
+EDIT 1 — build_src/handwritten.py line 975. Remove `js=GATE_BRIDGE_JS`:
+
+  BEFORE:
+    with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition", js=GATE_BRIDGE_JS) as demo:
+
+  AFTER:
+    with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
+
+EDIT 2 — build_src/handwritten.py line 1480. Indent it into the Blocks block
+and move the JavaScript onto the load event:
+
+  BEFORE (at column 0):
+    # Seed the pass from the iframe URL once per page load. Later passes arrive
+    # over postMessage, because this one is spent by the first run.
+    demo.load(fn=gate_capture_pass, inputs=None, outputs=[gate_pass_box])
+
+  AFTER (indented 4 spaces, so it is INSIDE the `with gr.Blocks` block):
+        # Seed the pass from the iframe URL once per page load. Later passes arrive
+        # over postMessage, because this one is spent by the first run. `js` rides
+        # along here because Gradio 6 moved it off the Blocks constructor.
+        demo.load(fn=gate_capture_pass, inputs=None, outputs=[gate_pass_box],
+                  js=GATE_BRIDGE_JS)
+
+  The `demo.queue()` and `demo.launch(...)` lines stay at column 0, unchanged.
+
+VERIFY (local, before pushing to Hugging Face)
+--------------------------------------------------------------------------------
+  python3 build_gemini_space.py
+  Expect: "Wrote space_gemini/app.py (3574 lines ...)" and "Syntax compiles."
+
+  Then boot it for real — this is the check that matters:
+  (use a Python environment with the Space's requirements.txt installed)
+
+      PORT=7864 python space_gemini/app.py
+
+  PASS = you see "Running on local URL:  http://0.0.0.0:7864"
+         and NO Traceback and NO UserWarning above it.
+  FAIL = any Traceback. Stop and report the last 10 lines.
+
+0.4  WHAT WAS ALREADY PROVEN ABOUT THIS FIX
+--------------------------------------------------------------------------------
+Tested 2026-09-15 in a clean virtualenv with the Space's exact pinned set:
+gradio 6.27.0, chromadb 1.5.9, pydantic 2.12.3, google-genai 2.8.0
+(`pip check` reports no conflicts).
+
+  * Unmodified app.py            -> exits in 4.8s with the AttributeError above.
+  * With the two edits applied   -> boots clean, serves on :7864, zero
+                                    warnings, zero tracebacks.
+  * Applied to build_src/handwritten.py and regenerated -> still boots clean.
+    So the fix survives a rebuild.
+
+  For comparison, the older WORKING version (branch arena/01a07ef3-4cbon2,
+  3,344 lines) boots clean in the same environment. That confirms the
+  environment is fine and the gate commit is what broke it.
+
+0.5  ALSO BROKEN: THE TEST SUITE IS STALE  [fix in the same change]
+--------------------------------------------------------------------------------
+The gate commit added a new `gate_pass` parameter to three functions but never
+updated the test that calls them. test_gemini_space.py now fails with:
+
+      TypeError: run_agent() missing 1 required positional argument: 'gate_pass'
+
+9 call sites in test_gemini_space.py need a `""` (empty pass) inserted in the
+gate_pass position:
+
+  run_agent(...)              lines 344, 406, 458, 548, 557   (5 sites)
+  ask_five_lens(...)          line  561                       (1 site)
+  run_public_rewriter_ui(...) lines 566, 570, 572             (3 sites)
+
+0.6  WHY THIS SHIPPED BROKEN  (so it does not happen again)
+--------------------------------------------------------------------------------
+Two reasons, both structural:
+
+  * build_gemini_space.py line 581 only calls compile(app, "app.py", "exec").
+    A syntax check cannot catch a runtime AttributeError. The build reported
+    "Syntax compiles" and everyone moved on.
+  * test_space_gate.py (46 checks) loads the gate functions in isolation and
+    only compile()s the generated app. It PASSES on the broken file.
+    test_gemini_space.py is the only test that actually executes app.py — and
+    it was evidently never run in an environment that had gradio installed
+    (without gradio it skips silently).
+
+  RECOMMENDATION: make "the app boots" part of the build. A single
+  `python space_gemini/app.py` smoke test with a 60s timeout would have caught
+  this before it reached Hugging Face.
+
+0.7  THEN PUSH TO HUGGING FACE
+--------------------------------------------------------------------------------
+Only after 0.3's VERIFY passes locally:
+  1. Push the fixed space_gemini/app.py to the Space mangathpup/4cbon2-app.
+  2. Space -> Settings -> Variables and secrets (see Phase 5).
+  3. Space -> three-dot menu -> Restart (or "Factory rebuild").
+     Gradio reads environment variables at BOOT, not per request. A restart is
+     mandatory after changing secrets.
+
+VERIFY
+  Open https://mangathpup-4cbon2-app.hf.space directly in a browser.
+  PASS = the 4CBON2 interface loads.
+  FAIL = "Runtime error" again -> open the Space's Logs tab, copy the last
+         20 lines of the traceback, and stop.
+
+  Note: opened directly (not through app.4cbon.com) the app will load fine but
+  every run will say "This Space is not connected to its run gate" or
+  "Sign in to run this." That is CORRECT at this stage — Phase 5 fixes it.
+  What you are checking here is only that it BOOTS.
+
+================================================================================
+PHASE 1 — SUPABASE: RUN THE MIGRATION
+================================================================================
+
+The database schema lives in the repo. It must be applied to your project.
+
+1.1  WHICH FILES
+--------------------------------------------------------------------------------
+  supabase/4cbon2.sql         full schema — 9 tables:
+                              admin_emails, beliefs, feedback, gate_passes,
+                              gumroad_pings, questions, run_limits, run_usage,
+                              subscriptions
+  supabase/access_control.sql row-level security + revokes anonymous read
+                              access on the 4 sensitive tables
+                              (admin_emails, gate_passes, gumroad_pings,
+                               run_usage)
+  vercel/supabase.sql         same 9 tables — kept in sync, test_sql_sync.py
+                              checks this
+
+  Run BOTH, in that order. access_control.sql is what stops an anonymous
+  visitor from reading other people's run counts.
+
+1.2  CLICK-PATH
+--------------------------------------------------------------------------------
+  Supabase dashboard -> your project (olnnmmuvpehjqkvrhypn) ->
+  SQL Editor (left sidebar) -> New query ->
+  paste the whole of supabase/4cbon2.sql -> Run.
+  Then New query again -> paste access_control.sql -> Run.
+
+VERIFY
+  Table Editor (left sidebar) shows all 9 tables.
+  Then, in SQL Editor:
+      select count(*) from run_usage;
+      select count(*) from gate_passes;
+  Both should return a number (0 is fine), not an error.
+
+  Also confirm your admin row exists:
+      select * from admin_emails;
+  Expect one row for mohamtur1@gmail.com. If absent:
+      insert into admin_emails (email) values ('mohamtur1@gmail.com');
+
+================================================================================
+PHASE 2 — GOOGLE LOGIN (only if you want "Sign in with Google")
+================================================================================
+
+Email + password login works without this. Do Phase 2 only if you want the
+Google button. Full click-paths are already written in OAUTH_SETUP.md Parts A
+and B — follow those. Summary:
+
+2.1  Google Cloud Console (console.cloud.google.com)
+  * APIs & Services -> OAuth consent screen: External, add your domain,
+    add scope .../auth/userinfo.email, publish it.
+  * APIs & Services -> Credentials -> Create credentials -> OAuth client ID
+    -> Web application.
+  * Authorized JavaScript origins:  https://app.4cbon.com
+  * Authorized redirect URIs:       https://app.4cbon.com/api/auth/callback
+                                    https://olnnmmuvpehjqkvrhypn.supabase.co
+                                      /auth/v1/callback
+  * Copy the Client ID and Client Secret.
+
+2.2  Supabase
+  * Authentication -> Providers -> Google -> Enable, paste Client ID + Secret.
+  * Authentication -> Providers -> Email -> make sure it is Enabled too.
+  * Authentication -> URL Configuration:
+      Site URL:        https://app.4cbon.com
+      Redirect URLs:   https://app.4cbon.com/**
+
+VERIFY
+  Supabase -> Authentication -> Providers: both Google and Email show Enabled.
+
+================================================================================
+PHASE 3 — GENERATE THE TWO SECRETS
+================================================================================
+
+Two random strings, 32+ characters each. Generate them locally, for example:
+
+    python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+
+Run it twice. Label them:
+  * GATE_SHARED_SECRET      — signs the one-time passes
+  * GUMROAD_WEBHOOK_SECRET  — proves Gumroad pings are genuine
+
+Store both somewhere safe now; you will paste each into two different
+dashboards (Vercel, and Gumroad for the second one).
+
+DO NOT put these in chat. Paste them straight into the dashboard fields.
+
+================================================================================
+PHASE 4 — VERCEL ENVIRONMENT VARIABLES  [the step that fixes your live site]
+================================================================================
+
+4.1  CLICK-PATH
+--------------------------------------------------------------------------------
+  vercel.com -> your dashboard -> the project that owns app.4cbon.com
+  -> Settings -> Environment Variables
+  -> set Scope to Production for every one of these
+  -> Add each variable -> Save
+
+  *** YOU MUST REDEPLOY AFTERWARDS. ***
+  Vercel does NOT apply new environment variables to a running deployment.
+  Deployments tab -> latest deployment -> three-dot menu -> Redeploy.
+  Skipping this is the single most common reason "I set it and nothing changed."
+
+4.2  THE VALUES
+--------------------------------------------------------------------------------
+  Variable                        Value
+  ------------------------------  ------------------------------------------------
+  SUPABASE_URL                    https://olnnmmuvpehjqkvrhypn.supabase.co
+  SUPABASE_SERVICE_ROLE_KEY       (from Supabase -> Settings -> API, service_role)
+  SUPABASE_ANON_KEY               (from the same page, anon/public key)
+  SUPABASE_SECRET_KEY             (only if your project shows an sb_secret_ key)
+  SUPABASE_JWT_SECRET             LEAVE UNSET — the code uses JWKS by default
+  GATE_SHARED_SECRET              (from Phase 3)
+  SPACE_URL                       https://mangathpup-4cbon2-app.hf.space
+  GUMROAD_URL                     https://4175358678144.gumroad.com/l/tbphpi
+  GUMROAD_WEBHOOK_SECRET          (from Phase 3)
+  ADMIN_EMAIL                     mohamtur1@gmail.com
+  PUBLIC_URL                      https://app.4cbon.com
+  COOKIE_SECURE                   true
+
+4.3  *** CORRECTION ON SPACE_URL — READ THIS ***
+--------------------------------------------------------------------------------
+  An earlier note told you SPACE_URL should be
+  "https://mohamtur1-4cbon2-gemini.hf.space".  THAT IS WRONG.
+
+  That string appears ONLY inside test fixtures (test_auth.py line 241,
+  test_gate.py line 248) as a fake placeholder. It is not a real Space.
+
+  The correct value is the Space you actually own:
+
+      SPACE_URL = https://mangathpup-4cbon2-app.hf.space
+
+  This is confirmed by HANDOVER.md line 166 and OAUTH_SETUP.md line 208, and it
+  matches the Space you gave: huggingface.co/spaces/mangathpup/4cbon2-app.
+
+  No trailing slash.
+
+4.4  WHY THIS MATTERS SO MUCH
+--------------------------------------------------------------------------------
+  vercel/vercel.json line 109 ships with  "SPACE_URL": ""  (empty).
+
+  vercel/api/gate.py line 164-165 only adds the Space URL to its answer when
+  SPACE_URL is non-empty:
+
+      if SPACE_URL:
+          body["url"] = f"{SPACE_URL}/?pass={pass_token}"
+
+  So with SPACE_URL empty, /api/pass answers "allowed: true" but hands back NO
+  url. The landing page then falls through to its own fallback and you get the
+  1-tab Vercel mini-app instead of your real app. This is precisely the
+  mismatch you noticed.
+
+VERIFY (these need no login and isolate the layers one at a time)
+--------------------------------------------------------------------------------
+  1. Gate is up and sees its config — EVERY field must be true:
+       curl -s https://app.4cbon.com/api/gate/health | python3 -m json.tool
+     Look for "space_url": true. If it says false, SPACE_URL is still empty or
+     you did not redeploy.
+
+  2. Auth function is up:
+       curl -s https://app.4cbon.com/api/auth/health | python3 -m json.tool
+
+  3. No credentials -> must be 401, NOT 200:
+       curl -s -o /dev/null -w '%{http_code}\n' -X POST https://app.4cbon.com/api/pass
+     401 = the route correctly reaches the gate function.
+     200 = it fell through to the Gradio catch-all; the routes are wrong.
+
+  4. A junk token -> 401 invalid_session, not a 500 crash:
+       curl -s -X POST https://app.4cbon.com/api/pass -H 'Authorization: Bearer not.a.token'
+
+================================================================================
+PHASE 5 — HUGGING FACE SPACE SECRETS
+================================================================================
+
+5.1  CLICK-PATH
+--------------------------------------------------------------------------------
+  huggingface.co/spaces/mangathpup/4cbon2-app -> Settings
+  -> Variables and secrets -> New secret (or New variable)
+
+  Variable                     Value
+  ---------------------------  ------------------------------------------------
+  FOURCBON2_GATE_URL           https://app.4cbon.com
+  GEMINI_API_KEY               (your Google Generative AI key, if not already set)
+  FOURCBON2_GATE_FAIL_OPEN     DO NOT SET. Defaults to false. Setting it to
+                               "true" hands out free uncounted runs.
+  FOURCBON2_GATE_TIMEOUT       optional, seconds, default 8
+  FOURCBON2_HOME_URL           optional, default https://app.4cbon.com
+
+  FOURCBON2_DATA_DIR, FOURCBON2_AGENT_DEADLINE and FOURCBON2_HEARTBEAT may
+  already exist. Leave them alone; they are unrelated to the gate.
+
+5.2  WHY FOURCBON2_GATE_URL IS NON-NEGOTIABLE
+--------------------------------------------------------------------------------
+  space_gemini/app.py fails CLOSED on purpose. If FOURCBON2_GATE_URL is unset,
+  every single run is refused with:
+
+      "This Space is not connected to its run gate."
+
+  That is the intended safety behaviour, not a bug. Without this variable the
+  app boots but nothing runs.
+
+5.3  RESTART THE SPACE
+--------------------------------------------------------------------------------
+  Settings -> (bottom) Restart space, or the three-dot menu -> Restart.
+  Gradio reads environment variables at boot. Changing a secret without a
+  restart does nothing.
+
+VERIFY
+  Open https://mangathpup-4cbon2-app.hf.space directly.
+  Ask it any question. You should now get either
+      "Sign in to run this."        <- correct, no pass was supplied
+  and NOT
+      "This Space is not connected to its run gate."   <- FOURCBON2_GATE_URL unset
+      "The run gate is unreachable" <- Vercel could not reach Supabase; fix
+                                      the VERCEL env, not the Space.
+
+================================================================================
+PHASE 6 — CLOUDFLARE / DNS
+================================================================================
+
+6.1  CURRENT STATE (verified 2026-09-15)
+--------------------------------------------------------------------------------
+  DNS lookups from this workspace resolve as follows:
+
+    4cbon.com                     -> 2606:4700:3031::6815:2ed0  (Cloudflare)
+    www.4cbon.com                 -> 2606:4700:3034::ac43:8e18  (Cloudflare)
+    app.4cbon.com                 -> 2606:4700:3034::ac43:8e18  (Cloudflare)
+    mangathpup-4cbon2-app.hf.space-> 184.193.6.210, 52.202.158.149
+
+  So all three of your domains are proxied through Cloudflare and the Space has
+  real addresses. That much is confirmed.
+
+  WHAT COULD NOT BE CHECKED: this workspace has no outbound HTTP. Every live
+  request returned status 000, including to 4cbon.com, app.4cbon.com and
+  4-cb-on2.vercel.app. So whether those three hostnames currently serve the
+  RIGHT content is UNVERIFIED. You must check it in a browser. Phase 6.2 tells
+  you exactly what to look for.
+
+6.2  WHAT TO CONFIRM IN YOUR BROWSER
+--------------------------------------------------------------------------------
+  Open each of these and note what you see:
+
+  a) https://www.4cbon.com
+     EXPECTED: the light-blue landing page titled
+     "4CBON2 — An Agent. Request Custom Agents." (that is docs/index.html,
+     247 lines, 18 KB).
+     You said this already works. Confirm the title bar matches.
+
+  b) https://app.4cbon.com
+     EXPECTED: the dark landing page with a Sign in button
+     (that is vercel/public/index.html, 1,561 lines, 53 KB — the one with the
+     login modal and the iframe shell).
+     If you instead see "Landing page not found." then public/index.html did
+     not get bundled into the Vercel function. See 6.3.
+
+  c) Confirm app.4cbon.com really is the Vercel project:
+       curl -sI https://app.4cbon.com | grep -i 'server\|x-vercel'
+     A header containing "x-vercel" confirms it.
+
+6.3  IF app.4cbon.com SHOWS "Landing page not found."
+--------------------------------------------------------------------------------
+  vercel/api/index.py line 41 reads the landing page from INSIDE the function
+  bundle at runtime:
+
+      landing_path = os.path.join(os.path.dirname(__file__), "..", "public", "index.html")
+
+  Nothing tells the Python runtime to include that non-imported HTML file, so
+  it can be missing from the deployed bundle.
+
+  vercel/vercel.json already declares a static build for it:
+      { "src": "public/**", "use": "@vercel/static" }
+
+  If the message still appears, the fix is to make the bundling explicit —
+  add to the api/index.py build config in vercel.json:
+      "includeFiles": "public/**"
+  Then redeploy.
+
+6.4  THE DECISION YOU STILL OWE  (landing page — pick one, then tell me)
+--------------------------------------------------------------------------------
+  Right now 4cbon.com and app.4cbon.com serve two UNRELATED pages:
+
+                                 docs/index.html        vercel/public/index.html
+  -----------------------------  ---------------------  -------------------------
+  Title                          "An Agent. Request     "The AI That Loops Until
+                                 Custom Agents."        It's Right"
+  Size                           18 KB / 247 lines      53 KB / 1,561 lines
+  Look                           light #f6fbfc, Inter   near-black, DM Mono
+  Login modal                    NO                     YES
+  iframe shell for the Space     NO                     YES
+  Calls /api/pass                NO                     YES
+  "Try free" points at           https://app.4cbon.com  /app
+                                 (4 links)              (3 links)
+
+  docs/index.html has NO login and NO gate wiring at all — grep confirms it
+  calls zero /api/ endpoints. So it cannot on its own drive a counted run.
+
+  Options:
+    A. Adopt the docs/index.html design and copy, and graft the login modal,
+       the iframe shell, the /api/pass call and the postMessage bridge onto it.
+       Most work. Result: the page you designed, wired to the real app.
+       RECOMMENDED — it is the only option that satisfies "Vercel should use
+       docs/index.html to access the Space".
+    B. Copy docs/index.html byte-for-byte onto Vercel. Fast, but it DELETES the
+       paywall (14 landing-page checks in test_auth.py would fail), and its four
+       "Try free" links point at https://app.4cbon.com — which IS app.4cbon.com,
+       so a visitor there clicking "Try free" reloads the same page forever.
+    C. Keep the dark page as-is. Zero risk, but it is not the design you asked
+       for.
+
+  Do NOT decide this under time pressure. Phases 0-5 are what make the product
+  run at all. This is a design question you can settle afterwards.
+
+================================================================================
+PHASE 7 — THE BUTTON RELABEL YOU ASKED FOR
+================================================================================
+
+You asked: when a user subscribes, "Try free ↗" and "Try Free — 3 runs →"
+should both read "Run 4CBOn2".
+
+7.1  EXACT LOCATIONS IN docs/index.html
+--------------------------------------------------------------------------------
+  line 143   <a ... href="https://app.4cbon.com" ...>Try free ↗</a>          (top nav)
+  line 156   <a ... href="https://app.4cbon.com" ...>Try Free — 3 runs →</a> (hero)
+  line 222   <a ... href="https://app.4cbon.com" ...>Try Free</a>            (pricing, Free tier)
+  line 237   <a ... href="https://app.4cbon.com" ...>Open Request Form →</a> (custom agents)
+
+  All four currently point at https://app.4cbon.com.
+
+7.2  IMPORTANT: A STATIC PAGE CANNOT KNOW WHO IS SUBSCRIBED
+--------------------------------------------------------------------------------
+  docs/index.html is a plain HTML file served by Cloudflare. It has no session,
+  no cookie access and no JavaScript that talks to Vercel — it calls zero
+  /api/ endpoints. So it literally cannot tell whether the visitor is a
+  subscriber.
+
+  To get the behaviour you want, one of these must happen:
+
+    (i)  Add a small script to docs/index.html that calls
+         GET https://app.4cbon.com/api/auth/session on load and rewrites the
+         button labels.
+         GOOD NEWS: the Vercel CORS config ALREADY allows your origins.
+         vercel/api/index.py lines 25-26 list "https://4cbon.com" and
+         "https://www.4cbon.com", and allow_credentials is True (line 31). So
+         no CORS change is needed — only the script on the page.
+         NOTE: a cross-subdomain cookie (4cbon.com -> app.4cbon.com) still needs
+         SameSite=None and Secure, and the cookie's Domain must be set to
+         .4cbon.com. This is a real piece of work, not a one-liner.
+
+    (ii) Simpler and more robust: leave the buttons alone and let the
+         DESTINATION handle it. Everyone clicks the same button; app.4cbon.com
+         already knows who you are and can show "Run 4CBOn2" or the upgrade
+         prompt. The label on the marketing page stays generic.
+
+    (iii) Cheapest honest option: rename the labels unconditionally to
+         "Run 4CBOn2" now, and drop the "— 3 runs" wording entirely, since the
+         run limit is enforced by the gate regardless of what the button says.
+
+  RECOMMENDATION: (iii) now, (i) later if you want the label to be
+  personalised. Do not attempt (i) before Phases 0-5 are green.
+
+7.3  IF YOU CHOOSE (iii), THE EDITS ARE
+--------------------------------------------------------------------------------
+  line 143:  Try free ↗            ->  Run 4CBOn2 ↗
+  line 156:  Try Free — 3 runs →   ->  Run 4CBOn2 →
+  line 222:  Try Free              ->  Run 4CBOn2
+  Leave line 237 ("Open Request Form") alone — that is a different action.
+
+  Then commit and push; Cloudflare Pages redeploys docs/ automatically.
+
+  CAVEAT: test_auth.py contains 14 checks against the Vercel landing page.
+  Those target vercel/public/index.html, NOT docs/index.html, so editing
+  docs/index.html does not break them. Confirm by running:
+      python3 test_auth.py
+
+================================================================================
+PHASE 8 — GUMROAD (payments)
+================================================================================
+
+8.1  Set the Ping URL
+  Gumroad -> your product -> Advanced / Ping settings ->
+  Ping URL:  https://app.4cbon.com/api/gumroad-webhook
+  Shared secret: the GUMROAD_WEBHOOK_SECRET from Phase 3 (must match exactly
+  what is in Vercel).
+
+8.2  Backfill your existing paying subscriber
+  A Ping only fires on NEW sales. Anyone who already paid has no
+  subscriptions row. Use the tool in the repo:
+      python3 tools/reconcile_subscribers.py
+  Read its --help first and do a dry run before writing anything.
+
+8.3  Test without a real charge
+  See OAUTH_SETUP.md Part F3.
+
+VERIFY
+  After a test ping:
+      select * from gumroad_pings order by received_at desc limit 5;
+      select * from subscriptions;
+  Both should show the test event.
+
+================================================================================
+PHASE 9 — END-TO-END, AS A REAL VISITOR
+================================================================================
+
+Do these in order. Each one isolates a different layer.
+
+  1. Open https://app.4cbon.com
+     -> the dark page with Sign in loads. No "Landing page not found."
+
+  2. Sign in (email + password is simplest to start).
+     -> you stay on app.4cbon.com, you are logged in.
+
+  3. Click "Try free" / the run button.
+     -> the Space loads INSIDE the page in an iframe, and the address in the
+        frame is mangathpup-4cbon2-app.hf.space/?pass=<something>
+     If instead the whole page navigates away to the bare hf.space URL, the
+     postMessage bridge is not loaded — check DEFECT B in Phase 0.
+
+  4. Ask it a question inside the frame.
+     -> you get a real answer from the 3,572-line app (9 tabs: Ask a Question,
+        Agent Mode, Rewriter, Data Dashboard, Agent Status, Request Custom
+        Agent, Diagnostics, etc.)
+     NOT the 1-tab Vercel mini-app. If you get one tab, SPACE_URL is still
+     empty or you did not redeploy. Go back to Phase 4.
+
+  5. Watch the counter move. In Supabase SQL Editor:
+       select * from run_usage order by used_at desc limit 5;
+     -> one row per run.
+
+  6. Burn all 3 free runs, then try a 4th.
+     -> "Daily limit reached. You have used 3 of 3 runs today."
+     This is the whole point of the exercise. If run 4 succeeds, the gate is
+     not being consulted.
+
+  7. Confirm a pass is single-use. Grab one and replay it:
+       curl -s -X POST https://app.4cbon.com/api/consume \
+         -H 'Content-Type: application/json' \
+         -d '{"pass":"<the pass>","feature":"ask"}'
+     First time: allowed. Second time, identical command:
+       -> 409 pass_already_used
+
+================================================================================
+WHAT WAS BUILT TWO DAYS AGO, AND DID IT MEET THE OBJECTIVE?
+================================================================================
+
+You asked specifically about the vercel/ folder on branch arena/01a09a67-4cbon2.
+Here is the verified answer.
+
+Commit 2afff5e, 2026-09-13 02:41 UTC ("Real run-limit enforcement, accounts,
+and a working Gumroad webhook") is the one that did almost all of it. It was
+merged as PR #11 at 03:19 UTC. PR #12 followed at 11:09 UTC and only pinned
+supabase 2.16.0 to accept the new sb_secret_ key names.
+
+NEW FILES CREATED IN vercel/ ON 2026-09-13 (6 files):
+  vercel/api/auth.py         +255   login, signup, Google OAuth, session, logout
+  vercel/api/gate.py         +285   /api/pass, /api/consume, /api/gate/health
+  vercel/auth_core.py        +267   shared auth logic
+  vercel/gate_core.py        +429   entitlement + pass signing/verification
+  vercel/db.py               +26    Supabase client wrapper
+  vercel/webhook_core.py     +222   Gumroad ping handling
+
+EXISTING vercel/ FILES MODIFIED THE SAME DAY (8 files):
+  vercel/public/index.html   +487   login modal, iframe shell, /api/pass wiring
+  vercel/vercel.json         +68    gate as its own function, new routes, env
+  vercel/api/gumroad-webhook.py     rewritten (+107/-86)
+  vercel/app.py              +31
+  vercel/requirements.txt    +47
+  vercel/supabase.sql        +276
+  vercel/README.md           +11
+
+OUTSIDE vercel/, THE SAME COMMIT ALSO ADDED:
+  supabase/access_control.sql      +267   RLS on the 4 sensitive tables
+  test_auth.py                     +694
+  test_gate.py                     +652
+  test_space_gate.py               +384
+  test_webhook.py                  +385
+  test_jwt_jwks.py                 +384
+  test_supabase_schema.py          +434
+  test_sql_sync.py                 +70
+  tools/reconcile_subscribers.py   +219
+  tools/measure_bundle.py          +79
+  DRAFT_PROMPT.md                  +625   (the approved spec)
+  OAUTH_SETUP.md                   +476   (click-paths, already written)
+  HANDOVER.md                      +465   (added the next day, 02:48)
+  and modified space_gemini/app.py +235   <-- the gate, and the source of the crash
+
+DID IT MEET YOUR OBJECTIVE?  Honest assessment:
+
+  YES, on architecture. The gate-on-Vercel / compute-on-HF split is exactly the
+  design in DRAFT_PROMPT.md, and the pieces are genuinely there: auth, pass
+  minting, pass consumption, entitlement checks, a Gumroad webhook, row-level
+  security, and ~3,400 lines of tests. That is real, substantial work and it is
+  the right shape.
+
+  NO, on delivery. Three concrete gaps:
+
+    1. The app it gates cannot boot. The same commit that built the gate also
+       broke the Space (Phase 0). A gate in front of a dead app delivers
+       nothing.
+
+    2. It was never configured. vercel.json ships with every secret blank,
+       including SPACE_URL. Nothing in the repo can substitute for the
+       dashboard entries in Phases 1-5. Until those are done the system
+       cannot work regardless of code quality.
+
+    3. The test suite was left red. test_gemini_space.py fails on the file as
+       committed, and it is the only test that actually runs the app. Whoever
+       finished this did not execute it in an environment with gradio
+       installed.
+
+  Also worth knowing, since it is the leftover you asked about: vercel/app.py
+  is a 639-line Vercel-native Gradio mini-app offering only the 16-layer
+  rewriter. It is a PORT of part of the pipeline, and DRAFT_PROMPT.md
+  explicitly rejected porting ("Build a gate, not a port... Do not move
+  space_gemini/app.py onto Vercel"). It currently doubles as the /app
+  fallback, which is why an unset SPACE_URL silently lands visitors on a
+  1-tab app instead of an error. Removing it is a separate, optional cleanup —
+  note that vercel/app.py also backs POST /api/pipeline and POST /api/supabase,
+  and test_vercel_package.py line 229 asserts /api/pipeline rejects an empty
+  body with 400, so it cannot simply be deleted.
+
+================================================================================
+RECOMMENDED ORDER OF WORK
+================================================================================
+
+  1. Phase 0   — fix the boot crash. Nothing else matters until this is green.
+  2. Phase 1   — Supabase migration.
+  3. Phase 3   — generate the two secrets.
+  4. Phase 4   — Vercel env vars, then REDEPLOY. Watch for space_url: true.
+  5. Phase 5   — Space secrets, then RESTART the Space.
+  6. Phase 9   — end-to-end. Get one real counted run working.
+  7. Phase 2   — Google login (optional; email+password already works).
+  8. Phase 8   — Gumroad.
+  9. Phase 7   — button relabel.
+ 10. Phase 6.4 — landing page design decision.
+
+  The instinct is to start with the landing page because it is what you can
+  see. Resist it. Phases 0-5 are invisible and they are the product.
+
+================================================================================
+THINGS THIS WORKSPACE COULD NOT VERIFY  (be explicit about these with the user)
+================================================================================
+
+  * No outbound HTTP. Every live request returned status 000 — including
+    4cbon.com, app.4cbon.com, 4-cb-on2.vercel.app and
+    mangathpup-4cbon2-app.hf.space. So NO live behaviour was confirmed.
+    Everything about the running system in this file is from code and
+    documentation, not from probing it.
+  * DNS did resolve, so the Cloudflare records exist and the Space has real
+    addresses. That is the only live fact confirmed here.
+  * The Vercel project's actual environment variables are invisible from here.
+    Whether SPACE_URL is currently empty is UNVERIFIED — check
+    /api/gate/health, which reports "space_url": true or false.
+  * The Hugging Face Space's actual secrets are invisible from here. Whether
+    FOURCBON2_GATE_URL is set is UNVERIFIED.
+  * The Space's Gradio version in production is UNVERIFIED. Local testing used
+    gradio 6.27.0, resolved from the Space's own requirements.txt
+    (gradio>=6.0.0,<7). If the Space is pinned to Gradio 4 or 5 the `js`
+    behaviour differs — check the Space's build log for the resolved version.
+  * No Supabase, Vercel, Gumroad or Google Cloud credentials are available
+    here, so none of those were tested against real accounts.
+
+================================================================================
+END OF FILE
+================================================================================

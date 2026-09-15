@@ -15,8 +15,14 @@ Usage:  python3 build_gemini_space.py
 """
 import json
 import os
+import queue
 import re
+import socket
+import subprocess
 import sys
+import tempfile
+import threading
+import time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 NOTEBOOK = os.path.join(ROOT, "4CBOn2_Gemini2c.ipynb")
@@ -510,6 +516,109 @@ def code_only_view(source):
     return "\n".join(kept)
 
 
+def _free_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def smoke_boot(app_path, timeout_seconds=None):
+    """Boot the generated app for real and confirm it starts serving.
+
+    `compile()` proves only that the file parses. What this guards against is a
+    runtime error while Gradio builds the UI — which compiles perfectly, then
+    kills the Space before it has served a single request.
+
+    That is not hypothetical. A `demo.load()` registered outside its Blocks
+    context raised AttributeError at import time; the build reported "Syntax
+    compiles", the gate test suite passed 46 checks, and Hugging Face showed
+    "Runtime error". Nothing in the pipeline between the edit and the deploy
+    ever executed the file.
+
+    Returns True if the app served, False if it did not, and None if the
+    dependencies are not installed here so the check had to be skipped.
+    """
+    try:
+        import chromadb  # noqa: F401
+        import gradio    # noqa: F401
+    except ImportError as exc:
+        print(f"⚠️  Boot smoke test SKIPPED — '{exc.name}' is not installed in this "
+              f"interpreter, so the app cannot be run here. Install "
+              f"space_gemini/requirements.txt to enable the check.")
+        return None
+
+    if timeout_seconds is None:
+        timeout_seconds = float(os.environ.get("FOURCBON2_SMOKE_TIMEOUT", "300"))
+
+    port = _free_port()
+    data_dir = tempfile.mkdtemp(prefix="cbon-smoke-")
+    env = dict(os.environ)
+    env["PORT"] = str(port)
+    env["FOURCBON2_DATA_DIR"] = data_dir
+    env["PYTHONUNBUFFERED"] = "1"
+
+    lines = queue.Queue()
+
+    def pump(stream):
+        try:
+            for line in iter(stream.readline, ""):
+                lines.put(line)
+        finally:
+            lines.put(None)
+
+    started = time.time()
+    proc = subprocess.Popen(
+        [sys.executable, app_path],
+        cwd=ROOT, env=env, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+    )
+    # Read on a thread so a process that hangs without printing anything cannot
+    # wedge the build past its deadline.
+    threading.Thread(target=pump, args=(proc.stdout,), daemon=True).start()
+
+    served = False
+    tail = []
+    deadline = started + timeout_seconds
+    try:
+        while time.time() < deadline:
+            if proc.poll() is not None and lines.empty():
+                break
+            try:
+                line = lines.get(timeout=1.0)
+            except queue.Empty:
+                continue
+            if line is None:
+                break
+            tail.append(line.rstrip())
+            del tail[:-25]
+            if "Running on local URL" in line:
+                served = True
+                break
+        if not served and proc.poll() is None:
+            print(f"❌ BUILD FAILED — the app never started serving within "
+                  f"{timeout_seconds:.0f}s.")
+    finally:
+        for stop in (proc.terminate, proc.kill):
+            if proc.poll() is not None:
+                break
+            stop()
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                continue
+        proc.stdout.close()
+
+    if served:
+        print(f"✅ Boot smoke test passed — the generated app served on port {port} "
+              f"after {time.time() - started:.1f}s.")
+        return True
+
+    print("   Last output before the app stopped:")
+    for line in tail or ["   (the app produced no output at all)"]:
+        print(f"   {line}")
+    return False
+
+
 def main():
     cells = load_notebook_cells()
     if len(cells) != 8:
@@ -583,6 +692,16 @@ def main():
     print(f"✅ Wrote {os.path.relpath(os.path.join(OUT_DIR, 'app.py'), ROOT)} "
           f"({len(app.splitlines())} lines, {len(app):,} chars)")
     print(f"✅ Syntax compiles. {len(REPLACEMENTS_APPLIED)} guarded replacements applied.")
+
+    # Compiling is not booting. This is the check that would have caught the
+    # gate's demo.load() registering outside its Blocks context, which parsed
+    # fine and still took the Space down.
+    if os.environ.get("FOURCBON2_SKIP_SMOKE_BOOT", "").strip().lower() in ("1", "true", "yes", "on"):
+        print("⚠️  Boot smoke test skipped — FOURCBON2_SKIP_SMOKE_BOOT is set.")
+    elif smoke_boot(os.path.join(OUT_DIR, "app.py")) is False:
+        raise SystemExit("❌ BUILD FAILED — the generated app does not boot. A Space "
+                         "that cannot start serves nothing, so do not deploy this. "
+                         "Set FOURCBON2_SKIP_SMOKE_BOOT=1 only to bypass deliberately.")
     return 0
 
 
