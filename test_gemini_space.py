@@ -15,6 +15,7 @@ deadline and heartbeat paths, and cancellation persistence.
 import contextvars
 import os
 import re
+import shutil
 import sys
 import threading
 import time
@@ -22,6 +23,24 @@ import warnings
 
 warnings.simplefilter("ignore")
 os.environ["FOURCBON2_DATA_DIR"] = "./data_test"
+
+# Start from a clean data directory every run. It persists between invocations,
+# and load_task_memory_data() reads with `LIMIT 20` — so once 20 rows have
+# accumulated, the "cancelling a run persists the partial report to task memory"
+# check compares 20 against 20 and can never pass again. Without this the suite
+# goes permanently red after roughly five runs, which trains everyone to ignore
+# a red suite — the opposite of what a regression check is for.
+shutil.rmtree("./data_test", ignore_errors=True)
+
+# This suite exercises the pipeline, the orchestrator and the Rewriter — not the
+# run gate, which test_space_gate.py covers against a fake gate over real HTTP.
+# Fail-open is switched on so the gate lets these calls through instead of
+# refusing every run for want of a FOURCBON2_GATE_URL. It is read once at import
+# time, so it has to be set before the app is exec'd below.
+#
+# The gate's own wiring in the assembled app is still asserted directly, further
+# down, by switching fail-open back off in the app's namespace.
+os.environ["FOURCBON2_GATE_FAIL_OPEN"] = "true"
 
 APP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "space_gemini", "app.py")
 CALLS = []
@@ -342,7 +361,7 @@ except RuntimeError as exc:
 # rather than trying to reset ContextVar tokens in this throwaway one.
 before = namespace["load_task_memory_data"]()[0] or []
 gen = namespace["run_agent"]("Analyse competitor positioning and contract liability",
-                             "KEY_CANCEL", "", "gemini-3.6-flash", True, False)
+                             "KEY_CANCEL", "", "gemini-3.6-flash", True, False, "")
 advanced = 0
 cancellation_error = None
 try:
@@ -404,7 +423,7 @@ namespace["run_orchestrator_stream"] = key_observing_orchestrator
 namespace["gr"].update = record_agent_emit
 try:
     stream_gen = namespace["run_agent"]("verify ContextVar propagation", "KEY_GRADIO_STREAM", "",
-                                        "gemini-3.6-flash", True, False)
+                                        "gemini-3.6-flash", True, False, "")
     while True:
         def resume_once():
             outer_resume_keys.append(namespace["_current_api_key"]())
@@ -456,7 +475,7 @@ namespace["run_orchestrator_stream"] = should_not_orchestrate
 MOCK["invalid_keys"].add("KEY_INVALID")
 try:
     invalid_chunks = list(namespace["run_agent"]("should fail preflight", "KEY_INVALID", "",
-                                                  "gemini-3.6-flash", True, False))
+                                                  "gemini-3.6-flash", True, False, ""))
 finally:
     namespace["run_orchestrator_stream"] = original_orchestrator
 invalid_log = invalid_chunks[0][0] if len(invalid_chunks) == 1 else ""
@@ -546,7 +565,7 @@ check("Copy All report labels layers in pipeline order", report.index("\nL3") < 
 
 # ── 18. UI callback arity ──────────────────────────────────
 agent_chunks = list(namespace["run_agent"](
-    "Analyse competitor positioning", "KEY_UI", "", "gemini-3.6-flash", True, False))
+    "Analyse competitor positioning", "KEY_UI", "", "gemini-3.6-flash", True, False, ""))
 check("run_agent is a generator of 2-tuples (log, key_update)",
       agent_chunks and all(isinstance(c, tuple) and len(c) == 2 for c in agent_chunks), f"{len(agent_chunks)} yields")
 check("run_agent log accumulates progressively",
@@ -554,22 +573,30 @@ check("run_agent log accumulates progressively",
       f"first={len(agent_chunks[0][0])} last={len(agent_chunks[-1][0])}")
 check("run_agent ends with a diagnostics summary", "Gemini call(s)" in agent_chunks[-1][0])
 
-missing_agent = list(namespace["run_agent"]("goal", "", "", "gemini-3.6-flash", True, False))
+missing_agent = list(namespace["run_agent"]("goal", "", "", "gemini-3.6-flash", True, False, ""))
 check("run_agent refuses without a key (still a 2-tuple)",
       len(missing_agent) == 1 and len(missing_agent[0]) == 2 and "❌" in missing_agent[0][0])
 
-ask_result = namespace["ask_five_lens"]("What is an agent?", False, "KEY_UI", "", "gemini-3.6-flash")
+ask_result = namespace["ask_five_lens"]("What is an agent?", False, "KEY_UI", "", "gemini-3.6-flash", "")
 check("ask_five_lens returns 3 values", len(ask_result) == 3, str(len(ask_result)))
 check_result = namespace["check_key_and_remember"]("KEY_UI", "", "gemini-3.6-flash")
 check("check_key_and_remember returns 2 values", len(check_result) == 2)
 
-rw_ui = namespace["run_public_rewriter_ui"]("An answer.", "", [], 0, "KEY_UI", "", "gemini-3.6-flash")
+rw_ui = namespace["run_public_rewriter_ui"]("An answer.", "", [], 0, "KEY_UI", "", "gemini-3.6-flash", "")
 expected_rw = 3 + len(order) + 4
 check(f"run_public_rewriter_ui returns {expected_rw} values", len(rw_ui) == expected_rw, str(len(rw_ui)))
 check("rewriter UI status carries the diagnostics summary", "Gemini call(s)" in rw_ui[2], rw_ui[2][-90:])
-rw_blocked = namespace["run_public_rewriter_ui"]("An answer.", "", [], 3, "KEY_UI", "", "gemini-3.6-flash")
-check("blocked run returns the same arity", len(rw_blocked) == expected_rw)
-rw_nokey = namespace["run_public_rewriter_ui"]("An answer.", "", [], 0, "", "", "gemini-3.6-flash")
+rw_at_old_limit = namespace["run_public_rewriter_ui"]("An answer.", "", [], 3, "KEY_UI", "", "gemini-3.6-flash", "")
+check("run_public_rewriter_ui keeps its arity at the legacy free-run limit",
+      len(rw_at_old_limit) == expected_rw, str(len(rw_at_old_limit)))
+# NOTE: run_public_rewriter_ui's docstring says free_runs "no longer decides
+# anything", but the inner run_public_rewriter still returns its own empty
+# "3 free runs" result at count >= 3. So the retired per-browser counter is not
+# in fact inert — it now limits on top of the gate. Pinned here as current
+# behaviour so a future change to it is a deliberate one.
+check("the legacy per-browser counter still short-circuits at 3",
+      "3 free runs" in rw_at_old_limit[2], rw_at_old_limit[2][:90])
+rw_nokey = namespace["run_public_rewriter_ui"]("An answer.", "", [], 0, "", "", "gemini-3.6-flash", "")
 check("no-key run returns the same arity with an error", len(rw_nokey) == expected_rw and "❌" in rw_nokey[2])
 
 check("load_dashboard returns 4 values", len(namespace["load_dashboard"]()) == 4)
@@ -583,6 +610,27 @@ hidden = namespace["update_keys_visibility"](True, True)
 shown = namespace["update_keys_visibility"](False, True)
 check("update_keys_visibility hides keys in Gemini-only mode", getattr(hidden, "visible", None) is False)
 check("update_keys_visibility reveals keys when enabled", getattr(shown, "visible", None) is True)
+
+# ── 18b. The run gate is really wired into the assembled app ──
+# Everything above runs with FOURCBON2_GATE_FAIL_OPEN=true so the pipeline can be
+# exercised without a gate. That convenience would also hide a gate that was
+# never connected to anything, so switch it back off here and confirm runs are
+# actually refused. Assigning into `namespace` works because it is the
+# __globals__ of every function the app was exec'd with, so gate_check() reads
+# the new values.
+namespace["GATE_FAIL_OPEN"] = False
+namespace["GATE_BASE_URL"] = ""
+gate_ask = namespace["ask_five_lens"]("What is an agent?", False, "KEY_UI", "", "gemini-3.6-flash", "")
+check("ask_five_lens refuses when the gate is not connected",
+      len(gate_ask) == 3 and "not connected to its run gate" in gate_ask[0], gate_ask[0][:80])
+gate_rw = namespace["run_public_rewriter_ui"]("An answer.", "", [], 0, "KEY_UI", "", "gemini-3.6-flash", "")
+check("run_public_rewriter_ui refuses when the gate is not connected",
+      len(gate_rw) == expected_rw and "not connected to its run gate" in gate_rw[2], gate_rw[2][:80])
+gate_chunks = list(namespace["run_agent"]("goal", "KEY_UI", "", "gemini-3.6-flash", True, False, ""))
+check("run_agent refuses before yielding any work when the gate is not connected",
+      len(gate_chunks) == 1 and len(gate_chunks[0]) == 2 and "not connected to its run gate" in gate_chunks[0][0],
+      f"{len(gate_chunks)} yields: {gate_chunks[0][0][:80] if gate_chunks else 'none'}")
+namespace["GATE_FAIL_OPEN"] = True
 
 # ── 19. No secrets in the generated source ─────────────────
 app_text = open(APP, encoding="utf-8").read()
