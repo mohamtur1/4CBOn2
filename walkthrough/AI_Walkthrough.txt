@@ -451,7 +451,8 @@ PHASE 6 — CLOUDFLARE / DNS
      You said this already works. Confirm the title bar matches.
 
   b) https://app.4cbon.com
-     EXPECTED: the dark landing page with a Sign in button
+     EXPECTED (until the 6.4 rebuild lands — see 6.4; Option A is DECIDED):
+     the dark landing page with a Sign in button
      (that is vercel/public/index.html, 1,561 lines, 53 KB — the one with the
      login modal and the iframe shell).
      If you instead see "Landing page not found." then public/index.html did
@@ -513,6 +514,28 @@ PHASE 6 — CLOUDFLARE / DNS
 
   Do NOT decide this under time pressure. Phases 0-5 are what make the product
   run at all. This is a design question you can settle afterwards.
+
+  ── DECIDED 2026-09-19: OPTION A, SCOPED TO app.4cbon.com ──────────────
+  Option A is chosen, with one important scoping detail that rules B and C
+  out for good and defines what "adopt the design" actually means:
+
+    4cbon.com        KEEPS docs/index.html as its marketing page. Not edited.
+    app.4cbon.com    KEEPS vercel/public/index.html at the SAME PATH and URL.
+                     Its CONTENTS are replaced with the docs design and copy,
+                     and the gate wiring (modal, iframe shell, /api/pass,
+                     postMessage bridge) is carried over unchanged.
+
+  Two files, two jobs, nothing moved. This is why it is the cheap path:
+  the gate endpoints are same-origin, the session cookie is already scoped
+  correctly, and the 14 landing-page checks in test_auth.py apply to one file.
+
+  DO NOT "fix" this by putting the gated page on 4cbon.com. That needs CORS
+  middleware in vercel/api/gate.py (it has none), credentials: "include",
+  and a Domain=.4cbon.com + SameSite=None cookie change — none of it scoped.
+
+  Consequence for 6.2b below: after the rebuild, app.4cbon.com serves the
+  LIGHT page, not the dark one. Title and palette change; the Sign in
+  affordance stays (nav chip + modal), because this is the gated page.
 
 ================================================================================
 PHASE 7 — THE BUTTON RELABEL YOU ASKED FOR
