@@ -626,8 +626,20 @@ Do these in order. Each one isolates a different layer.
      NOT the 1-tab Vercel mini-app. If you get one tab, SPACE_URL is still
      empty or you did not redeploy. Go back to Phase 4.
 
+  NOTE — STEPS 5 AND 6 NEED A NON-ADMIN ACCOUNT
+     mohamtur1@gmail.com is seeded as an unlimited owner TWICE:
+     admin_emails (supabase/access_control.sql:129) and the ADMIN_EMAIL
+     break-glass (vercel/vercel.json:106, resolved at gate_core.py:380-382).
+     /api/consume returns early for unlimited identities at gate.py:232,
+     BEFORE the counter call. So a run on that account still writes
+     consumed_at, consumed_by_run and feature to gate_passes, but NEVER
+     writes a run_usage row. That is the design, not a bug, and
+     test_gate.py asserts it ("admin consume does NOT create a run_usage
+     row"). An empty run_usage on an owner account is expected.
+     Sign in as an ordinary account to watch the counter move.
+
   5. Watch the counter move. In Supabase SQL Editor:
-       select * from run_usage order by used_at desc limit 5;
+       select * from run_usage order by run_date desc limit 5;
      -> one row per run.
 
   6. Burn all 3 free runs, then try a 4th.
