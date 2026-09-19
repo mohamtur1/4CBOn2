@@ -1,1090 +1,284 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>4CBON2 — The AI That Loops Until It's Right</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Playfair+Display:wght@700;900&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #03030a;
-    --surface: #06060f;
-    --border: #0f0f1e;
-    --text: #c0c0e0;
-    --muted: #444466;
-    --orange: #ff6b35;
-    --cyan: #00d4ff;
-    --green: #10b981;
-    --purple: #7c3aed;
-    --amber: #f59e0b;
-    --red: #ef4444;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  html { scroll-behavior: smooth; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Mono', monospace;
-    overflow-x: hidden;
-    line-height: 1.6;
-  }
-
-  /* ─── NOISE OVERLAY ─── */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.4;
-  }
-
-  /* ─── SCAN LINE ─── */
-  body::after {
-    content: '';
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--orange), var(--cyan), var(--green), transparent);
-    animation: scan 8s linear infinite;
-    z-index: 100;
-    opacity: 0.6;
-  }
-  @keyframes scan { 0% { top: 0; } 100% { top: 100vh; } }
-
-  /* ─── NAV ─── */
-  nav {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 50;
-    padding: 16px 24px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: rgba(3,3,10,0.85);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .nav-logo {
-    font-family: 'Playfair Display', serif;
-    font-size: 22px;
-    font-weight: 900;
-    background: linear-gradient(110deg, var(--orange), var(--cyan), var(--green));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    letter-spacing: -0.02em;
-  }
-
-  .nav-links {
-    display: flex;
-    gap: 24px;
-    align-items: center;
-  }
-
-  .nav-links a {
-    font-size: 10px;
-    letter-spacing: 0.2em;
-    color: var(--muted);
-    text-decoration: none;
-    text-transform: uppercase;
-    transition: color 0.2s;
-  }
-  .nav-links a:hover { color: var(--text); }
-
-  .nav-cta {
-    background: transparent !important;
-    border: 1px solid var(--orange) !important;
-    color: var(--orange) !important;
-    padding: 6px 16px !important;
-    border-radius: 4px !important;
-    font-size: 10px !important;
-    letter-spacing: 0.15em !important;
-    cursor: pointer !important;
-    transition: all 0.2s !important;
-  }
-  .nav-cta:hover {
-    background: var(--orange) !important;
-    color: #03030a !important;
-  }
-
-  /* ─── SECTIONS ─── */
-  section {
-    position: relative;
-    z-index: 1;
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
-
-  /* ─── HERO ─── */
-  .hero {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding-top: 80px;
-    max-width: 900px;
-    margin: 0 auto;
-    padding-left: 24px;
-    padding-right: 24px;
-  }
-
-  .hero-tag {
-    font-size: 9px;
-    letter-spacing: 0.35em;
-    color: var(--orange);
-    text-transform: uppercase;
-    margin-bottom: 24px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .hero-tag::before {
-    content: '';
-    display: inline-block;
-    width: 24px;
-    height: 1px;
-    background: var(--orange);
-  }
-
-  h1 {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(44px, 8vw, 88px);
-    font-weight: 900;
-    line-height: 1.0;
-    letter-spacing: -0.03em;
-    margin-bottom: 32px;
-  }
-
-  h1 .line1 { color: var(--text); }
-  h1 .line2 {
-    background: linear-gradient(110deg, var(--orange), var(--cyan));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  h1 .line3 { color: var(--green); }
-
-  .hero-sub {
-    font-size: 14px;
-    color: var(--muted);
-    max-width: 480px;
-    margin-bottom: 48px;
-    line-height: 1.8;
-    font-family: 'DM Mono', monospace;
-  }
-
-  .hero-sub strong {
-    color: var(--text);
-    font-weight: 500;
-  }
-
-  .hero-actions {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 80px;
-  }
-
-  .btn-primary {
-    background: linear-gradient(135deg, var(--orange), var(--cyan));
-    border: none;
-    border-radius: 6px;
-    color: #03030a;
-    font-family: 'DM Mono', monospace;
-    font-weight: 500;
-    font-size: 12px;
-    padding: 14px 28px;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
-    transition: opacity 0.2s;
-  }
-  .btn-primary:hover { opacity: 0.85; }
-
-  .btn-secondary {
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--muted);
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    padding: 14px 28px;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
-    transition: all 0.2s;
-  }
-  .btn-secondary:hover { border-color: var(--text); color: var(--text); }
-
-  /* ─── LIVE PIPELINE DEMO ─── */
-  .pipeline-demo {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 80px;
-    overflow: hidden;
-  }
-
-  .pipeline-header {
-    font-size: 9px;
-    color: var(--muted);
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .pipeline-status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--green);
-  }
-  .pipeline-status::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    background: var(--green);
-    border-radius: 50%;
-    animation: blink 1.5s ease infinite;
-  }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-
-  .layer-chips {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .chip {
-    font-size: 9px;
-    font-weight: 700;
-    padding: 4px 8px;
-    border-radius: 4px;
-    letter-spacing: 0.08em;
-    opacity: 0;
-    animation: chipIn 0.3s ease forwards;
-  }
-
-  .chip.done {
-    background: rgba(16,185,129,0.15);
-    border: 1px solid #10b981;
-    color: #10b981;
-  }
-  .chip.active {
-    border: 1px solid var(--orange);
-    color: var(--orange);
-    background: rgba(255,107,53,0.1);
-    box-shadow: 0 0 8px rgba(255,107,53,0.3);
-  }
-  .chip.pending {
-    border: 1px solid #1a1a2e;
-    color: #333;
-    background: transparent;
-  }
-
-  @keyframes chipIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
-
-  .score-demo {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .score-num {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 32px;
-    font-weight: 900;
-    color: var(--amber);
-    min-width: 40px;
-  }
-  .score-bar-wrap {
-    flex: 1;
-    height: 6px;
-    background: #111;
-    border-radius: 3px;
-    overflow: hidden;
-  }
-  .score-bar-fill {
-    height: 100%;
-    border-radius: 3px;
-    transition: width 1s ease;
-  }
-  .score-arrow { color: var(--green); font-size: 18px; }
-  .score-after { color: var(--green); }
-  .score-label {
-    font-size: 9px;
-    color: var(--green);
-    letter-spacing: 0.1em;
-    font-weight: 700;
-  }
-
-  /* ─── DIVIDER ─── */
-  .divider {
-    border: none;
-    border-top: 1px solid var(--border);
-    margin: 80px 0;
-    max-width: 900px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  /* ─── SECTION HEADER ─── */
-  .section-tag {
-    font-size: 9px;
-    letter-spacing: 0.3em;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-bottom: 16px;
-  }
-
-  h2 {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(28px, 4vw, 48px);
-    font-weight: 900;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-    margin-bottom: 20px;
-    color: var(--text);
-  }
-
-  .section-sub {
-    font-size: 13px;
-    color: var(--muted);
-    max-width: 540px;
-    line-height: 1.8;
-    margin-bottom: 48px;
-  }
-
-  /* ─── THE PROBLEM ─── */
-  .problem-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2px;
-    margin-bottom: 48px;
-  }
-
-  @media (max-width: 600px) {
-    .problem-grid { grid-template-columns: 1fr; }
-  }
-
-  .problem-card {
-    background: var(--surface);
-    padding: 24px;
-    border: 1px solid var(--border);
-  }
-  .problem-card:first-child { border-radius: 8px 0 0 0; }
-  .problem-card:nth-child(2) { border-radius: 0 8px 0 0; }
-  .problem-card:nth-child(3) { border-radius: 0 0 0 8px; }
-  .problem-card:last-child { border-radius: 0 0 8px 0; }
-
-  .problem-icon { font-size: 20px; margin-bottom: 12px; }
-  .problem-title { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--text); margin-bottom: 8px; }
-  .problem-desc { font-size: 11px; color: var(--muted); line-height: 1.7; }
-
-  /* ─── THE PIPELINE ─── */
-  .pipeline-visual {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 32px;
-    margin-bottom: 48px;
-  }
-
-  .layer-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
-    padding: 16px 0;
-    border-bottom: 1px solid var(--border);
-    opacity: 0;
-    animation: fadeUp 0.4s ease forwards;
-  }
-  .layer-row:last-child { border-bottom: none; }
-
-  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-
-  .layer-id {
-    font-size: 10px;
-    font-weight: 700;
-    min-width: 32px;
-    letter-spacing: 0.05em;
-    padding-top: 2px;
-  }
-
-  .layer-connector {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-top: 4px;
-  }
-
-  .layer-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    border: 2px solid;
-    flex-shrink: 0;
-  }
-
-  .layer-info { flex: 1; }
-  .layer-name {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--text);
-    letter-spacing: 0.05em;
-    margin-bottom: 4px;
-  }
-  .layer-desc { font-size: 10px; color: var(--muted); line-height: 1.6; }
-
-  /* ─── FLAVORS ─── */
-  .flavors-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 16px;
-    margin-bottom: 48px;
-  }
-
-  .flavor-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 24px;
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.2s;
-  }
-  .flavor-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-  }
-  .flavor-card:hover { border-color: #1a1a3e; }
-
-  .flavor-card.dev::before { background: linear-gradient(90deg, var(--cyan), var(--purple)); }
-  .flavor-card.enterprise::before { background: linear-gradient(90deg, var(--orange), var(--amber)); }
-  .flavor-card.research::before { background: linear-gradient(90deg, var(--green), var(--cyan)); }
-  .flavor-card.api::before { background: linear-gradient(90deg, var(--purple), var(--red)); }
-
-  .flavor-icon { font-size: 28px; margin-bottom: 12px; }
-  .flavor-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 8px; letter-spacing: 0.05em; }
-  .flavor-desc { font-size: 11px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
-  .flavor-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-  .flavor-tag {
-    font-size: 9px;
-    letter-spacing: 0.1em;
-    padding: 3px 8px;
-    border-radius: 3px;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    text-transform: uppercase;
-  }
-
-  /* ─── MEMORY SYSTEM ─── */
-  .memory-visual {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 48px;
-  }
-
-  @media (max-width: 600px) {
-    .memory-visual { grid-template-columns: 1fr; }
-  }
-
-  .memory-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 20px;
-    text-align: center;
-  }
-
-  .memory-num {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 48px;
-    font-weight: 900;
-    line-height: 1;
-    margin-bottom: 8px;
-  }
-  .memory-label { font-size: 9px; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; }
-
-  /* ─── PRICING ─── */
-  .pricing-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
-    margin-bottom: 48px;
-  }
-
-  .price-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 28px 24px;
-    position: relative;
-  }
-
-  .price-card.featured {
-    border-color: var(--orange);
-    background: rgba(255,107,53,0.04);
-  }
-
-  .price-badge {
-    position: absolute;
-    top: -1px; right: 20px;
-    background: var(--orange);
-    color: #03030a;
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    padding: 4px 10px;
-    border-radius: 0 0 4px 4px;
-    text-transform: uppercase;
-  }
-
-  .price-tier { font-size: 9px; letter-spacing: 0.25em; color: var(--muted); text-transform: uppercase; margin-bottom: 12px; }
-  .price-amount {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 48px;
-    font-weight: 900;
-    line-height: 1;
-    color: var(--text);
-    margin-bottom: 4px;
-  }
-  .price-period { font-size: 10px; color: var(--muted); margin-bottom: 20px; }
-  .price-features { list-style: none; margin-bottom: 24px; }
-  .price-features li {
-    font-size: 11px;
-    color: var(--muted);
-    padding: 6px 0;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .price-features li:last-child { border-bottom: none; }
-  .price-features li::before { content: '·'; color: var(--green); font-weight: 900; }
-  .price-features li.highlight { color: var(--text); }
-
-  .price-btn {
-    display: block;
-    width: 100%;
-    padding: 10px;
-    border-radius: 6px;
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-align: center;
-    cursor: pointer;
-    text-decoration: none;
-    transition: all 0.2s;
-  }
-
-  .price-btn.outline {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-  }
-  .price-btn.outline:hover { border-color: var(--text); color: var(--text); }
-
-  .price-btn.filled {
-    background: linear-gradient(135deg, var(--orange), var(--cyan));
-    border: none;
-    color: #03030a;
-  }
-  .price-btn.filled:hover { opacity: 0.85; }
-
-  .price-btn.dark {
-    background: transparent;
-    border: 1px solid var(--purple);
-    color: var(--purple);
-  }
-  .price-btn.dark:hover { background: rgba(124,58,237,0.1); }
-
-  /* ─── BELIEFS TICKER ─── */
-  .beliefs-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 24px;
-    margin-bottom: 48px;
-    overflow: hidden;
-  }
-
-  .beliefs-header {
-    font-size: 9px;
-    color: var(--muted);
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .beliefs-header::after {
-    content: 'LIVE FROM SUPABASE';
-    color: var(--green);
-    font-size: 8px;
-  }
-
-  .belief-item {
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 11px;
-    color: var(--muted);
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    animation: fadeUp 0.4s ease forwards;
-    opacity: 0;
-  }
-  .belief-item:last-child { border-bottom: none; }
-  .belief-run { color: var(--orange); font-size: 9px; min-width: 48px; padding-top: 1px; letter-spacing: 0.05em; }
-  .belief-text { flex: 1; line-height: 1.6; }
-
-  /* ─── CTA ─── */
-  .cta-section {
-    text-align: center;
-    padding: 80px 24px;
-    max-width: 900px;
-    margin: 0 auto;
-  }
-
-  .cta-eyebrow {
-    font-size: 9px;
-    letter-spacing: 0.3em;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-bottom: 24px;
-  }
-
-  .cta-title {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(32px, 5vw, 64px);
-    font-weight: 900;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-    margin-bottom: 20px;
-  }
-
-  .cta-sub {
-    font-size: 13px;
-    color: var(--muted);
-    max-width: 440px;
-    margin: 0 auto 40px;
-    line-height: 1.8;
-  }
-
-  .cta-pipeline {
-    font-size: 9px;
-    letter-spacing: 0.15em;
-    color: #1a1a2e;
-    margin-top: 48px;
-  }
-
-  /* ─── FOOTER ─── */
-  footer {
-    border-top: 1px solid var(--border);
-    padding: 32px 24px;
-    max-width: 900px;
-    margin: 0 auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-
-  .footer-logo {
-    font-family: 'Playfair Display', serif;
-    font-size: 18px;
-    font-weight: 900;
-    background: linear-gradient(110deg, var(--orange), var(--cyan), var(--green));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
-  .footer-links {
-    display: flex;
-    gap: 20px;
-  }
-
-  .footer-links a {
-    font-size: 9px;
-    letter-spacing: 0.15em;
-    color: var(--muted);
-    text-decoration: none;
-    text-transform: uppercase;
-    transition: color 0.2s;
-  }
-  .footer-links a:hover { color: var(--text); }
-
-  .footer-copy { font-size: 9px; color: #1a1a2e; letter-spacing: 0.1em; }
-
-  /* ─── ANIMATIONS ─── */
-  .animate-in {
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity 0.6s ease, transform 0.6s ease;
-  }
-  .animate-in.visible {
-    opacity: 1;
-    transform: translateY(0);
-  }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="4CBON2 is an agent for asking, orchestrating, rewriting, and learning.">
+  <title>4CBON2 — An Agent. Request Custom Agents.</title>
+  <style>
+    :root {
+      --ink: #07131c;
+      --muted: #536471;
+      --paper: #f6fbfc;
+      --white: #ffffff;
+      --line: #dcecef;
+      --orange: #f26b38;
+      --cyan: #06a9c7;
+      --green: #12a66b;
+      --navy: #092530;
+      --shadow: 0 20px 60px rgba(7, 42, 53, .10);
+      --radius: 22px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; color: var(--ink); background: var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+    }
+    a { color: inherit; }
+    .wrap { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+    .topbar {
+      position: sticky; top: 0; z-index: 20; backdrop-filter: blur(16px);
+      background: rgba(246,251,252,.88); border-bottom: 1px solid rgba(220,236,239,.9);
+    }
+    nav { display: flex; justify-content: space-between; align-items: center; min-height: 76px; gap: 24px; }
+    .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 900; letter-spacing: -.04em; font-size: 1.15rem; }
+    .brand-mark { width: 30px; height: 30px; flex: 0 0 30px; border-radius: 9px; background: linear-gradient(135deg, var(--orange), var(--cyan) 56%, var(--green)); box-shadow: 0 6px 18px rgba(6,169,199,.25); }
+    .brand-tagline { color: var(--muted); font-size: .7rem; font-weight: 700; letter-spacing: 0; }
+    .nav-links { display: flex; align-items: center; gap: 24px; font-size: .86rem; color: var(--muted); }
+    .nav-links a { text-decoration: none; }
+    .nav-links a:hover { color: var(--ink); }
+    .button {
+      display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: 0; border-radius: 10px;
+      padding: 13px 19px; font-weight: 800; font-size: .88rem; text-decoration: none; cursor: pointer; transition: transform .2s, box-shadow .2s;
+    }
+    .button:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(7,42,53,.13); }
+    .button-primary { color: #06151c; background: linear-gradient(110deg, #ff8650, #35cbe1); }
+    .button-dark { color: var(--white); background: var(--navy); }
+    .button-outline { color: var(--navy); border: 1px solid #bddde3; background: transparent; }
+    .hero { padding: 108px 0 92px; position: relative; overflow: hidden; }
+    .hero:before, .hero:after { content: ""; position: absolute; border-radius: 999px; filter: blur(1px); pointer-events: none; }
+    .hero:before { width: 410px; height: 410px; right: -160px; top: -170px; background: rgba(6,169,199,.14); }
+    .hero:after { width: 260px; height: 260px; left: -150px; bottom: -130px; background: rgba(242,107,56,.12); }
+    .hero-grid { display: grid; grid-template-columns: 1.02fr .98fr; gap: 70px; align-items: center; position: relative; z-index: 1; }
+    .eyebrow { color: var(--orange); font-size: .75rem; font-weight: 900; letter-spacing: .19em; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 720px; margin: 17px 0 22px; font-size: clamp(3.1rem, 7vw, 6.1rem); line-height: .98; letter-spacing: -.075em; }
+    h1 .gradient { background: linear-gradient(105deg, var(--orange), var(--cyan) 52%, var(--green)); color: transparent; background-clip: text; -webkit-background-clip: text; }
+    .hero-copy { max-width: 560px; color: var(--muted); font-size: 1.1rem; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 31px 0 20px; }
+    .microcopy { color: #70818a; font-size: .8rem; }
+    .agent-card { background: var(--white); border: 1px solid var(--line); border-radius: 26px; padding: 22px; box-shadow: var(--shadow); transform: rotate(1.5deg); }
+    .agent-card-top { display: flex; justify-content: space-between; align-items: center; color: #6f8288; font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .status { color: var(--green); display: inline-flex; align-items: center; gap: 6px; }
+    .status:before { content: ""; width: 7px; height: 7px; background: var(--green); border-radius: 50%; box-shadow: 0 0 0 5px rgba(18,166,107,.13); }
+    .pipeline { display: flex; flex-wrap: wrap; gap: 7px; margin: 25px 0; padding: 18px; border-radius: 15px; background: #f1f8f9; }
+    .chip { border-radius: 7px; padding: 5px 8px; color: #176476; background: #e0f4f7; font: 800 .7rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .chip:nth-child(3n) { color: #a84d2c; background: #fff0e9; }
+    .chip:nth-child(4n) { color: #08764d; background: #e6f8ef; }
+    .score { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; border-top: 1px solid var(--line); padding-top: 19px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .score strong { font-size: 1.6rem; }
+    .score strong:last-child { color: var(--green); }
+    .bar { height: 8px; border-radius: 99px; background: #e8f1f2; overflow: hidden; }
+    .bar span { display: block; width: 84%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--orange), var(--green)); }
+    .section { padding: 100px 0; }
+    .section-head { max-width: 660px; margin-bottom: 38px; }
+    .section h2 { margin: 12px 0 13px; font-size: clamp(2.2rem, 4.5vw, 4rem); line-height: 1.04; letter-spacing: -.055em; }
+    .section-lead { color: var(--muted); font-size: 1.05rem; }
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .feature { min-height: 205px; padding: 25px; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 25px rgba(7,42,53,.04); }
+    .feature-icon { display: inline-flex; width: 39px; height: 39px; align-items: center; justify-content: center; border-radius: 12px; color: var(--white); font-weight: 900; background: linear-gradient(135deg, var(--orange), var(--cyan)); }
+    .feature:nth-child(3n) .feature-icon { background: linear-gradient(135deg, var(--cyan), var(--green)); }
+    .feature h3 { margin: 19px 0 7px; font-size: 1.07rem; }
+    .feature p { margin: 0; color: var(--muted); font-size: .92rem; }
+    .dark-section { color: var(--white); background: var(--navy); }
+    .dark-section .section-lead { color: #a8c1c7; }
+    .split { display: grid; grid-template-columns: .9fr 1.1fr; gap: 70px; align-items: start; }
+    .principles { display: grid; gap: 12px; }
+    .principle { display: grid; grid-template-columns: 35px 1fr; gap: 13px; padding: 16px 0; border-bottom: 1px solid rgba(168,193,199,.18); }
+    .principle b { color: #68d9e7; }
+    .principle p { margin: 3px 0 0; color: #a8c1c7; font-size: .93rem; }
+    .layers { display: flex; flex-wrap: wrap; gap: 9px; }
+    .layer { padding: 9px 11px; border: 1px solid rgba(104,217,231,.3); border-radius: 8px; color: #d8f8fa; background: rgba(6,169,199,.08); font: 800 .74rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .pricing { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; max-width: 780px; }
+    .price-card { padding: 30px; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); }
+    .price-card.pro { border: 2px solid var(--orange); box-shadow: var(--shadow); position: relative; }
+    .popular { position: absolute; right: 19px; top: -13px; padding: 5px 10px; border-radius: 99px; color: #702c17; background: #ffc4a7; font-size: .68rem; font-weight: 900; letter-spacing: .08em; }
+    .price-card h3 { margin: 0 0 9px; font-size: 1.05rem; }
+    .price { margin: 0 0 5px; font-size: 3.6rem; line-height: 1; letter-spacing: -.08em; font-weight: 900; }
+    .price small { font-size: .9rem; color: var(--muted); letter-spacing: 0; }
+    .price-note { margin: 0 0 22px; color: var(--muted); font-size: .9rem; }
+    .price-card ul { margin: 0 0 25px; padding: 0; list-style: none; color: var(--muted); font-size: .9rem; }
+    .price-card li { padding: 7px 0; border-top: 1px solid #edf4f5; }
+    .price-card li:before { content: "✓"; margin-right: 9px; color: var(--green); font-weight: 900; }
+    .price-card .button { width: 100%; }
+    .custom { display: grid; grid-template-columns: 1.2fr .8fr; gap: 24px; align-items: center; padding: 35px; border: 1px solid #bfe8df; border-radius: var(--radius); background: linear-gradient(120deg, #effcf7, #effaff); }
+    .custom h2 { margin-bottom: 10px; font-size: clamp(1.8rem, 3vw, 2.8rem); }
+    .custom p { margin-bottom: 0; color: var(--muted); }
+    .custom-cta { justify-self: end; text-align: center; }
+    footer { padding: 30px 0 45px; color: var(--muted); border-top: 1px solid var(--line); font-size: .84rem; }
+    footer .footer-row { display: flex; justify-content: space-between; gap: 20px; }
+    footer a { text-decoration: none; }
+    footer a:hover { color: var(--cyan); }
+    @media (max-width: 820px) {
+      .nav-links a:not(.button) { display: none; }
+      .brand-tagline { display: none; }
+      .hero { padding: 75px 0 65px; }
+      .hero-grid, .split, .custom { grid-template-columns: 1fr; gap: 35px; }
+      .agent-card { transform: none; }
+      .features { grid-template-columns: repeat(2, 1fr); }
+      .custom-cta { justify-self: start; }
+    }
+    @media (max-width: 540px) {
+      .wrap { width: min(100% - 28px, 1120px); }
+      nav { min-height: 65px; }
+      .nav-links { gap: 8px; }
+      .nav-links .button { padding: 10px 12px; font-size: .77rem; }
+      h1 { font-size: 3.2rem; }
+      .features, .pricing { grid-template-columns: 1fr; }
+      .section { padding: 70px 0; }
+      footer .footer-row { flex-direction: column; }
+    }
+    /* ── Gate additions: nav auth buttons + memory section (light) ── */
+    .nav-links button.button { font-family: inherit; }
+    #nav-account { display: inline-flex; align-items: center; gap: 9px; }
+    /* The static Sign in button covers the signed-out nav; the slot only
+       paints once a session resolves (email + runs + sign out). */
+    #nav-account #nav-signin { display: none; }
+    #nav-account #nav-signout { color: var(--muted); text-decoration: none; font-size: .8rem; }
+    #nav-account #nav-signout:hover { color: var(--cyan); }
+    .beliefs { display: grid; gap: 12px; max-width: 780px; }
+    .beliefs-head { margin-bottom: 4px; font-weight: 800; font-size: .98rem; color: var(--navy); }
+    .belief { padding: 18px 22px; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 25px rgba(7,42,53,.04); }
+    .belief-run { display: inline-block; border-radius: 7px; padding: 4px 8px; color: #a84d2c; background: #fff0e9; font: 800 .7rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .belief-text { margin: 10px 0 0; color: var(--ink); font-size: .95rem; }
+  </style>
 </head>
 <body>
+  <div id="site-banner"></div>
 
-<!-- NAV -->
-<nav>
-  <div class="nav-logo">4CBON</div>
-  <div class="nav-links">
-    <!-- Populated by the auth script: "SIGN IN", or the email + runs left. -->
-    <span id="nav-account"></span>
-    <a href="#pipeline">How it works</a>
-    <a href="#flavors">Use cases</a>
-    <a href="#pricing">Pricing</a>
-    <a href="https://4175358678144.gumroad.com/l/tbphpi" class="nav-cta">UPGRADE →</a>
-  </div>
-</nav>
-
-<!-- HERO -->
-<div class="hero">
-  <div class="hero-tag">Runtime Megaprompt Engine · 16 Layers · Self-Improving</div>
-  <h1>
-    <div class="line1">AI gives you</div>
-    <div class="line2">one shot.</div>
-    <div class="line3">4CBON loops.</div>
-  </h1>
-  <p class="hero-sub">
-    Every AI answer you've ever read was generated once, then shipped.<br><br>
-    <strong>4CBON runs a deterministic 16-layer pipeline</strong> — interpreting, parsing, grounding, adjudicating, attacking, decompressing, hypothesizing, evaluating, planning, rewriting, reflecting, remembering, learning, evolving, questioning, certifying — until the answer is measurably better than what came in.
-  </p>
-  <div class="hero-actions">
-    <a href="https://4175358678144.gumroad.com/l/tbphpi" class="btn-primary">★ UPGRADE TO PRO — $9/month</a>
-    <a href="/app" class="btn-secondary">Try free (3 runs/day) →</a>
-  </div>
-  <p style="font-size:9px;color:#444466;margin-top:-16px;letter-spacing:0.1em;">API costs are real — Pro users keep the pipeline running for everyone.</p>
-
-  <!-- LIVE PIPELINE DEMO -->
-  <div class="pipeline-demo">
-    <div class="pipeline-header">
-      <span>LIVE PIPELINE · RUN #72</span>
-      <span class="pipeline-status">ACTIVE</span>
-    </div>
-    <div class="layer-chips" id="chips"></div>
-    <div class="score-demo">
-      <span class="score-num">62</span>
-      <div class="score-bar-wrap">
-        <div class="score-bar-fill" id="bar1" style="width:62%;background:#f59e0b;"></div>
+  <header class="topbar">
+    <nav class="wrap" aria-label="Main navigation">
+      <a class="brand" href="#top" aria-label="4CBON2 – An Agent. Request Custom Agents."><span class="brand-mark" aria-hidden="true"></span><span>4CBON2 <small class="brand-tagline">– An Agent. Request Custom Agents.</small></span></a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#custom-agents">Custom agents</a>
+        <button type="button" class="button button-outline" id="nav-signin-btn">Sign in</button>
+        <button type="button" class="button button-outline" id="nav-signup">Create account</button>
+        <a class="button button-dark" href="/app">Try free <span aria-hidden="true">↗</span></a>
       </div>
-      <span class="score-arrow">→</span>
-      <div class="score-bar-wrap">
-        <div class="score-bar-fill" id="bar2" style="width:0%;background:#10b981;"></div>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <div class="eyebrow">An agent · Request custom agents</div>
+          <h1>What is <span class="gradient">4CBON2?</span><br>It is an agent.</h1>
+          <p class="hero-copy">A practical agentic workspace for asking better questions, coordinating specialists, and turning rough AI output into something you can inspect and use.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="/app">Try Free — 3 runs <span aria-hidden="true">→</span></a>
+            <a class="button button-outline" href="https://4175358678144.gumroad.com/l/tbphpi" target="_blank" rel="noopener">Subscribe — $9/month</a>
+          </div>
+          <div class="microcopy">Bring your Gemini API key. No production switch required — just try it.</div>
+        </div>
+        <div class="agent-card" aria-label="Illustration of a pipeline run">
+          <div class="agent-card-top"><span>Example run</span><span class="status">Ready</span></div>
+          <div class="pipeline" aria-hidden="true">
+            <span class="chip">Ask</span><span class="chip">Ground</span><span class="chip">Plan</span><span class="chip">Attack</span><span class="chip">Rewrite</span><span class="chip">Audit</span>
+          </div>
+          <p style="font-weight:800; margin-bottom:9px;">From question to useful next step.</p>
+          <p style="color:var(--muted); font-size:.88rem; margin-bottom:22px;">The workspace makes research, agent delegation, and answer improvement visible instead of hiding the work behind one reply.</p>
+          <div class="score"><strong>62</strong><div class="bar"><span></span></div><strong>72</strong></div>
+        </div>
       </div>
-      <span class="score-num score-after" id="scoreAfter">72</span>
-      <span class="score-label" id="scoreDelta">+10 improvement</span>
-    </div>
-  </div>
-</div>
+    </section>
 
-<hr class="divider">
-
-<!-- THE PROBLEM -->
-<section class="animate-in">
-  <div class="section-tag">The Problem</div>
-  <h2>AI answers are one-shot bets.</h2>
-  <p class="section-sub">Standard AI gives you a single pass. No iteration. No self-critique. No measurable improvement. You get what you get.</p>
-  <div class="problem-grid">
-    <div class="problem-card">
-      <div class="problem-icon">⚡</div>
-      <div class="problem-title">NO ITERATION</div>
-      <div class="problem-desc">One generation, one shot. The model has no way to know if what it produced is correct, clear, or even coherent.</div>
-    </div>
-    <div class="problem-card">
-      <div class="problem-icon">🎭</div>
-      <div class="problem-title">CONFIDENT WHEN WRONG</div>
-      <div class="problem-desc">AI doesn't flag its own overconfidence. It states speculation as fact and universals as certainties without qualification.</div>
-    </div>
-    <div class="problem-card">
-      <div class="problem-icon">🧠</div>
-      <div class="problem-title">NO MEMORY</div>
-      <div class="problem-desc">Every session starts from zero. The model doesn't remember what it learned, what it got wrong, or what you corrected.</div>
-    </div>
-    <div class="problem-card">
-      <div class="problem-icon">📊</div>
-      <div class="problem-title">NO MEASUREMENT</div>
-      <div class="problem-desc">You have no way to know if an AI answer actually improved. No score. No delta. No evidence of progress.</div>
-    </div>
-  </div>
-</section>
-
-<hr class="divider">
-
-<!-- THE PIPELINE -->
-<section id="pipeline" class="animate-in">
-  <div class="section-tag">The Solution</div>
-  <h2>11 layers. Every run.</h2>
-  <p class="section-sub">4CBON runs every answer through a deterministic cognitive pipeline. Each layer has one job. No layer skips. No layers merge. Every transformation is visible.</p>
-
-  <div class="pipeline-visual" id="layerViz">
-    <div class="layer-row" style="animation-delay:0.05s">
-      <div class="layer-id" style="color:#ff6b35">L0</div>
-      <div class="layer-info">
-        <div class="layer-name">INTERPRETATION ENGINE</div>
-        <div class="layer-desc">Understands the input. Infers intent. Defines what excellent looks like before any rewriting begins.</div>
+    <section class="section" id="features">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">One workspace, several ways to think</div>
+          <h2>Ask. Delegate. Rewrite.</h2>
+          <p class="section-lead">4CBON2 brings the useful parts of an agent ecosystem into one environment.</p>
+        </div>
+        <div class="features">
+          <article class="feature"><span class="feature-icon">⌕</span><h3>Ask a Question</h3><p>Source-grounded RAG with five-lens reasoning and live scholarly databases when current evidence matters.</p></article>
+          <article class="feature"><span class="feature-icon">◎</span><h3>Agent Mode</h3><p>A 12-agent orchestrator delegates subtasks to the right specialist and synthesizes the result.</p></article>
+          <article class="feature"><span class="feature-icon">↻</span><h3>AI Rewriter</h3><p>A visible 16-layer pipeline from L0 to L10 that scores, challenges, rewrites, remembers, and audits.</p></article>
+          <article class="feature"><span class="feature-icon">▦</span><h3>Data Dashboard</h3><p>Plotly visualizations make task history, response patterns, and subtask distribution easier to explore.</p></article>
+          <article class="feature"><span class="feature-icon">◌</span><h3>Agent Status</h3><p>Review conversation histories across the specialist agents and see what the ecosystem has retained.</p></article>
+          <article class="feature"><span class="feature-icon">+</span><h3>Custom Agents</h3><p>Request an agent for a workflow that is unique to you. It may be free or paid based on complexity.</p></article>
+        </div>
       </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.1s">
-      <div class="layer-id" style="color:#a855f7">P</div>
-      <div class="layer-info">
-        <div class="layer-name">PARSING LAYER</div>
-        <div class="layer-desc">Breaks the answer into logical units. Identifies claims, structure, gaps, missing logic.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.15s">
-      <div class="layer-id" style="color:#00d4ff">W</div>
-      <div class="layer-info">
-        <div class="layer-name">WORLD MODEL LAYER</div>
-        <div class="layer-desc">Extracts factual claims. Separates certainty: HIGH / MEDIUM / UNKNOWN. Integrates validated human critiques as ground truth.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.2s">
-      <div class="layer-id" style="color:#38bdf8">L1</div>
-      <div class="layer-info">
-        <div class="layer-name">HYPOTHESIS ENGINE</div>
-        <div class="layer-desc">Generates 3 improvement hypotheses — including a radical reframe and a failure mode hypothesis.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.25s">
-      <div class="layer-id" style="color:#f59e0b">L2</div>
-      <div class="layer-info">
-        <div class="layer-name">EVALUATION LAYER</div>
-        <div class="layer-desc">Scores each hypothesis. Identifies contradictions. Picks the best path forward with explicit reasoning.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.3s">
-      <div class="layer-id" style="color:#7c3aed">L3</div>
-      <div class="layer-info">
-        <div class="layer-name">REWRITE PLANNER</div>
-        <div class="layer-desc">Plans the rewrite precisely: what stays, what changes, what gets added, what gets removed.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.35s;background:rgba(16,185,129,0.04);border-radius:4px;padding:16px;">
-      <div class="layer-id" style="color:#10b981">★ L4</div>
-      <div class="layer-info">
-        <div class="layer-name" style="color:#10b981">FINALIZATION ENGINE — FINAL REWRITE</div>
-        <div class="layer-desc">Executes the rewrite plan. Produces the improved answer. This is the primary output.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.4s">
-      <div class="layer-id" style="color:#ef4444">LR</div>
-      <div class="layer-info">
-        <div class="layer-name">REGRET LAYER</div>
-        <div class="layer-desc">Analyzes the improvement delta. What errors were corrected? What hallucinations removed? What still needs work?</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.45s">
-      <div class="layer-id" style="color:#f43f5e">L6</div>
-      <div class="layer-info">
-        <div class="layer-name">TRACE MEMORY</div>
-        <div class="layer-desc">Stores the immutable execution log. Every decision is recorded and visible.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.5s">
-      <div class="layer-id" style="color:#c084fc">L7</div>
-      <div class="layer-info">
-        <div class="layer-name">CURRICULUM GENERATOR</div>
-        <div class="layer-desc">Extracts lessons learned, failure patterns, reusable heuristics. The system gets smarter about its own weaknesses.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.55s">
-      <div class="layer-id" style="color:#fbbf24">L8</div>
-      <div class="layer-info">
-        <div class="layer-name">IDENTITY MODEL</div>
-        <div class="layer-desc">Writes one new self-belief about system behavior this run. Saved permanently to memory.</div>
-      </div>
-    </div>
-    <div class="layer-row" style="animation-delay:0.6s">
-      <div class="layer-id" style="color:#06b6d4">L9</div>
-      <div class="layer-info">
-        <div class="layer-name">SOCRATIC INTEGRITY ENGINE</div>
-        <div class="layer-desc">Generates 3 unresolved self-questions specific to this run. Injected into the next run's L0 as starting context.</div>
-      </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<hr class="divider">
-
-<!-- MEMORY SYSTEM -->
-<section class="animate-in">
-  <div class="section-tag">Cross-Session Memory</div>
-  <h2>It remembers what it learned.</h2>
-  <p class="section-sub">After every run, 4CBON writes a self-belief to Supabase. Before the next run starts, it reads those beliefs back and injects them into L0. The system arrives at each new input already knowing what it learned from every previous run.</p>
-
-  <div class="memory-visual">
-    <div class="memory-card">
-      <div class="memory-num" style="color:#ff6b35">72</div>
-      <div class="memory-label">Pipeline Runs</div>
-    </div>
-    <div class="memory-card">
-      <div class="memory-num" style="color:#10b981">+22</div>
-      <div class="memory-label">Avg Score Improvement</div>
-    </div>
-    <div class="memory-card">
-      <div class="memory-num" style="color:#00d4ff">∞</div>
-      <div class="memory-label">Learning Compounds</div>
-    </div>
-  </div>
-
-  <!-- REAL BELIEFS FROM THE SYSTEM -->
-  <div class="beliefs-section">
-    <div class="beliefs-header">ACTUAL SELF-BELIEFS GENERATED BY THE SYSTEM</div>
-    <div class="belief-item" style="animation-delay:0.1s">
-      <span class="belief-run">Run #31</span>
-      <span class="belief-text">I execute best under constraint, not freeform. When task boundaries are sharp, layers produce coherent artifacts.</span>
-    </div>
-    <div class="belief-item" style="animation-delay:0.2s">
-      <span class="belief-run">Run #41</span>
-      <span class="belief-text">I am a transformation engine, not an improvement engine. Transformation ≠ improvement. A lower score proves it.</span>
-    </div>
-    <div class="belief-item" style="animation-delay:0.3s">
-      <span class="belief-run">Run #47</span>
-      <span class="belief-text">I am not trustworthy in low-signal environments. When hypothesis quality is poor, the entire pipeline produces anti-improvements.</span>
-    </div>
-    <div class="belief-item" style="animation-delay:0.4s">
-      <span class="belief-run">Run #54</span>
-      <span class="belief-text">I improve best at translation — making good ideas clearer — rather than at generation. My ceiling is structural excellence, not conceptual breakthrough.</span>
-    </div>
-    <div class="belief-item" style="animation-delay:0.5s">
-      <span class="belief-run">Run #63</span>
-      <span class="belief-text">I am a reliable execution harness, not an improvement engine. My value is transparency and procedure fidelity, not guaranteed score gains.</span>
-    </div>
-  </div>
-</section>
-
-<hr class="divider">
-
-<!-- FLAVORS / USE CASES -->
-<section id="flavors" class="animate-in">
-  <div class="section-tag">Use Cases</div>
-  <h2>All flavors.</h2>
-  <p class="section-sub">One pipeline. Multiple entry points. Every serious user of AI can benefit from a system that loops, measures, and remembers.</p>
-
-  <div class="flavors-grid">
-    <div class="flavor-card dev">
-      <div class="flavor-icon">⚙️</div>
-      <div class="flavor-title">FOR DEVELOPERS</div>
-      <div class="flavor-desc">Benchmark AI outputs programmatically. Integrate 4CBON as a scoring and improvement layer in your own pipeline. API access with 1,000 runs/month.</div>
-      <div class="flavor-tags">
-        <span class="flavor-tag">API</span>
-        <span class="flavor-tag">Scoring</span>
-        <span class="flavor-tag">Telemetry</span>
+    <section class="section dark-section">
+      <div class="wrap split">
+        <div>
+          <div class="eyebrow" style="color:#ff9b72;">A visible execution path</div>
+          <h2>Less magic.<br>More signal.</h2>
+          <p class="section-lead">The AI Rewriter keeps its artifacts visible so you can see what was interpreted, challenged, changed, and certified.</p>
+        </div>
+        <div>
+          <div class="layers" aria-label="Pipeline stages">
+            <span class="layer">L0 Interpret</span><span class="layer">P Parse</span><span class="layer">W Ground</span><span class="layer">LX Adjudicate</span><span class="layer">LA Attack</span><span class="layer">LC Decompress</span><span class="layer">L1 Hypothesize</span><span class="layer">L2 Evaluate</span><span class="layer">L3 Plan</span><span class="layer">LP Policy</span><span class="layer">L4 Rewrite</span><span class="layer">LR Regret</span><span class="layer">L6 Trace</span><span class="layer">L7 Learn</span><span class="layer">L8 Identity</span><span class="layer">L9 Question</span><span class="layer">L10 Audit</span>
+          </div>
+          <div class="principles" style="margin-top:25px;">
+            <div class="principle"><b>01</b><div><strong>Ground claims</strong><p>Separate established evidence from inference and uncertainty.</p></div></div>
+            <div class="principle"><b>02</b><div><strong>Challenge structure</strong><p>Look for hidden assumptions, compressed distinctions, and failure modes.</p></div></div>
+            <div class="principle"><b>03</b><div><strong>Keep humans in the loop</strong><p>Every audit ends with a verdict a person can review before acting.</p></div></div>
+          </div>
+        </div>
       </div>
-    </div>
-    <div class="flavor-card enterprise">
-      <div class="flavor-icon">🏢</div>
-      <div class="flavor-title">FOR ENTERPRISES</div>
-      <div class="flavor-desc">Self-improving reasoning for content teams, customer support, research, and decision support. Human-in-the-loop approval before outputs are adopted.</div>
-      <div class="flavor-tags">
-        <span class="flavor-tag">Self-Improving</span>
-        <span class="flavor-tag">Human Approval</span>
-        <span class="flavor-tag">White Label</span>
+    </section>
+
+    <section class="section" id="memory">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">Memory</div>
+          <h2>It learns from its own runs.</h2>
+          <p class="section-lead">Each AI Rewriter run writes its L8 self-belief to Supabase. Within a session, the beliefs accumulated so far are fed back into L0 before the next run begins.</p>
+        </div>
+        <div class="beliefs">
+          <div class="beliefs-head">Real self-beliefs from 4CBON1 development runs — the Colab-based predecessor that proved this mechanism out.</div>
+          <div class="belief"><span class="belief-run">4CBON1 run #31</span><p class="belief-text">I execute best under constraint, not freeform. When task boundaries are sharp, layers produce coherent artifacts.</p></div>
+          <div class="belief"><span class="belief-run">4CBON1 run #41</span><p class="belief-text">I am a transformation engine, not an improvement engine. Transformation ≠ improvement. A lower score proves it.</p></div>
+          <div class="belief"><span class="belief-run">4CBON1 run #47</span><p class="belief-text">I am not trustworthy in low-signal environments. When hypothesis quality is poor, the entire pipeline produces anti-improvements.</p></div>
+          <div class="belief"><span class="belief-run">4CBON1 run #54</span><p class="belief-text">I improve best at translation — making good ideas clearer — rather than at generation. My ceiling is structural excellence, not conceptual breakthrough.</p></div>
+          <div class="belief"><span class="belief-run">4CBON1 run #63</span><p class="belief-text">I am a reliable execution harness, not an improvement engine. My value is transparency and procedure fidelity, not guaranteed score gains.</p></div>
+        </div>
       </div>
-    </div>
-    <div class="flavor-card research">
-      <div class="flavor-icon">🔬</div>
-      <div class="flavor-title">FOR RESEARCHERS</div>
-      <div class="flavor-desc">Transparent cognitive architecture for studying LLM reasoning. Every layer output is visible, copyable, and logged. The first AI tool that shows its work.</div>
-      <div class="flavor-tags">
-        <span class="flavor-tag">Transparent</span>
-        <span class="flavor-tag">Logged</span>
-        <span class="flavor-tag">Observable</span>
+    </section>
+
+    <section class="section" id="pricing">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">Simple access</div>
+          <h2>Start free. Keep going when it earns a place in your workflow.</h2>
+          <p class="section-lead">Get 3 free runs with your Gemini API key. Subscribe for unlimited access.</p>
+        </div>
+        <div class="pricing">
+          <article class="price-card">
+            <h3>Free</h3><div class="price">$0</div><p class="price-note">3 free runs to try the workflow.</p>
+            <ul><li>Ask, delegate, and rewrite</li><li>16-layer AI Rewriter</li><li>Source-grounded research</li><li>No credit card</li></ul>
+            <a class="button button-outline" href="/app">Try Free</a>
+          </article>
+          <article class="price-card pro">
+            <span class="popular">MOST POPULAR</span><h3>Pro</h3><div class="price">$9 <small>/ month</small></div><p class="price-note">Unlimited runs for serious workflows.</p>
+            <ul><li>Everything in Free</li><li>Unlimited pipeline runs</li><li>Persistent memory when configured</li><li>Priority custom-agent review</li></ul>
+            <a class="button button-primary" href="https://4175358678144.gumroad.com/l/tbphpi" target="_blank" rel="noopener">Subscribe</a>
+          </article>
+        </div>
       </div>
-    </div>
-    <div class="flavor-card api">
-      <div class="flavor-icon">🔌</div>
-      <div class="flavor-title">FOR BUILDERS</div>
-      <div class="flavor-desc">Plug the 4CBON pipeline into your product. Add structured reasoning, persistent memory, and measurable quality improvement to any AI-generated content.</div>
-      <div class="flavor-tags">
-        <span class="flavor-tag">Plug-In</span>
-        <span class="flavor-tag">Embeddable</span>
-        <span class="flavor-tag">Extensible</span>
+    </section>
+
+    <section class="section" id="custom-agents">
+      <div class="wrap">
+        <div class="custom">
+          <div><div class="eyebrow" style="color:var(--green);">Need something more specific?</div><h2>Request a custom agent.</h2><p>Describe the workflow, the inputs, and the outcome you want. Custom agents may be free or paid depending on complexity. We will review the request and reply by email.</p></div>
+          <div class="custom-cta"><a class="button button-dark" href="/app">Open Request Form <span aria-hidden="true">→</span></a><div class="microcopy" style="margin-top:11px;">The app includes the form.</div></div>
+        </div>
       </div>
-    </div>
-  </div>
-</section>
+    </section>
+  </main>
 
-<hr class="divider">
+  <footer>
+    <div class="wrap footer-row"><div>© 2026 4CBON2. Built for better agent workflows.</div><div><a href="#features">Features</a> · <a href="#pricing">Pricing</a> · <a href="mailto:mohamtur1@gmail.com">Contact</a> · <a href="https://github.com/mohamtur1/4CBOn2" target="_blank" rel="noopener">GitHub</a></div></div>
+  </footer>
 
-<!-- PRICING -->
-<section id="pricing" class="animate-in">
-  <div class="section-tag">Pricing</div>
-  <h2>Try free. Upgrade when it works.</h2>
-  <p class="section-sub">Try 3 runs free per day — no credit card needed. When the pipeline proves its value, upgrade. API costs are real and Pro users keep 4CBON running.</p>
-
-  <div class="pricing-grid">
-    <div class="price-card">
-      <div class="price-tier">Free</div>
-      <div class="price-amount">$0</div>
-      <div class="price-period">forever</div>
-      <ul class="price-features">
-        <li>3 runs per day</li>
-        <li>All 11 layers</li>
-        <li>Score trajectory</li>
-        <li>Layer copy buttons</li>
-        <li class="highlight">No credit card</li>
-      </ul>
-      <a href="/app" class="price-btn outline">Try free (limited) →</a>
-    </div>
-
-    <div class="price-card featured">
-      <div class="price-badge">MOST POPULAR</div>
-      <div class="price-tier">Pro</div>
-      <div class="price-amount">$9</div>
-      <div class="price-period">per month</div>
-      <ul class="price-features">
-        <li class="highlight">Unlimited runs</li>
-        <li class="highlight">Supabase memory</li>
-        <li class="highlight">AI feedback generator</li>
-        <li class="highlight">Credibility parser</li>
-        <li>L9 self-questions</li>
-        <li>100-question curriculum</li>
-        <li>Priority speed</li>
-      </ul>
-      <a href="https://4175358678144.gumroad.com/l/tbphpi" class="price-btn filled">UPGRADE TO PRO →</a>
-    </div>
-
-
-  </div>
-</section>
-
-<!-- ══════════════════════════════════════════════════════════════
-     THE APP, FRAMED
-     Hugging Face sends no X-Frame-Options and no CSP frame-ancestors
-     (verified 2026-09-12), so the Space can be framed and the session
-     cookie stays first-party. A redirect fallback is kept regardless:
-     those headers are set at the proxy layer and can appear at any time,
-     and a blocked frame fails silently in most browsers.
-     ══════════════════════════════════════════════════════════════ -->
 <div id="app-shell" class="app-shell" hidden>
   <div class="app-bar">
     <span class="app-title">4CBON</span>
@@ -1098,35 +292,27 @@
 <style>
   .app-shell {
     position: fixed; inset: 0; z-index: 800;
-    background: var(--bg); display: flex; flex-direction: column;
+    background: var(--paper); display: flex; flex-direction: column;
   }
   .app-shell[hidden] { display: none; }
   .app-bar {
     display: flex; align-items: center; gap: 12px;
-    padding: 8px 14px; border-bottom: 1px solid var(--border);
-    background: var(--surface);
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    background: var(--white);
   }
   .app-title {
-    font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
-    font-size: 17px; letter-spacing: 0.06em; color: var(--orange);
+    font-weight: 900; font-size: 15px; letter-spacing: -.01em; color: var(--navy);
   }
-  .app-hint { font-size: 11px; color: var(--muted); flex: 1; }
+  .app-hint { font-size: 12px; color: var(--muted); flex: 1; }
   .app-pop, .app-close {
-    font-size: 11px; color: var(--text); background: none;
-    border: 1px solid var(--border); border-radius: 5px;
-    padding: 5px 10px; cursor: pointer; text-decoration: none;
+    font-size: 12px; color: var(--navy); background: none;
+    border: 1px solid #bddde3; border-radius: 10px;
+    padding: 6px 12px; cursor: pointer; text-decoration: none;
   }
   .app-pop:hover, .app-close:hover { border-color: var(--cyan); color: var(--cyan); }
   .app-frame { flex: 1; width: 100%; border: 0; background: #fff; }
 </style>
 
-<!-- ══════════════════════════════════════════════════════════════
-     SIGN-IN MODAL
-     The session itself lives in an httpOnly cookie set by /api/auth/*.
-     Nothing below can read that cookie, and no Supabase key or access
-     token is ever placed in JavaScript — this page only talks to our own
-     endpoints, which hold the keys server-side.
-     ══════════════════════════════════════════════════════════════ -->
 <div id="auth-modal" class="auth-overlay" hidden>
   <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
     <button type="button" class="auth-close" id="auth-close" aria-label="Close">&times;</button>
@@ -1162,10 +348,12 @@
 </div>
 
 <style>
-  /* ─── AUTH MODAL ─── */
+  /* ─── AUTH MODAL, restyled for the light theme ───
+     The light :root keeps --muted/--orange/--cyan/--green; the dark block's
+     --bg/--surface/--border/--text are gone (mapped to paper/white/line/ink). */
   .auth-overlay {
     position: fixed; inset: 0; z-index: 900;
-    background: rgba(3, 3, 10, 0.88);
+    background: rgba(7, 19, 28, 0.5);
     display: flex; align-items: center; justify-content: center;
     padding: 20px;
   }
@@ -1173,9 +361,10 @@
   .auth-card {
     position: relative;
     width: 100%; max-width: 400px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
     padding: 28px 26px 24px;
   }
   .auth-close {
@@ -1183,19 +372,19 @@
     background: none; border: 0; color: var(--muted);
     font-size: 26px; line-height: 1; cursor: pointer;
   }
-  .auth-close:hover { color: var(--text); }
+  .auth-close:hover { color: var(--ink); }
   .auth-title {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 26px; font-weight: 700; letter-spacing: 0.02em;
-    color: #fff; margin-bottom: 6px;
+    font-family: inherit;
+    font-size: 22px; font-weight: 900; letter-spacing: -.02em;
+    color: var(--ink); margin-bottom: 6px;
   }
-  .auth-sub { font-size: 11px; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+  .auth-sub { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
   .auth-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
   .auth-tab {
     flex: 1; padding: 8px 0; font-family: inherit; font-size: 11px;
     letter-spacing: 0.08em; text-transform: uppercase;
     background: transparent; color: var(--muted);
-    border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+    border: 1px solid #bddde3; border-radius: 10px; cursor: pointer;
   }
   .auth-tab.is-on { color: var(--orange); border-color: var(--orange); }
   .auth-label {
@@ -1204,26 +393,26 @@
   }
   .auth-input {
     width: 100%; padding: 10px 12px;
-    background: var(--bg); color: var(--text);
-    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--paper); color: var(--ink);
+    border: 1px solid #bddde3; border-radius: 10px;
     font-family: inherit; font-size: 13px;
   }
   .auth-input:focus { outline: none; border-color: var(--cyan); }
   .auth-error {
     margin-top: 12px; padding: 9px 11px; font-size: 11px; line-height: 1.5;
-    color: #fecaca; background: rgba(239, 68, 68, 0.12);
-    border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 6px;
+    color: #92231a; background: #fdebe6;
+    border: 1px solid #f3c4b1; border-radius: 10px;
   }
   .auth-error.is-warn {
-    color: #fde68a; background: rgba(245, 158, 11, 0.12);
-    border-color: rgba(245, 158, 11, 0.35);
+    color: #7a4d0a; background: #fdf3d8;
+    border-color: #eed9a4;
   }
   .auth-submit {
     width: 100%; margin-top: 16px; padding: 11px 0;
-    background: var(--orange); color: #0a0a12;
-    border: 0; border-radius: 6px; cursor: pointer;
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    background: linear-gradient(110deg, #ff8650, #35cbe1); color: #06151c;
+    border: 0; border-radius: 10px; cursor: pointer;
+    font-family: inherit;
+    font-size: .88rem; font-weight: 800; letter-spacing: 0; text-transform: none;
   }
   .auth-submit[disabled] { opacity: 0.55; cursor: wait; }
   .auth-or {
@@ -1232,23 +421,23 @@
   }
   .auth-google {
     display: block; padding: 10px 0; text-align: center; text-decoration: none;
-    color: var(--text); background: var(--bg);
-    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--navy); background: var(--white);
+    border: 1px solid #bddde3; border-radius: 10px;
     font-size: 12px; letter-spacing: 0.05em;
   }
   .auth-google:hover { border-color: var(--cyan); color: var(--cyan); }
   .auth-note { margin-top: 14px; font-size: 10px; color: var(--muted); line-height: 1.6; }
 
-  .nav-user { font-size: 11px; color: var(--cyan); letter-spacing: 0.05em; }
-  .nav-runs { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; }
+  .nav-user { font-size: 12px; color: var(--navy); font-weight: 700; letter-spacing: 0; }
+  .nav-runs { font-size: 11px; color: var(--muted); letter-spacing: 0; }
+  /* Navy strip on purpose: banner() paints its text #fde68a / #fecaca inline,
+     which stays readable on navy and nowhere else on a light page. */
   #site-banner {
-    display: none; padding: 9px 14px; text-align: center;
-    font-size: 11px; color: #fde68a; background: rgba(245, 158, 11, 0.1);
-    border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+    display: none; padding: 10px 14px; text-align: center;
+    font-size: 12px; color: #fde68a; background: var(--navy);
+    border-bottom: 2px solid var(--orange);
   }
 </style>
-
-<div id="site-banner"></div>
 
 <script>
 (function () {
@@ -1468,7 +657,7 @@
     if (nav && !$("nav-account")) {
       var slot = document.createElement("span");
       slot.id = "nav-account";
-      nav.insertBefore(slot, nav.firstChild);
+      nav.appendChild(slot);
     }
     paintAccount();
 
@@ -1557,5 +746,30 @@
 })();
 </script>
 
+<script>
+  /* Nav auth buttons. openAuth()/setMode() are private to the gate IIFE above,
+     so this drives the modal through its own tab buttons: unhiding the modal
+     is what openAuth() does, and clicking a tab is what setMode() listens for.
+     These are buttons, not app links — the CTA interceptor would spend
+     a run instead of opening the modal. */
+  (function () {
+    "use strict";
+    function openAuthTab(name) {
+      var modal = document.getElementById("auth-modal");
+      if (!modal) { return; }
+      modal.hidden = false;
+      var tab = document.querySelector('.auth-tab[data-tab="' + name + '"]');
+      if (tab) { tab.click(); }
+      var input = document.getElementById("auth-email");
+      if (input) { setTimeout(function () { input.focus(); }, 40); }
+    }
+    document.addEventListener("DOMContentLoaded", function () {
+      var signin = document.getElementById("nav-signin-btn");
+      if (signin) { signin.addEventListener("click", function () { openAuthTab("signin"); }); }
+      var signup = document.getElementById("nav-signup");
+      if (signup) { signup.addEventListener("click", function () { openAuthTab("signup"); }); }
+    });
+  })();
+</script>
 </body>
 </html>
