@@ -2,7 +2,9 @@
 
 **Universal Learning Intelligence — decisions, and the build plan that follows from them**
 
-Status: **awaiting greenlight from the author and from DeepSeek.** No code written.
+Status: **reviewed; M0–M2 greenlit.** This file is the frozen snapshot of what was reviewed and is no
+longer edited. Rulings R1–R17, which amend D2 and answer the review questions in §11, are recorded in
+**`ULI_WALKTHROUGH.md` Part 7** — read that alongside this. No implementation code written yet.
 Runtime target: **Google Colab**, using the built-in `google.colab.ai` API.
 Deliverable of this packet: a set of *decisions* (not options) with stated costs and
 named falsifiers, plus a milestone plan with gates. A greenlight means "build M0–M2
