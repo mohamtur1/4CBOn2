@@ -53,18 +53,35 @@ cat /tmp/uli-payload/PAYLOAD.md
 Expected six files: `README.md`, `.gitignore`, `PAYLOAD.md`, `docs/ULI_WALKTHROUGH.md`,
 `docs/ULI_GREENLIGHT.md`, `docs/SESSION_START.md`.
 
-**If the clone fails**, fetch the same files directly:
+**If the clone fails**, use one of these two — both are verified to work on this platform.
+
+*Fallback A — one download of the whole branch (simplest):*
 
 ```bash
-BASE=https://raw.githubusercontent.com/mohamtur1/4CBOn2/arena/01a0bcfe-4cbon2/uli_transplant
-mkdir -p /tmp/uli-payload/docs
-curl -fsSL $BASE/README.md                   -o /tmp/uli-payload/README.md
-curl -fsSL $BASE/.gitignore                  -o /tmp/uli-payload/.gitignore
-curl -fsSL $BASE/PAYLOAD.md                  -o /tmp/uli-payload/PAYLOAD.md
-curl -fsSL $BASE/docs/ULI_WALKTHROUGH.md     -o /tmp/uli-payload/docs/ULI_WALKTHROUGH.md
-curl -fsSL $BASE/docs/ULI_GREENLIGHT.md      -o /tmp/uli-payload/docs/ULI_GREENLIGHT.md
-curl -fsSL $BASE/docs/SESSION_START.md       -o /tmp/uli-payload/docs/SESSION_START.md
+rm -rf /tmp/uli-tgz && mkdir -p /tmp/uli-tgz
+curl -fsSL "https://codeload.github.com/mohamtur1/4CBOn2/tar.gz/refs/heads/arena/01a0bcfe-4cbon2" \
+  -o /tmp/uli-tgz/uli.tgz
+tar -xzf /tmp/uli-tgz/uli.tgz -C /tmp/uli-tgz
+# extracts to: 4CBOn2-arena-01a0bcfe-4cbon2/uli_transplant/
+cp -r /tmp/uli-tgz/4CBOn2-arena-01a0bcfe-4cbon2/uli_transplant /tmp/uli-payload
 ```
+
+*Fallback B — per-file, via the authenticated GitHub API:*
+
+```bash
+REF="arena/01a0bcfe-4cbon2"; R="mohamtur1/4CBOn2"
+mkdir -p /tmp/uli-payload/docs
+for f in README.md .gitignore PAYLOAD.md; do
+  gh api "repos/$R/contents/uli_transplant/$f?ref=$REF" --jq '.content' | base64 -d > "/tmp/uli-payload/$f"
+done
+for f in ULI_WALKTHROUGH.md ULI_GREENLIGHT.md SESSION_START.md; do
+  gh api "repos/$R/contents/uli_transplant/docs/$f?ref=$REF" --jq '.content' | base64 -d > "/tmp/uli-payload/docs/$f"
+done
+```
+
+**Do not use `raw.githubusercontent.com`** — it is unreachable from this platform's sandbox (TLS
+handshake fails). That is a platform egress restriction, not a permissions problem, so do not spend
+time debugging it.
 
 **If that also fails**, stop and ask the user to paste these five files from the old session:
 `README.md`, `.gitignore`, `docs/ULI_WALKTHROUGH.md`, `docs/ULI_GREENLIGHT.md`,
@@ -75,12 +92,12 @@ would destroy both.
 ### Step 1.3 — Verify you have the right revision, then place the files
 
 ```bash
-wc -l /tmp/uli-payload/docs/ULI_WALKTHROUGH.md      # expect ~876 lines
-grep -c "R17" /tmp/uli-payload/docs/ULI_WALKTHROUGH.md   # expect > 0  (rulings present)
-grep -c "ADIR-S" /tmp/uli-payload/docs/ULI_WALKTHROUGH.md # expect > 0  (M11 metrics present)
+wc -l /tmp/uli-payload/docs/ULI_WALKTHROUGH.md            # expect 876
+md5sum /tmp/uli-payload/docs/ULI_WALKTHROUGH.md           # expect 8977dd9d2474f9e9031be9bc74abdf8c
+md5sum /tmp/uli-payload/docs/ULI_GREENLIGHT.md            # expect ecc9e4747de307695b13d838c51748ae
 ```
 
-If either grep returns 0, you have the wrong revision. Stop and say so.
+If either checksum differs, or the line count is wrong, you have the wrong revision. Stop and say so.
 
 ```bash
 cp    /tmp/uli-payload/README.md      README.md
