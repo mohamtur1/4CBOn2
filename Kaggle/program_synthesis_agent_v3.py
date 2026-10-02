@@ -837,8 +837,11 @@ class ProgramSynthesisV2Core:
             self.queue_ptr += 1
         if target is None:
             if _depth >= len(CLICK_SELECTORS):
-                # v2.1: state-graph-guided exploration as last resort
-                return self._no_signal_explore(grid, avail)
+                # v2.1 M2' FIX: design §4.2 — no-signal click exploration
+                # must be SALIENCE-ORDERED. The received code's blind cell
+                # sweeps lost lp85's level-1 clear in the 25-game head-to-
+                # head (v2.0's proven fallback clicked salient objects).
+                return self._salience_explore(grid, objs, avail)
             self._demote(sel, why="all candidates clicked, no progress")
             return self._click_policy(grid, frame, avail, _depth + 1)
         mask = np.zeros_like(grid, dtype=bool)
@@ -903,6 +906,37 @@ class ProgramSynthesisV2Core:
             "controls": {str(k): v for k, v in self.dirs.items()}}
 
     # ------------------------------------------------------------- v2.1 explore
+    def _salience_explore(self, grid, objs, avail):
+        """M2' FIX (design §4.2): salience-ordered no-signal click
+        exploration — v2.0's proven exhaustion fallback, restored, with
+        graph bookkeeping (objects already tried at this state are
+        skipped). These clicks are v2-baseline behaviour and deliberately
+        do NOT count against EXPLORATION_CAP (worst case = v2.0 exactly).
+        Blind cell enumeration remains the last resort."""
+        ranked, _ = salience_rank(objs)
+        h = self.graph.hash_grid(grid)
+        tried = self.graph.transitions.get(h, {}) if h is not None else {}
+        tried_cells = {k[1:] for k in tried
+                       if isinstance(k, tuple) and k[0] == 6}
+        for o in ranked:
+            cy, cx = o["centroid"]
+            cell = (int(cy) // CELL, int(cx) // CELL)
+            if cell in tried_cells:
+                continue
+            if (o["color"], cell) in self.clicked_sig:
+                continue
+            x = min(max(int(round(cx)), 0), 63)
+            y = min(max(int(round(cy)), 0), 63)
+            self.pending = {"aid": 6, "kind": "explore", "predicted": None,
+                            "sig": (o["color"], cell),
+                            "data": {"x": x, "y": y, "game_id": self.game_id}}
+            return 6, dict(self.pending["data"]), {
+                "strategy": "salience_explore", "object": o["id"],
+                "color": o["color"], "cell": cell,
+                "note": "salience-ordered no-signal click"}
+        # every salient object tried at this state: blind cell sweep
+        return self._no_signal_explore(grid, avail)
+
     def _no_signal_explore(self, grid, avail):
         """Novelty-seeking fallback. Uses the state-action graph to pick
         an untried action at the current state, or the least-visited
