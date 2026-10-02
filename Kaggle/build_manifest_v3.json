@@ -1,0 +1,117 @@
+{
+  "product": "ARC-AGI-3 ProgramSynthesis agent v2.1 (v3-fixed)",
+  "build_id": "v2.1-M3",
+  "generator": "4CBOn2_Kaggle3.ipynb cells 12-17 (additive only; App cells 1-11 byte-identical to 4CBOn2_Kaggle.ipynb)",
+  "artifacts_to_emit": [
+    "program_synthesis_agent_v3.py",
+    "ARC_AGI_3_Kagglea2.ipynb",
+    "build_manifest.json"
+  ],
+  "scope": {
+    "features_v2_1": [
+      "state-action exploration graph (tried_cells / clicked_sig dedup)",
+      "EXPLORATION_CAP=12 accretion protection (explore_blocked, <40 states)",
+      "typed-evidence world model (settled vs transient frames)",
+      "salience-ordered no-signal exploration (_salience_explore \u2014 the \u00a74.2 restore; uncapped, worst case = v2.0 exactly)"
+    ],
+    "features_v2_0_retained": [
+      "frame diffing + no-op blacklist",
+      "cross-level verified replay",
+      "level-1-first exploration"
+    ],
+    "baseline_non_negotiable": [
+      "never-hang wrapper (try/except decide path + time budget)",
+      "protocol discipline (arcengine-or-shim, RESET after GAME_OVER)",
+      "UL governance scaffolding (inspiration only, no UL code ships)",
+      "v1 core as-is (perception/salience, click-selector bank, movement probing \u2014 not generalized)"
+    ],
+    "app_cell_changes": "none (zero changes to cells 1-11)"
+  },
+  "hard_boundary": "Kaggle scoring rerun has no internet, no App access, no DB access \u2014 agent + ARC-AGI-3 protocol layer fully embedded in the kernel notebook at build time",
+  "lineage": {
+    "v1_kaggle_score": 0.06,
+    "design": "v2_design/DESIGN_v2_1.md (approved 2026-09-30)",
+    "M1_agent": "PASS 2026-09-30 (M1\u2032: compile/contract/kit-compat, v2.0 M1 suite parity, frozen-game loop gate, accretion-cap gate)",
+    "M2_kernel": "PASS 2026-09-30 (M2\u2032: kernel a2 gates A-D; 25-game head-to-head v3-fixed \u2261 v2.0 \u2014 1 level (lp85) each, aggregate 0.0890 each)",
+    "M3_builder": "this build (M3\u2032, prime milestone series)"
+  },
+  "head_to_head_local_25": {
+    "games": 25,
+    "max_steps": 200,
+    "max_actions": 80,
+    "v1": {
+      "levels": 0,
+      "wins": 0,
+      "aggregate": 0.0
+    },
+    "v2_0": {
+      "levels": 1,
+      "levels_detail": "lp85",
+      "wins": 0,
+      "aggregate": 0.08895044629116651
+    },
+    "v3_received_plus_4_fixes": {
+      "levels": 0,
+      "wins": 0,
+      "aggregate": 0.0,
+      "note": "regression: blind-cell exploration replaced the salience fallback"
+    },
+    "v3_fixed": {
+      "levels": 1,
+      "levels_detail": "lp85",
+      "wins": 0,
+      "aggregate": 0.08895044629116651,
+      "note": "action-for-action identical to v2.0 on all 25 games"
+    }
+  },
+  "known_limitations": [
+    "v2.1 features are behaviorally inert on the local 25-game set (identical actions to v2.0); local ceiling for this agent family \u2248 0.089 via the v1-inherited selector bank + v2.0 discipline",
+    "graph/cap code paths are first exercised for real on the Kaggle scoring rerun; worst case bounded to the v2.0 strategy by design",
+    "local play-local on ls20/vc33 completes 0 levels in 80 actions (movement probing locked as v1-as-is; real test is the Kaggle score)"
+  ],
+  "generated_utc": "2026-09-30T06:49:47Z",
+  "artifacts": [
+    {
+      "name": "program_synthesis_agent_v3.py",
+      "bytes": 46536,
+      "sha256": "ffce9e893f983c632e9cf82e85face0048030ff48eee5d539ffbfc119309ccdb"
+    },
+    {
+      "name": "ARC_AGI_3_Kagglea2.ipynb",
+      "bytes": 87400,
+      "sha256": "01f2bc276e2212ea5d48691b586823139124430d66f11da75a92464373b9f8e4"
+    }
+  ],
+  "agent_sha256": "ffce9e893f983c632e9cf82e85face0048030ff48eee5d539ffbfc119309ccdb",
+  "kernel_sha256": "01f2bc276e2212ea5d48691b586823139124430d66f11da75a92464373b9f8e4",
+  "offline_tests": {
+    "adversarial": 0.11,
+    "games": {
+      "demo-odd-one-out": {
+        "fresh_actions": 4,
+        "replay_actions": 4,
+        "newseed_actions": 10,
+        "levels": "4/4"
+      },
+      "demo-follow-sample": {
+        "fresh_actions": 10,
+        "replay_actions": 7,
+        "newseed_actions": 12,
+        "levels": "3/3"
+      },
+      "demo-reach-goal": {
+        "fresh_actions": 21,
+        "replay_actions": 21,
+        "newseed_actions": 35,
+        "levels": "3/3"
+      }
+    },
+    "verdict": "PASS"
+  },
+  "pipeline_note": "working-pipeline executor runs as cell 16 AFTER this manifest is written; outcome is printed by the cell-17 build report (and recorded in stdout)",
+  "environment": {
+    "python": "3.13.14",
+    "platform": "Linux-6.1.158+-x86_64-with-glibc2.41",
+    "builder_notebook": "4CBOn2_Kaggle3.ipynb"
+  }
+}
