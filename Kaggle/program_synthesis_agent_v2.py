@@ -128,6 +128,28 @@ except Exception:
             return len(self.frame) == 0
 
 
+def _pick_frame(frames, latest_frame):
+    """Prefer the freshest frame that actually carries grid data.
+
+    The kit's main() seeds `frames` with a dummy FrameData and passes the
+    converted current observation as latest_frame, so latest_frame wins
+    whenever it has pixels; the history covers callers that pass a stale
+    or empty second argument but real frames in `frames`.
+    """
+    try:
+        if getattr(latest_frame, "frame", None):
+            return latest_frame
+    except Exception:
+        pass
+    try:
+        for cand in reversed(list(frames or [])):
+            if getattr(cand, "frame", None):
+                return cand
+    except Exception:
+        pass
+    return latest_frame
+
+
 def _state_name(state):
     """Robust state comparison across real/shim/serialized harnesses."""
     try:
@@ -856,10 +878,23 @@ class ProgramSynthesisV2Core:
 # ============================================================================
 # SECTION 6 — KIT-FACING AGENT (never-hang wrapper + protocol discipline)
 # ============================================================================
-class ProgramSynthesisV2Agent:
+# The ARC-AGI-3-Agents framework drives agents via Agent.main(); when the
+# framework is importable we subclass its base so main()/frames/counter all
+# work (local `make play-local` and the Kaggle gateway). Standalone (no
+# framework), the class duck-types the same surface.
+try:
+    from agents.agent import Agent as _KitAgent   # ARC-AGI-3-Agents framework
+    KIT_FRAMEWORK = True
+except Exception:
+    _KitAgent = object
+    KIT_FRAMEWORK = False
+
+
+class ProgramSynthesisV2Agent(_KitAgent):
     """MyAgent for the ARC-AGI-3 Kaggle starter kit.
 
-    - choose_action / is_done match the official Agent ABC surface.
+    - choose_action / is_done match the official Agent ABC surface; when the
+      framework is present the inherited main() loop drives this class.
     - Every decide path is wrapped: any exception or missing field falls
       back to the cheapest legal action (RESET when required) — it can
       degrade, never hang, never raise.
@@ -871,14 +906,22 @@ class ProgramSynthesisV2Agent:
     TIME_BUDGET_S = 1.0
 
     def __init__(self, *args, **kwargs):
-        self.agent_name = (kwargs.get("agent_name")
-                           or (args[2] if len(args) > 2 else None)
-                           or "ProgramSynthesisV2")
-        gid = kwargs.get("game_id")
-        if not gid and len(args) > 1 and isinstance(args[1], str):
-            gid = args[1]
-        self.core = ProgramSynthesisV2Core(
-            verbose=bool(kwargs.get("verbose", False)))
+        verbose = bool(kwargs.pop("verbose", False))
+        self._kit = False
+        if _KitAgent is not object:
+            try:
+                super().__init__(*args, **kwargs)
+                self._kit = True
+            except Exception:
+                self._kit = False   # bad args for the kit signature: standalone
+        if not self._kit:
+            self.agent_name = (kwargs.get("agent_name")
+                               or (args[2] if len(args) > 2 else None)
+                               or "ProgramSynthesisV2")
+        gid = (kwargs.get("game_id")
+               or (args[1] if len(args) > 1 and isinstance(args[1], str) else "")
+               or "")
+        self.core = ProgramSynthesisV2Core(verbose=verbose)
         self.action_counter = 0     # bumped by the harness (official main())
         self._steps = 0             # internal mirror, bumped by choose_action
         self.begin_episode(gid or "")
@@ -890,7 +933,8 @@ class ProgramSynthesisV2Agent:
     # -- official ABC surface --------------------------------------------------
     def is_done(self, frames, latest_frame):
         try:
-            if _state_name(getattr(latest_frame, "state", None)) == "WIN":
+            frame = _pick_frame(frames, latest_frame)
+            if _state_name(getattr(frame, "state", None)) == "WIN":
                 return True
             return (self.action_counter >= self.MAX_ACTIONS
                     or self._steps >= self.MAX_ACTIONS)
@@ -899,8 +943,11 @@ class ProgramSynthesisV2Agent:
 
     def choose_action(self, frames, latest_frame):
         try:
+            # kit main() passes the converted current observation as arg 2
+            # (frames[0] is a dummy); runner mode passes frames[-1] itself
+            frame = _pick_frame(frames, latest_frame)
             t0 = time.perf_counter()
-            aid, data, reasoning = self.core.next_action(latest_frame)
+            aid, data, reasoning = self.core.next_action(frame)
             action = self._make_action(aid, data, reasoning)
             self._steps += 1
             if time.perf_counter() - t0 > self.TIME_BUDGET_S:
