@@ -1,0 +1,28 @@
+TASK: Design version 4 (v4) of our ARC-AGI-3 Kaggle agent. Deliver ONE concrete design that we can build and test before the deadline. Your own knowledge may be older than the facts below; the facts below override it. Treat them as given. Mark any other claim you cannot be sure of as ASSUMPTION or UNKNOWN. Do not invent model names, APIs, limits or scores.
+
+COMPETITION FACTS (checked on Kaggle and ARC Prize pages on Oct 2 2026)
+- ARC Prize 2026 ARC-AGI-3 is a Kaggle code competition. Final submission deadline: Nov 2 2026 (31 days left). Limit: 1 scored submission per day, 2 final picks.
+- Notebook limits: at most 9 hours on CPU or GPU, internet disabled, public pre-trained models allowed. RTX 6000 class GPUs (machine type g4-standard-48) are available for this competition. Model weights cannot live inside the notebook file; they are attached as Kaggle inputs.
+- Prize-eligible solutions must be open source: system, model and weights (OSI Open Source AI checklist). Prefer permissively licensed weights.
+- Scoring (RHAE): level score = (human baseline actions / agent actions) squared, capped at 1.15. Game score = average of level scores weighted by level number (later levels weigh more), capped by how many levels were completed. Total = mean over games, 0 to 100 percent. Only actions that change the game count. Thinking, tool calls, code execution and retries are free; only wall-clock time is limited.
+- Public leaderboard (about 50 percent of the test data; final ranking uses the other half): first 52.5, second 48.1, then a pack of 30+ teams at about 31 to 33.
+- Free sample notebooks: Random Agent 0.18, Just Explore 0.19, Stochastic Goose 0.25. Public notebooks that appear to be plain explorers or hand-built agents score 0.05 to 0.42. Public notebooks built on the Duck harness score about 5 to 28.
+- What the winners do: Milestone 1 first place (Tufa Labs, "The Duck"): a local open-source LLM (Qwen 3.6 27B, FP8) writes and runs Python in a live REPL against the game state. Second and third place: Gemma-4-31B looks at rendered board images and returns one JSON action per step, with a numpy click heuristic as fallback. Milestone 2 first place builds on the Duck harness with Qwen3.8-Flash-Next served by SGLang on an RTX Pro 6000 GPU. Tufa reports that hand-crafted tools hurt and that gains came from multimodality and better base models.
+
+OUR CURRENT AGENT (v3, from our repo)
+- Pure Python (numpy plus standard library), zero model calls, about 1,200 lines. Parts: object perception; 4 click selectors (rarest color, smallest object, corner-sample color, largest object); per-game rule ledger with effect classes (no effect, local, global, level advanced, transient); one-step predicted-frame check for clicks and moves; replay of verified action sequences across levels; state graph for novelty and revert detection; movement probing; a never-hang wrapper that falls back to the cheapest legal action.
+- Scores: v1 0.06; the v2 kernel 0.07 (owner reported); v3-fixed is not scored yet and plays action-for-action like v2.0 on our local 25 games (1 level, lp85). In local play it completed 0 levels in 80 actions on ls20 and vc33. The cause of the low score is undiagnosed.
+
+OUR BUILD SYSTEM AND TEAM
+- Today our builder emits a pure-Python agent inside a Kaggle kernel notebook, with no GPU setting, no model weights and no model-serving setup. State exactly what must change or be added.
+- ASSUMPTION: one person using Colab and Kaggle, no local GPU. UNKNOWN: our Kaggle GPU quota; treat it as a risk.
+
+WHAT TO PRODUCE (about 1,300 words in total, in this order; keep the pseudocode verbatim, do not summarize it away)
+1. DECISION. Choose exactly one: P1 redesign without an LLM; P2 build our own LLM-in-a-REPL agent from scratch; P3 adapt an open-source winning harness and keep our code only as a fallback explorer. Give the three facts that decided it and the main reason each other path lost.
+2. ARCHITECTURE for the chosen path: components and data flow; the exact model (name, size, license, precision); how it is attached and loaded offline; GPU and time budget per game inside the 9-hour cap; what happens on a stall, crash or time-out.
+3. CORE DECISION LOOP as pseudocode, at most 40 lines.
+4. KEEP / DELETE list for the v3 code, each item with a reason tied to the facts above.
+5. TEST PLAN with pass/fail gates, built for 1 scored run per day. Say what we can test locally before spending a scored run.
+6. RISKS AND UNKNOWNS: what could make this fail, and which facts above you could not confirm.
+
+Write in plain, concrete language. No marketing words. No option menu except in step 1.
