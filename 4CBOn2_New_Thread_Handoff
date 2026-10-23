@@ -1,0 +1,249 @@
+# 4CBOn2 — New-Thread Engineering Handoff
+
+**Prepared:** 23 October 2026  
+**Purpose:** Continue the Android prototype from a short new conversation without relying on the prior long thread.  
+**Current safe stop:** Divisions 10 and 10a are complete; do not begin Division 11 until explicitly asked to continue.
+
+---
+
+## 1. Immediate security note
+
+A GitHub Personal Access Token was exposed in the prior conversation.
+
+- **Do not repeat, quote, copy, store, use, or search for that token.**
+- The owner must revoke it immediately in GitHub settings and create a new one only if genuinely needed later.
+- No Git remote push, repository write, commit, or credential use occurred in this workspace.
+- GitHub has no supported connector in this environment, so do not request or accept a PAT in chat as a workaround.
+- If a later backup is needed, prepare source-only files/checkpoint notes and have the owner authenticate privately on their own device or via an approved connected-app flow, never through chat.
+
+## 2. User requirements that remain active
+
+- Build the native Android companion prototype incrementally, one timeboxed division at a time (maximum 30 minutes each).
+- Do not ask design clarification questions; decide interaction design autonomously.
+- Explain every progress/completion response both **like the user is two years old** and **as an adult**.
+- Required future feature areas include Agent Builder, Ask a Question / “How do I?” tutorials, online/offline operation, Colab/Kaggle/GitHub boundaries, browser experience, and selected-app coordination only through legitimate supported routes.
+- Do not claim universal phone/app control; preserve scope, owner takeover/pause/stop, sensitive/manual handoffs, and privacy boundaries.
+- Never solicit or accept a GitHub PAT in chat, source, logs, notebooks, or handoff documents.
+- Future GitHub private/authenticated access must use a locally entered, minimum-permission, fine-grained token only after a real local-entry screen and device test exist.
+- The intended future notebook is `4CBOn2_Kaggle6.ipynb` at `mohamtur1/4CBOn2`.
+- The chosen future in-notebook AI library is `from google.colab import ai`; never silently substitute another provider.
+
+## 3. Current project status
+
+| Division | Status | Meaning |
+| --- | --- | --- |
+| 01–08 | Finished | Scope, toolchain, Android foundation, navigation, credential boundary, and GitHub public-read boundary completed/verified as documented. |
+| 09 — Kaggle read access | Blocked by legitimate authorization | Public competition-list endpoint returned HTTP 401. A read-only public/authorized boundary is implemented; no token/OAuth/device test occurred. |
+| 10 — Colab entry/control route | Finished (manual route only) | Fixed manual-handoff reference compiled/tested. Public target notebook currently reports “Notebook not found.” No browser launch, account, runtime control, or AI call is implemented. |
+| 10a — Restore/verify Division 10 | Finished | Workspace-local Android toolchain restored and Division 10 compile/test/APK checks passed. |
+| 11 — Local database | Next eligible division | Not started. |
+| 12–42 | Not started | Not tested. |
+
+**Authoritative division plan:** `/home/user/4CBOn2_Build_Divisions.md`
+
+## 4. Verified latest build result
+
+The current source was verified after Division 10/10a:
+
+```text
+Gradle task: :app:testDebugUnitTest :app:assembleDebug
+Unit tests: 15 passed, 0 failures, 0 errors, 0 skipped
+APK v2 signature: passed
+Generated debug APK SHA-256:
+e3250cd2c8aa86bd910e73575ce59f074618cccecf9219f5b1762e9de5169e07
+```
+
+This is a local debug verification artifact, not a retained release artifact, production build, or device-installed test.
+
+The historical retained root APK is `/home/user/4CBOn2-debug.apk` and predates Divisions 06–10. Do not represent it as the latest source build.
+
+## 5. Latest source additions
+
+### Division 10
+
+- `android/app/src/main/java/io/github/mohamtur1/fourcbon2/ColabNotebookReference.kt`
+  - Fixed target reference for `mohamtur1/4CBOn2`, branch `main`, and `4CBOn2_Kaggle6.ipynb`.
+  - Defines `MANUAL_BROWSER_HANDOFF_ONLY`.
+  - Defines `PROGRAMMATIC_RUNTIME_CONTROL_UNAVAILABLE`.
+  - Defines `BUILT_IN_AI_UNPROBED`.
+  - Does not launch an activity/browser, make a network call, sign in, send a prompt, create a notebook, or run a runtime.
+
+- `android/app/src/test/java/io/github/mohamtur1/fourcbon2/ColabNotebookReferenceTest.kt`
+  - Two unit tests covering the exact notebook identity and manual-only state.
+
+- `android/COLAB_ENTRY_ROUTE.md`
+  - The primary Division 10 evidence record, including the public “Notebook not found” result, scope boundaries, test results, hash, and official references.
+
+### Earlier important boundaries
+
+- `android/app/src/main/java/io/github/mohamtur1/fourcbon2/AndroidKeyStoreCredentialStore.kt`
+  - Future AndroidKeyStore AES-GCM protected storage boundary. No UI, secret, or device-keystore test.
+
+- `android/app/src/main/java/io/github/mohamtur1/fourcbon2/GitHubRepositoryReadClient.kt`
+  - Fixed read-only public/authorized GitHub metadata adapter. No app UI/authenticated/device test.
+
+- `android/app/src/main/java/io/github/mohamtur1/fourcbon2/KaggleCompetitionReadClient.kt`
+  - Fixed read-only Kaggle competition-list boundary. Public route reports auth-required; authorized path requires a future bearer access-token slot and is untested against a real account.
+
+## 6. Service-route facts — do not overclaim
+
+### GitHub
+
+- Public, unauthenticated, no-body build-environment GET probes previously returned HTTP 200 for:
+  - `https://api.github.com/repos/mohamtur1/4CBOn2`
+  - `https://api.github.com/repos/mohamtur1/4CBOn2/contents/`
+- This establishes public visibility at that time only.
+- It does not prove private/authenticated access, a device request, a repository write, or notebook existence.
+- See `android/GITHUB_READ_ACCESS.md`.
+
+### Kaggle
+
+- Public no-body GET probe to:
+  - `https://www.kaggle.com/api/v1/competitions/list?group=general`
+- Returned HTTP 401.
+- No Kaggle account, access token, OAuth client, competition entry, dataset download, notebook action, or submission occurred.
+- Kaggle OAuth for a third-party public client requires legitimate registration/PKCE/approved redirect arrangements. Do not improvise with browser cookies or UI automation.
+- See `android/KAGGLE_READ_ACCESS.md`.
+
+### Colab
+
+- The fixed public direct route was checked:
+  - `https://colab.research.google.com/github/mohamtur1/4CBOn2/blob/main/4CBOn2_Kaggle6.ipynb`
+- Colab reported the notebook was not found at that repository/branch path.
+- `google.colab.ai` is an in-notebook Python library, not an Android remote-control API. Its real bounded probe belongs to Division 30.
+- No Google/Colab sign-in, credential, runtime, AI request, or browser/UI automation occurred.
+- See `android/COLAB_ENTRY_ROUTE.md`.
+
+## 7. Toolchain and repeatable build instructions
+
+The workspace-local toolchain is intentionally nonpersistent and may disappear between sessions.
+
+Expected current root if available:
+
+```text
+/home/user/.cache/4cbon2-android-toolchain
+```
+
+Pinned/verified components:
+
+```text
+Temurin JDK 17.0.21+9
+Gradle 9.4.1
+Android command-line tools 23.0.0
+Android platform-tools 37.0.1
+Android platforms 36 and 37.0
+Android Build Tools 36.0.0
+```
+
+Toolchain provenance/checksum record:
+
+```text
+android/TOOLCHAIN_PROVISIONING.md
+```
+
+If the toolchain exists, build using:
+
+```bash
+chmod +x /home/user/android/gradlew
+source /home/user/.cache/4cbon2-android-toolchain/provision.env
+cd /home/user/android
+./gradlew --no-daemon --console=plain --max-workers=1 :app:testDebugUnitTest :app:assembleDebug
+```
+
+Important memory setting already saved in `android/gradle.properties`:
+
+```text
+org.gradle.jvmargs=-Xmx640m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8
+org.gradle.workers.max=1
+kotlin.compiler.execution.strategy=in-process
+```
+
+Why: the earlier 512 MiB heap / 192 MiB metaspace configuration exhausted JVM metaspace after the toolchain reset. The one-worker 640 MiB / 384 MiB setting successfully built and tested the latest source in the approximately 1.9 GiB/no-swap sandbox.
+
+If the local toolchain is missing, reprovision it from `TOOLCHAIN_PROVISIONING.md`, verify the stated archive checksums, and do not claim the current source was built before that restoration succeeds.
+
+## 8. Android app reality and critical limits
+
+The app currently has a Compose navigation shell with five local destinations:
+
+```text
+Home, Ask, Agents, Browser, Activity
+```
+
+The Ask controls are visibly disabled. There is no working Ask answer engine, tutorial execution, local database, agent execution, app-side credential entry, browser handoff, browser automation, AccessibilityService, MediaProjection, screen capture, or selected-app control yet.
+
+Only normal `android.permission.INTERNET` is declared; cleartext is disabled. Do not add broad device-control permissions/routes early or make unsupported claims.
+
+Sensitive workflows remain manual-only initially, including banking/payment/password/OTP/biometric/permission/security-setting flows.
+
+## 9. Phone-control architecture — retained safety decision
+
+Future selected-app coordination uses this least-powerful ordering:
+
+```text
+Authorized API -> supported Android intent/app link/share -> permitted fixed human-defined routine -> manual handoff
+```
+
+It must not expose unrestricted screen-tap/read-every-screen tools to a cloud planner.
+
+Scope contracts must record:
+
+```text
+goal, apps/accounts, action/data/recipient/file bounds, cloud-transfer permission,
+completion mode, limits, expiry, exclusions
+```
+
+Initial owner-started session-cap proposal: five minutes or twenty actions.
+
+Take Over/Pause/Stop are local. Takeover must increment a cancellation epoch, reject stale/late commands, stop new input/observation/uploads, and require explicit resume plus a fresh state check.
+
+## 10. Next division — do not skip ahead
+
+**Division 11: Local database**
+
+Narrow target:
+
+1. Add a minimal local persistence layer for initial entities only.
+2. Define only the data needed for later drafts/state; do not add account credentials, service response bodies, broad telemetry, or full agent execution.
+3. Add a restart/persistence test.
+4. Compile, run all unit tests, create/debug-sign the APK, record exact results and hash.
+5. Update the build plan/README/evidence document.
+6. Stop before Division 12.
+
+Keep this to a maximum 30-minute session. If toolchain/download/test work blocks it, create a small continuation rather than falsely mark it complete.
+
+## 11. Required reporting style
+
+Every user-facing build progress/update must include both headings or equivalent content:
+
+```text
+Like you are two
+Like you are an adult
+```
+
+Use honest capability language. Distinguish source/static, mocked/local, emulator, real-device, and live-service evidence. Never describe a public route as authenticated, a browser handoff as programmatic control, or an unbuilt source edit as a verified APK.
+
+## 12. Relevant files
+
+```text
+/home/user/4CBOn2_Build_Divisions.md
+/home/user/android/README.md
+/home/user/android/COLAB_ENTRY_ROUTE.md
+/home/user/android/KAGGLE_READ_ACCESS.md
+/home/user/android/GITHUB_READ_ACCESS.md
+/home/user/android/CREDENTIAL_STORAGE.md
+/home/user/android/TOOLCHAIN_PROVISIONING.md
+/home/user/android/PROJECT_FOUNDATION.md
+/home/user/android/NAVIGATION_FOUNDATION.md
+/home/user/android/DEBUG_APK_RELEASE.md
+/home/user/android/app/src/main/java/io/github/mohamtur1/fourcbon2/
+/home/user/android/app/src/test/java/io/github/mohamtur1/fourcbon2/
+```
+
+---
+
+## Ready-to-use new-thread message
+
+Copy the following into a new conversation and attach or reference this handoff file:
+
+> Continue the 4CBOn2 Android prototype from the attached `4CBOn2_New_Thread_Handoff.md`. Follow its security boundaries and build one timeboxed division at a time. Start only with Division 11 — Local database. Explain every update both like I am two years old and as an adult. Do not request or accept credentials in chat.
