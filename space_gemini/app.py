@@ -4,7 +4,7 @@
 
 A Hugging Face Space port of ``4CBOn2_Gemini2c.ipynb`` (the public "Gemini2
 Frontier Research" edition), with the AI Rewriter cell replaced by the revised
-16-layer pipeline in which **L3 runs before LP** and LP gates on the L3 rewrite
+17-layer pipeline in which **L3 runs before LP** and LP gates on the L3 rewrite
 plan instead of the L2 evaluation text.
 
 Differences from the Colab notebook
@@ -2461,7 +2461,7 @@ print("📚 RAG Handlers ready.")
 
 
 # ============================================================
-# AI REWRITER — 16-LAYER PIPELINE (ported from the approved 4CBON runtime)
+# AI REWRITER — 17-LAYER PIPELINE (ported from the approved 4CBON runtime)
 # ============================================================
 # This cell is intentionally self-contained after Cells 1–6. It runs through the
 # same safe_ask_raw path as every other cell — the Google Generative AI API, with
@@ -3258,9 +3258,9 @@ with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
         # ============================================================
         # AI REWRITER TAB — ordered artifact display
         # ============================================================
-        with gr.TabItem("🧠 AI Rewriter (16-Layer Pipeline)"):
+        with gr.TabItem("🧠 AI Rewriter (17-Layer Pipeline)"):
             gr.Markdown("""
-            ## AI Rewriter — 16-Layer Pipeline
+            ## AI Rewriter — 17-Layer Pipeline
             Paste an AI-generated answer and optionally describe its goal. The runtime executes each layer in order,
             scores the answer before and after, preserves the three L9 Socratic questions for the next run, and includes three free runs per session.
             """)
@@ -3503,7 +3503,7 @@ with gr.Blocks(title="4CBON2 — Gemini Frontier Research Edition") as demo:
             ## About this Space
 
             **4CBON2** is a 12-agent cognitive ecosystem with source-grounded research retrieval and a
-            16-layer answer-rewriting pipeline.
+            17-layer answer-rewriting pipeline.
 
             | Component | Value |
             | --- | --- |

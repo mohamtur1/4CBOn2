@@ -1,6 +1,6 @@
 """
 4CBON2 Vercel Serverless Entry Point
-FastAPI app with Gradio interface for the 16-layer pipeline
+FastAPI app with Gradio interface for the 17-layer pipeline
 """
 import os
 import json
@@ -16,7 +16,7 @@ from app import (
     check_run_limit, log_event, get_supabase, score_with_gemini, call_gemini
 )
 
-app = FastAPI(title="4CBON2 — 16-Layer Cognitive Pipeline")
+app = FastAPI(title="4CBON2 — 17-Layer Cognitive Pipeline")
 
 # CORS
 app.add_middleware(
@@ -51,7 +51,7 @@ async def landing_page():
 # ═══════════════════════════════════════════════════════════
 @app.post("/api/pipeline")
 async def run_pipeline(request: Request):
-    """Run the 16-layer pipeline. Streams events as SSE."""
+    """Run the 17-layer pipeline. Streams events as SSE."""
     try:
         body = await request.json()
     except:
@@ -146,7 +146,7 @@ def create_gradio_app():
     """Create the Gradio interface for the pipeline."""
     
     with gr.Blocks(
-        title="4CBON2 — 16-Layer Cognitive Pipeline",
+        title="4CBON2 — 17-Layer Cognitive Pipeline",
         theme=gr.themes.Base(
             primary_hue="orange",
             secondary_hue="blue",
@@ -160,7 +160,7 @@ def create_gradio_app():
         .gradio-container { max-width: 720px !important; margin: 0 auto !important; }
         """
     ) as demo:
-        gr.Markdown("# 🧠 4CBON2 — 16-Layer Cognitive Pipeline")
+        gr.Markdown("# 🧠 4CBON2 — 17-Layer Cognitive Pipeline")
         gr.Markdown("*Paste any AI answer. The pipeline runs 16 cognitive layers to measurably improve it.*")
         
         with gr.Row():

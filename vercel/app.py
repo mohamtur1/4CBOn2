@@ -1,5 +1,5 @@
 """
-4CBON2 Core Pipeline — 16-Layer Cognitive Execution Engine
+4CBON2 Core Pipeline — 17-Layer Cognitive Execution Engine
 Ported from React/Claude to Python/Gemini
 """
 import os
@@ -393,7 +393,7 @@ def increment_run_count(ip: str) -> Optional[int]:
 # ═══════════════════════════════════════════════════════════
 def execute_pipeline(answer: str, api_key: str, context: str = "", model: str = "gemini-2.0-flash", client_ip: str = "unknown") -> Generator[Dict[str, Any], None, None]:
     """
-    Execute the full 16-layer pipeline.
+    Execute the full 17-layer pipeline.
     Yields events as they happen for streaming to the frontend.
     The api_key is used in-memory only — never logged or stored.
     """

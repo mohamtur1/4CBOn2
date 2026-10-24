@@ -23,7 +23,7 @@ A Hugging Face Space port of [`4CBOn2_Gemini2c.ipynb`](https://github.com/mohamt
 | 📁 **Upload Documents** | Index `.txt`, `.pdf`, `.docx` into the ChromaDB research store |
 | ❓ **Ask a Question** | Source-grounded research answers: local AI/Maths/Science vector DBs + live arXiv, OpenAlex, Semantic Scholar, Crossref, PubMed, Europe PMC, OEIS and official NIST/Clay/NIH/NASA results, cited as `[S1]…[Sn]` |
 | 🤖 **Agent Mode** | Multi-agent orchestration across 12 specialists, 10 tools, streaming log |
-| 🧠 **AI Rewriter** | The 16-layer cognitive pipeline (see below), **3 free runs per session** |
+| 🧠 **AI Rewriter** | The 17-layer cognitive pipeline (see below), **3 free runs per session** |
 | ✉️ **Request Custom Agent** | Prepares an email draft to `mohamtur1@gmail.com` |
 | 📊 **Data Dashboard** | Plotly views over task memory |
 | 📊 **Agent Status** | Live agent conversation histories |
