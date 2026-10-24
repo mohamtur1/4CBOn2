@@ -1,7 +1,7 @@
-# 4CBON2 — 16-Layer Cognitive Pipeline (Vercel Deployment)
+# 4CBON2 — 17-Layer Cognitive Pipeline (Vercel Deployment)
 
 Production-ready deployment of the 4CBON2 cognitive pipeline on Vercel, featuring:
-- **16-layer cognitive architecture** ported from React/Claude to Python/Gemini
+- **17-layer cognitive architecture** ported from React/Claude to Python/Gemini
 - **Zero-configuration** — clients bring their own Gemini API key
 - **Supabase integration** for event logging, beliefs, questions, and feedback
 - **Gumroad webhook** for subscription management
@@ -14,14 +14,14 @@ Production-ready deployment of the 4CBON2 cognitive pipeline on Vercel, featurin
 /api/
   index.py              # FastAPI + Gradio app (main entry point)
   gumroad-webhook.py    # Gumroad subscription webhook handler
-/app.py                 # Core 16-layer pipeline logic (Gemini API)
+/app.py                 # Core 17-layer pipeline logic (Gemini API)
 /public/
   index.html            # Landing page with pricing and features
 /requirements.txt       # Python dependencies
 /vercel.json           # Vercel deployment configuration
 ```
 
-## 16-Layer Pipeline
+## 17-Layer Pipeline
 
 The pipeline processes AI-generated answers through 16 cognitive layers:
 
@@ -227,7 +227,7 @@ vercel --prod
 4. Enter your Gemini API key (get one at https://aistudio.google.com/apikey)
 5. Paste an AI-generated answer
 6. Click "▶ RUN PIPELINE"
-7. Watch all 16 layers execute in sequence
+7. Watch all 17 layers execute in sequence
 
 ### Step 7: Update DNS (After Testing)
 
@@ -249,7 +249,7 @@ Once you've verified the new deployment works:
 ## API Endpoints
 
 ### `POST /api/pipeline`
-Run the 16-layer pipeline. Streams events as Server-Sent Events (SSE).
+Run the 17-layer pipeline. Streams events as Server-Sent Events (SSE).
 
 **Request:**
 ```json
@@ -309,7 +309,7 @@ Landing page with pricing and features.
 - Beautiful dark theme with gradient accents
 - Pricing section (Free vs Pro)
 - Feature highlights
-- 16-layer pipeline visualization
+- 17-layer pipeline visualization
 - Cross-session memory explanation
 - Use cases section
 - Gumroad upgrade links
