@@ -65,7 +65,7 @@ jobs:
           "$JDK_HOME/bin/java" -version
           "$JDK_HOME/bin/javac" -version
 
-      - name: Install and verify the pinned Android command-line tools
+      - name: Download the pinned Android command-line tools
         shell: bash
         run: |
           set -euo pipefail
@@ -73,16 +73,36 @@ jobs:
           curl --fail --location --retry 3 --connect-timeout 15 --max-time 300 \
             --output "$TOOLS_ARCHIVE" \
             "https://dl.google.com/android/repository/commandlinetools-linux-16111833_latest.zip"
+
+      - name: Verify the pinned Android command-line tools archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOOLS_ARCHIVE="$RUNNER_TEMP/android-commandline-tools.zip"
+          test -f "$TOOLS_ARCHIVE"
           echo "0877a1d048fe4a24efe2eff536ca4223f7adeb58648bb81909d33c446918cfa8  $TOOLS_ARCHIVE" | sha256sum -c -
+
+      - name: Unpack the pinned Android command-line tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOOLS_ARCHIVE="$RUNNER_TEMP/android-commandline-tools.zip"
           ANDROID_HOME="$RUNNER_TEMP/android-sdk"
           mkdir -p "$ANDROID_HOME/cmdline-tools" "$RUNNER_TEMP/android-commandline"
           unzip -q "$TOOLS_ARCHIVE" -d "$RUNNER_TEMP/android-commandline"
           mv "$RUNNER_TEMP/android-commandline/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
           test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          test "$("$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --version)" = "23.0.0"
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+      - name: Verify the pinned Android command-line tools version
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOOLS_VERSION="$(sdkmanager --version)"
+          printf 'Android command-line tools version: %s\n' "$TOOLS_VERSION"
+          test "$TOOLS_VERSION" = "23.0.0"
 
       - name: Install and verify the required Android SDK packages
         shell: bash
