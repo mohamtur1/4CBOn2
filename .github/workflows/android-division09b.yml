@@ -102,7 +102,14 @@ jobs:
           set -euo pipefail
           TOOLS_VERSION="$(sdkmanager --version)"
           printf 'Android command-line tools version: %s\n' "$TOOLS_VERSION"
-          test "$TOOLS_VERSION" = "23.0.0"
+          printf '::notice title=Android command-line tools version::%s\n' "$TOOLS_VERSION"
+          case "$TOOLS_VERSION" in
+            "23.0"|"23.0.0") ;;
+            *)
+              printf 'Unexpected Android command-line tools version: %s\n' "$TOOLS_VERSION" >&2
+              exit 1
+              ;;
+          esac
 
       - name: Install and verify the required Android SDK packages
         shell: bash
