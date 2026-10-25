@@ -34,9 +34,23 @@ No pull request is required before this test or before continuing on the assigne
 
 The hash above belongs only to run 40228830760. A new 09c build must be identified by its own commit, run, and freshly reported hash. Do not install one APK while checking the hash of another.
 
+## Current 09c test artifact — ready for the owner device test
+
+- Build commit: `042bc6dbcc341562efdba61242d38062955863f9`
+- Successful run: https://github.com/mohamtur1/4CBOn2/actions/runs/40230830330
+- Artifact: `app-debug.apk` (artifact ID `12613226429`)
+- Size: **11,645,983 bytes**
+- SHA-256 / artifact digest: `638f1cf46e473b8bd2e2087bf9dc140a4d0cd436be2a5c9105840327adf02cc1`
+- Created: `2026-10-25T20:30:17Z`
+- Expires: `2026-11-01T20:30:15Z`
+- Verification: 21 tests passed; APK assembled, zip-aligned, and v2-signature verified; exactly one artifact was retained.
+
+The phone/browser test has **not** been performed yet. Check that the artifact is still unexpired before installing it. If it has expired or the source changes, prepare a new artifact only through a new exact-step approval and record the new commit/run/hash.
+
+
 ## Division 09c APK route
 
-At document preparation, no 09c artifact had been produced. The next thread must inspect the latest workflow/artifact result rather than assuming one exists.
+The artifact above has now been produced and verified. The next thread must inspect its current expiry/source state rather than assuming it remains usable.
 
 The prepared workflow change retains an APK only when all of these conditions are true:
 
@@ -57,18 +71,15 @@ Reason: enable the owner-approved Division 09c device/browser smoke test
 
 The owner must approve that exact step. No PR is needed for this push-triggered route.
 
-## Part A — Agent finishes the test build
+## Part A — Test build completed
 
-1. Confirm the assigned branch and a clean working tree.
-2. Validate the workflow and handoff locally; keep credentials and generated binaries out of Git.
-3. Obtain exact-step approval for the named commit push and one retained debug APK.
-4. Push only the approved commit to `arena/0eb49904-4cbon2`.
-5. Wait for the corresponding Android verification run.
-6. Confirm all 21 tests and APK checks pass and exactly one debug APK artifact is retained.
-7. Give the owner the run link, commit SHA, fresh APK SHA-256, and artifact name.
-8. Do not open a PR, join a competition, or request an account credential.
+- [x] The seven-file preparation commit was validated and approved for its exact push/artifact step.
+- [x] Commit `042bc6dbcc341562efdba61242d38062955863f9` was pushed to the assigned branch.
+- [x] Run 40230830330 passed all 21 tests and every APK/source check.
+- [x] Exactly one `app-debug.apk` was retained with the recorded matching SHA-256/digest.
+- [x] No PR, credential, Kaggle account action, or production artifact was created.
 
-If CI fails, do not tell the owner to install the APK. Record the failed stage and fix only the relevant 09c/build issue.
+Do not repeat the artifact build while this artifact remains valid for the unchanged source. If CI had failed, installation would not have been offered. The owner may now follow Part B; the agent should not perform the phone taps or request an account credential.
 
 ## Part B — Owner downloads and installs the debug APK
 
@@ -127,7 +138,7 @@ Copy this table into the 09c result record and use **Passed**, **Failed**, **Blo
 
 | Item | Result / evidence to record |
 | --- | --- |
-| CI run, commit, artifact name, and fresh APK SHA-256 | Pending owner test |
+| CI run, commit, artifact name, and fresh APK SHA-256 | Run 40230830330; commit `042bc6d`; `app-debug.apk`; SHA-256 `638f1cf46e473b8bd2e2087bf9dc140a4d0cd436be2a5c9105840327adf02cc1` |
 | Phone make/model and Android version | Pending; do not record serial numbers, device IDs, phone numbers, or account identifiers |
 | Browser and version, if known | Pending |
 | 09c-01 Launch/navigation | Pending |
@@ -162,4 +173,4 @@ Do not upload screenshots, screen recordings, browser sessions, or account data 
 
 ## Ready-to-paste next-thread message
 
-> Continue the 4CBOn2 Android prototype in `mohamtur1/4CBOn2` on branch `arena/0eb49904-4cbon2`. Read `4CBOn2_Next_Thread_Handoff.md`, `4CBOn2 — New-Thread Engineering.md`, and `4CBOn2_Build_Divisions.md`. Continue only with Division 09c: finish the approved one-time debug-APK route if still pending, then guide/record the owner-in-the-loop browser-handoff smoke test exactly as documented. Do not sign in, join, or submit to Kaggle. Do not open a PR unless separately approved. Work in one maximum-30-minute session, preserve both explanation styles, state upload requirements before every step, and obtain exact-step approval before every external write or transfer. Never request or accept credentials.
+> Continue the 4CBOn2 Android prototype in `mohamtur1/4CBOn2` on branch `arena/0eb49904-4cbon2`. Read `4CBOn2_Next_Thread_Handoff.md`, `4CBOn2 — New-Thread Engineering.md`, and `4CBOn2_Build_Divisions.md`. Continue only with Division 09c: verify that the recorded debug-APK artifact is still valid, then guide and record the owner-in-the-loop browser-handoff smoke test exactly as documented. If the artifact expired or source changed, obtain new exact-step approval before replacing it. Do not sign in, join, or submit to Kaggle. Do not open a PR unless separately approved. Work in one maximum-30-minute session, preserve both explanation styles, state upload requirements before every step, and obtain exact-step approval before every external write or transfer. Never request or accept credentials.
