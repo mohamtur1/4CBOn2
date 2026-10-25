@@ -1,6 +1,6 @@
 # 4CBOn2 — Timeboxed Build Plan
 
-**Build in progress · Revised 23 October 2026 · Divisions 01–08 completed, Division 09 authorization-blocked, and Division 10 checkpointed pending Android toolchain restoration; public GitHub read is verified, Kaggle public read requires authorization, the fixed Colab notebook target is currently missing, and no updated retained APK, notebook, account connection, credential entry, or phone/device test exists yet**
+**Build in progress · Revised 25 October 2026 · Divisions 01–08 and 10/10a completed; revised Division 09 manual Kaggle handoff is source/static-checkpointed, former Division 09a token work is superseded, and revised Division 09b verification has not started; active Android source has no Kaggle API/token/OAuth route, the fixed Colab notebook target is currently missing, and no current-source APK, notebook, account connection, real credential entry, or phone/device test exists yet**
 
 ## Decision
 
@@ -34,7 +34,7 @@ If unfinished, stop safely, checkpoint the exact state, and create a small conti
 | 06 | Add navigation | Home, Ask, Agents, Browser, Activity; disabled/unimplemented features labeled |
 | 07 | Protected credential storage | Secure native settings and credential boundary; no embedded tokens or sensitive logs |
 | 08 | Prove GitHub read access | Authorized repository read or an honest account/network blocker |
-| 09 | Prove Kaggle read access | Permitted account/API read; distinguish missing authorization from unsupported operations |
+| 09 | Manual Kaggle competition handoff | Validated competition URL and explicit browser handoff; owner handles sign-in, rules, joining, and submission; no Kaggle API/token/OAuth |
 | 10 | Prove Colab entry/control route | Notebook opening plus supported control-path investigation; manual-only versus actual API capability recorded |
 | 11 | Local database | Initial entities and persistence/restart test |
 | 12 | Selected-app capability registry | Owner-selected app identities, narrow discovery, action-level support, and unavailable states; no blanket inventory collection |
@@ -48,13 +48,13 @@ If unfinished, stop safely, checkpoint the exact state, and create a small conti
 | 20 | Sensitive-action approval gate | Scoped destination/artifact identity, expiry, caps, and confirmation tests |
 | 21 | One harmless app intent/API action | A supported open/prepare action with actual result/handoff semantics; no unrestricted UI input |
 | 22 | GitHub cache and diff | Refresh a permitted version, show local diff, and prepare an exportable change; no unapproved write/force-push |
-| 23 | Kaggle metadata/status | Supported competition/job views with real last-sync and stale/error states |
+| 23 | Manual Kaggle competition tracker | Owner-entered competition status and owner-update timestamps; no API sync or live-status claim |
 | 24 | Chrome-backed opening | Custom Tab/service links and browser fallback; no unrestricted Chrome-control claim |
 | 25 | Controlled browser workspace | One reviewed public-page/reader workflow, URL boundaries, no privileged native bridge to untrusted content |
 | 26 | Consented observation boundary | Shared/structured data first; any screen capture separately gated, secure/sensitive contexts excluded, cloud upload Off by default |
 | 27 | Actual action timeline | Record plan/action/result/check events; distinguish attempted, pending, manual, verified, and uncertain outcomes |
 | 28 | Shared job bundle | Versioned app/notebook contract, manifest, private export/import, hashes, and policy revalidation; a hash is not authority |
-| 29 | Notebook skeleton | Exact file `4CBOn2_Kaggle6.ipynb`, runtime detection, controller/runner roles, capability panel |
+| 29 | Notebook skeleton | Exact file `4CBOn2_Kaggle6.ipynb`, runtime detection, controller/runner roles, capability panel, and manual upload/run handoff; no Kaggle API/runtime-control claim |
 | 30 | Colab built-in AI adapter | Real service/model probe and bounded request; no provider fallback or proxy-credential export |
 | 31 | One bounded agent loop | One supported goal -> permitted action -> verification workflow; stop/error path demonstrated |
 | 32 | Critical phone-action guard | Sensitive/manual-only contexts, exact action preview, account checks, protected-screen handoff, and no blind irreversible retry |
@@ -62,8 +62,8 @@ If unfinished, stop safely, checkpoint the exact state, and create a small conti
 | 34 | Conditional personal-lab UI runner | Only a permitted, authorized experimental configuration against an owner-controlled fixture app; unavailable if eligibility fails; not Play-compliance proof |
 | 35 | Privacy and prompt-injection tests | Malicious page/message, unauthorized destination, secret/screen-content leakage, and data-sharing scope fixtures |
 | 36 | Online/offline phone-control routing | Available local/API/model routes only; no fake cloud planning, locked-device bypass, or silent alternate provider |
-| 37 | Kaggle prepare-only pipeline | One trusted tabular template, explicit validation, artifact checks, reproducible result |
-| 38 | Submission gate and receipt states | Limits, durable intent, acknowledgment/uncertainty handling, mocked tests; live submission separately authorized |
+| 37 | Offline competition preparation pipeline | Owner-selected local tabular template, explicit validation, artifact checks, and reproducible result; no API download/upload |
+| 38 | Manual submission gate and receipt states | Limits, owner-performed Kaggle submission, owner-recorded acknowledgment/uncertainty, and mocked tests; no live app submission or receipt verification |
 | 39 | Minimal Improvement Lab | One baseline/candidate report, preserved versions, fixed evaluator, approval before promotion |
 | 40 | Harmless cross-app integration test | A few selected supported workflows with synthetic data; scope escape, takeover, and manual handoff tested |
 | 41 | Focused recovery/safety smoke tests | Offline/reconnect, stale cloud response, interrupted work, revoked permission, ambiguous acknowledgment, and duplicate-action fixtures |
@@ -82,13 +82,16 @@ If unfinished, stop safely, checkpoint the exact state, and create a small conti
 | 06 — Add navigation | **Finished** | Five destinations, disabled Ask/How-do-I controls, one unit test, and sandbox build/signature checks passed; no device test | `android/NAVIGATION_FOUNDATION.md` |
 | 07 — Protected credential storage | **Finished** | Keystore/AES-GCM boundary compiled; four unit tests and static/build/signature checks passed; no secret/device-keystore/live-service test | `android/CREDENTIAL_STORAGE.md` |
 | 08 — Prove GitHub read access | **Finished (public route)** | HTTPS public metadata/root listing returned HTTP 200 from build environment; 9 unit/static/build/signature checks passed; no PAT, authenticated app, or device test | `android/GITHUB_READ_ACCESS.md` |
-| 09 — Prove Kaggle read access | **Blocked (Kaggle authorization)** | Public competition-list endpoint returned HTTP 401; read boundary, 13 unit/static/build/signature checks passed; a minimal read-only OAuth registration request is prepared but unsent; no token/OAuth client/device test | `android/KAGGLE_READ_ACCESS.md` + `android/KAGGLE_OAUTH_REGISTRATION_REQUEST.md` |
-| 09a — Prepare local Kaggle token route | **Not started** | Confirm documented token format/scoping and design/test a local-entry route before any real token is entered; no token in chat/source/logs | None |
+| 09 — Manual Kaggle competition handoff | **Source/static checkpoint; not finished** | Active API/token/OAuth code removed; validated URL and explicit `ACTION_VIEW` handoff added; static checks passed; 21 test methods present but not run; no browser/device/competition test or current-source APK | `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md` |
+| 09a — Former local Kaggle token route | **Superseded; no further work** | Owner selected manual participation; token/API source and tests removed, historical evidence retained | `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md` |
+| 09b — Verify revised manual Kaggle handoff | **Not started** | Restore/approve a build route, run unit tests/build/signature checks, and close revised 09 before Division 11; device/competition tests remain separate | `android/DIV09B_TOOLCHAIN_CHECKPOINT.md` (environment evidence) |
 | 10 — Prove Colab entry/control route | **Finished (manual route)** | Fixed manual-handoff reference and public route investigation complete; target notebook reported missing; compile, aggregate 15-test suite, debug build, v2 signature, and static checks passed; no account/runtime/AI/device test | `android/COLAB_ENTRY_ROUTE.md` |
 | 10a — Restore/verify Division 10 toolchain checkpoint | **Finished** | Toolchain restored from verified sources; compile/test/APK verification completed with bounded one-worker memory configuration | `android/COLAB_ENTRY_ROUTE.md` |
 | 11–42 | **Not started** | Not tested | None |
 
-Divisions 01–02 are foundation documentation checkpoints; Division 03/03a provisioned the active sandbox toolchain; Division 04 created and locally compiled the source skeleton; Division 05 retained and verified a debug-signed development APK; Division 06 added locally verified navigation source; Division 07 added a compiled, unpopulated credential-storage boundary; Division 08 added a read-only GitHub boundary and verified public repository visibility from the build environment; Division 09 added a read-only Kaggle boundary but correctly stopped at Kaggle’s authorization requirement; Division 10 added and locally verified a fixed manual Colab handoff reference, while the target notebook itself remains missing and runtime/AI capability remains untested. These results do **not** establish phone compatibility, authenticated GitHub/Kaggle access, a Colab account/notebook/runtime or built-in-AI call, special permissions beyond the normal Internet declaration, a real device test, store eligibility, credential entry/storage on a device, production signing, or production release readiness. The retained Division 05 APK predates the Division 06–10 source updates. No later division is implied to exist merely because it is listed.
+Divisions 01–02 are foundation documentation checkpoints; Division 03/03a provisioned the active sandbox toolchain; Division 04 created and locally compiled the source skeleton; Division 05 retained and verified a debug-signed development APK; Division 06 added locally verified navigation source; Division 07 added a compiled, unpopulated credential-storage boundary; Division 08 added a read-only GitHub boundary and verified public repository visibility from the build environment; Division 09 originally established and then superseded an authorization-blocked Kaggle read boundary; Division 10 added and locally verified a fixed manual Colab handoff reference, while the target notebook itself remains missing and runtime/AI capability remains untested. These results do **not** establish phone compatibility, authenticated GitHub/Kaggle access, a Colab account/notebook/runtime or built-in-AI call, special permissions beyond the normal Internet declaration, a real device test, store eligibility, credential entry/storage on a device, production signing, or production release readiness. The retained Division 05 APK predates the Division 06–10 source updates. No later division is implied to exist merely because it is listed.
+
+Revised Division 09 removed the active Kaggle API/token/OAuth route and added a validated manual competition URL handoff with ten new source tests. Static safety checks passed, but the toolchain/dependency blocker remains; the revised source has not compiled, the 21 current test methods have not run, and no current-source APK exists. Former Division 09a token work is superseded and requires no further implementation. Revised Division 09b must verify the manual route before Division 11. No browser/device handoff, Kaggle account session, competition join, or submission occurred.
 
 ## Dependency and blocker rules
 

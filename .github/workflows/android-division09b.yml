@@ -1,0 +1,142 @@
+name: Android Division 09b Verification
+
+on:
+  push:
+    branches:
+      - arena/0eb49904-4cbon2
+    paths:
+      - "android/**"
+      - ".github/workflows/android-division09b.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: none
+
+concurrency:
+  group: android-division09b-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GIT_TERMINAL_PROMPT: "0"
+
+jobs:
+  verify:
+    if: github.repository == 'mohamtur1/4CBOn2'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out the exact public commit without stored credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/mohamtur1/4CBOn2.git
+          git -c credential.helper= fetch --depth=1 origin arena/0eb49904-4cbon2
+          test "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+          test -z "$(git status --short)"
+
+      - name: Reject local credential and generated artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find android -type f \( -name local.properties -o -name kaggle.json -o -name access_token -o -name credentials.json -o -name '*.apk' -o -name '*.aab' \) -print -quit | grep -q .; then
+            echo "A local credential or generated Android artifact must not enter CI verification."
+            exit 1
+          fi
+
+      - name: Install and verify the pinned JDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          JDK_ARCHIVE="$RUNNER_TEMP/temurin-17.0.21.tar.gz"
+          curl --fail --location --retry 3 --connect-timeout 15 --max-time 300 \
+            --output "$JDK_ARCHIVE" \
+            "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jdk_x64_linux_hotspot_17.0.21_9.tar.gz"
+          echo "8b9b611d917e3dfd8419d3566b5949226f69b052fed7e109c1368add1dfe8711  $JDK_ARCHIVE" | sha256sum -c -
+          JDK_HOME="$RUNNER_TEMP/temurin-17.0.21"
+          mkdir -p "$JDK_HOME"
+          tar -xzf "$JDK_ARCHIVE" -C "$JDK_HOME" --strip-components=1
+          test -x "$JDK_HOME/bin/java"
+          test -x "$JDK_HOME/bin/javac"
+          echo "JAVA_HOME=$JDK_HOME" >> "$GITHUB_ENV"
+          echo "$JDK_HOME/bin" >> "$GITHUB_PATH"
+          "$JDK_HOME/bin/java" -version
+          "$JDK_HOME/bin/javac" -version
+
+      - name: Install and verify the pinned Android command-line tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOOLS_ARCHIVE="$RUNNER_TEMP/android-commandline-tools.zip"
+          curl --fail --location --retry 3 --connect-timeout 15 --max-time 300 \
+            --output "$TOOLS_ARCHIVE" \
+            "https://dl.google.com/android/repository/commandlinetools-linux-16111833_latest.zip"
+          echo "0877a1d048fe4a24efe2eff536ca4223f7adeb58648bb81909d33c446918cfa8  $TOOLS_ARCHIVE" | sha256sum -c -
+          ANDROID_HOME="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$ANDROID_HOME/cmdline-tools" "$RUNNER_TEMP/android-commandline"
+          unzip -q "$TOOLS_ARCHIVE" -d "$RUNNER_TEMP/android-commandline"
+          mv "$RUNNER_TEMP/android-commandline/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test "$("$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --version)" = "23.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+      - name: Install and verify the required Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +o pipefail
+          yes | sdkmanager --licenses >/dev/null
+          set -o pipefail
+          sdkmanager --install "platforms;android-37.0" "build-tools;36.0.0" "platform-tools"
+          test -f "$ANDROID_HOME/platforms/android-37.0/android.jar"
+          test -x "$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          test -x "$ANDROID_HOME/build-tools/36.0.0/zipalign"
+          ADB_VERSION="$(adb version)"
+          printf '%s\n' "$ADB_VERSION"
+          grep -q 'Version 37.0.1' <<<"$ADB_VERSION"
+
+      - name: Run unit tests and assemble the debug APK
+        shell: bash
+        working-directory: android
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon --console=plain --max-workers=1 \
+            :app:testDebugUnitTest :app:assembleDebug
+
+      - name: Verify test results and the debug APK
+        shell: bash
+        working-directory: android
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          reports = list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*.xml'))
+          assert reports, 'No unit-test result XML was produced.'
+          totals = {'tests': 0, 'failures': 0, 'errors': 0, 'skipped': 0}
+          for report in reports:
+              suite = ET.parse(report).getroot()
+              for key in totals:
+                  totals[key] += int(suite.attrib.get(key, '0'))
+          assert totals == {'tests': 21, 'failures': 0, 'errors': 0, 'skipped': 0}, totals
+          print('Verified unit-test totals:', totals)
+          PY
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -v 4 "$APK" >/dev/null
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK" | tee "$RUNNER_TEMP/apksigner-verification.txt"
+          grep -F 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/apksigner-verification.txt"
+          sha256sum "$APK"
+
+      - name: Confirm the build did not modify source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --short)"

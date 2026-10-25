@@ -2,7 +2,7 @@
 
 **Prepared:** 23 October 2026  
 **Purpose:** Continue the native Android prototype from a fresh, short conversation without depending on the prior long thread.  
-**Current safe stop:** Division 09 remains authorization-blocked. Start only with Division **09a — Prepare local Kaggle token route** when the owner says “Continue.” Do not skip to Division 11 first.
+**Current safe stop:** Revised Division **09** replaces Kaggle API/token work with a manual competition handoff and is source/static-checkpointed but not compiled or finished. Former Division **09a** token work is superseded and its active code has been removed. Revised Division **09b** must verify the manual handoff before Division 11; the sandbox toolchain/dependency blocker remains.
 
 ---
 
@@ -10,9 +10,10 @@
 
 - A GitHub Personal Access Token was exposed in the prior conversation and the owner reports that it has been **revoked**.
 - Never repeat, search for, request, accept, store, use, or include that token in any artifact.
-- No Git remote push, repository write, commit, or credential use was performed by the agent. Earlier GitHub work was read-only public API verification.
-- GitHub has no supported connector in this environment. Do not request a PAT in chat as a workaround.
-- The owner is replacing the old GitHub checkpoint files with the current source-and-documents archive and this handoff. Verify their public upload only after they say it is done; never use a credential.
+- Earlier GitHub verification was read-only public API work. In this continuation, no remote push, commit, or credential use has been performed by the agent.
+- The current Arena environment provides configured Git/GitHub tooling and an assigned working branch. This removes the old manual owner-upload requirement, but access does not imply approval for an external write.
+- Local reading, editing, and testing need no upload. Before any push, pull request, issue, release, or other external transfer, state the exact destination, files/data, and reason and obtain explicit owner approval for that step.
+- Never request a PAT or other GitHub credential in chat. Keep the original recovery archive; current local edits do not require the owner to upload a replacement checkpoint.
 
 ## 2. Standing owner requirements
 
@@ -40,13 +41,14 @@
 | Division | Status | Meaning |
 | --- | --- | --- |
 | 01–08 | Finished | Scope, toolchain, Android foundation, navigation, credential boundary, and GitHub public-read boundary completed/verified as documented. |
-| 09 — Kaggle read access | Blocked by legitimate authorization | Public competition-list endpoint returned HTTP 401. The fixed read-only boundary is implemented and tested; no real account/token/OAuth/device test occurred. |
-| 09a — Local Kaggle token route | **Next; not started** | Decide/verify a documented manually created token format and create a local-only entry route before any real token is used. |
+| 09 — Manual Kaggle competition handoff | **Source/static checkpoint; not finished** | API/token/OAuth code removed; validated competition URL and explicit browser handoff added. Static checks passed; 21 test methods present but unexecuted. No browser/device/competition test or current-source APK. See `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`. |
+| 09a — Former local Kaggle token route | **Superseded; no further work** | Owner selected manual participation; token/API source and tests removed, historical evidence retained. |
+| 09b — Verify revised manual Kaggle handoff | **Next; not started** | Restore or approve a build route, compile/test the revised source, and verify a fresh debug APK before Division 11. Device/competition tests remain separate. |
 | 10 — Colab entry/control route | Finished (manual route only) | Fixed manual-handoff reference compiled/tested. The exact planned notebook is currently missing from the public repository path. No browser launch, account, runtime control, or AI call exists. |
 | 10a — toolchain restore/verification | Finished | Toolchain restored and Division 10 compile/test/APK checks passed. |
 | 11–42 | Not started | Not tested. |
 
-**Authoritative plan:** `/home/user/4CBOn2_Build_Divisions.md`
+**Authoritative plan:** `/home/user/4CBOn2/4CBOn2_Build_Divisions.md`
 
 ## 4. Latest verified Android build
 
@@ -58,7 +60,7 @@ Generated debug APK SHA-256:
 e3250cd2c8aa86bd910e73575ce59f074618cccecf9219f5b1762e9de5169e07
 ```
 
-This is a local debug verification artifact, not a retained release artifact, production build, or device-installed test.
+This Division 10 result predates all Division 09/09a and revised manual-handoff source changes. It is a historical local debug verification artifact, not a current-source build, retained release artifact, production build, or device-installed test.
 
 The historical retained root APK at `/home/user/4CBOn2-debug.apk` predates Divisions 06–10 and must not be represented as the latest source build.
 
@@ -67,22 +69,23 @@ The historical retained root APK at `/home/user/4CBOn2-debug.apk` predates Divis
 ### Android project
 
 ```text
-/home/user/android/
+/home/user/4CBOn2/android/
 ```
 
 Key source boundaries:
 
-- `AndroidKeyStoreCredentialStore.kt` — future AndroidKeyStore AES-GCM storage boundary. No local entry UI, populated secret, or device-keystore test.
+- `AndroidKeyStoreCredentialStore.kt` — AndroidKeyStore AES-GCM storage boundary for the separate future GitHub route. The Kaggle slot was removed; no populated secret or device-keystore test exists.
+- `KaggleCompetitionHandoff.kt` — strict competition-URL validation and secret-free manual-handoff state. No joined/submitted status or network/client dependency exists.
+- `MainActivity.kt` — Home-linked manual competition screen; an explicit tap requests `ACTION_VIEW`. No browser/device or real competition test has occurred.
 - `GitHubRepositoryReadClient.kt` — fixed read-only public/authorized GitHub metadata route. No authenticated app/device test and no write operation.
-- `KaggleCompetitionReadClient.kt` — fixed read-only Kaggle competition-list route. Its public route reports authorization-required; authorized route expects a future locally stored Bearer access token but no real token has been used.
 - `ColabNotebookReference.kt` — fixed manual-handoff-only notebook reference. It never launches a browser, sends a request, signs in, creates a runtime, or calls AI.
 
 Key evidence documents:
 
 ```text
 android/GITHUB_READ_ACCESS.md
-android/KAGGLE_READ_ACCESS.md
-android/KAGGLE_OAUTH_REGISTRATION_REQUEST.md
+android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md
+android/DIV09B_TOOLCHAIN_CHECKPOINT.md
 android/COLAB_ENTRY_ROUTE.md
 android/CREDENTIAL_STORAGE.md
 android/TOOLCHAIN_PROVISIONING.md
@@ -99,16 +102,12 @@ android/README.md
 
 ### Kaggle
 
-- The unauthenticated no-body GET to:
-
-  ```text
-  https://www.kaggle.com/api/v1/competitions/list?group=general
-  ```
-
-  returned HTTP 401.
-- No Kaggle account, API token, OAuth client, competition join, data download, notebook action, or submission occurred.
-- An OAuth public-client registration request is prepared but **unsent** at `android/KAGGLE_OAUTH_REGISTRATION_REQUEST.md`.
-- The owner asked whether they can instead create a scoped token on Kaggle’s website and paste it into the future local app UI. This may be a suitable owner-operated/private-prototype route only if the exact Kaggle token format, scope controls, and endpoint compatibility are documented and verified. Do not assume a generic personal/API token is compatible with the current `Authorization: Bearer` route.
+- The active app has no Kaggle API client, token entry/storage, OAuth flow, account/session access, competition-list read, automated download/upload, or submission path.
+- The historical unauthenticated competition-list request returned HTTP 401; that read client and the later token-entry source have been removed.
+- Revised Division 09 validates only `https://www.kaggle.com/competitions/<slug>` and requests `ACTION_VIEW` after an explicit owner tap. `OPEN_REQUESTED` is not proof of page visibility or account action.
+- The owner personally handles Kaggle sign-in, rules acceptance, joining, and submission. No browser/device handoff, Kaggle account session, competition join, or submission was tested.
+- Divisions 23/29/37/38 are replanned for manual tracking, file-based notebook handoff, offline preparation, and owner-recorded submission receipts. They have not started.
+- Never request Kaggle credentials or replace manual participation with cookie/session capture or hidden website automation.
 
 ### Colab
 
@@ -116,27 +115,28 @@ android/README.md
 - `google.colab.ai` is an in-notebook Python library, not an Android remote-control API. Its genuine, bounded probe belongs to Division 30.
 - No Google/Colab sign-in, credential, runtime, AI call, or browser/UI automation occurred.
 
-## 7. Required next work: Division 09a
+## 7. Revised Division 09 checkpoint and required next work: Division 09b
 
-**Goal:** Prepare the safer, local-only Kaggle-token option before any real credential exists or is entered.
+The owner selected manual Kaggle competition participation. Revised Division 09 removed the active Kaggle API/token/OAuth route and added strict competition-URL validation plus an explicit `ACTION_VIEW` handoff. Ten manual-handoff tests were added; the current source contains 21 test methods. Static checks passed, but nothing compiled and no tests executed. See `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`.
 
-### Narrow work order
+Former Division 09a is superseded and requires no further work. Revised Division 09 is **checkpointed, not finished**. The local toolchain/dependency blocker documented in `android/DIV09B_TOOLCHAIN_CHECKPOINT.md` remains.
 
-1. Review Kaggle’s currently documented token mechanism and verify whether a token created through the owner’s Kaggle website can authorize the selected read-only competition-list endpoint.
-2. Distinguish any personal API key/token format from an OAuth Bearer access token. Do not label them interchangeable without evidence.
-3. Design/implement only a local native token-entry screen and a clear read-only permission explanation if the route is supported.
-4. Use the existing AndroidKeyStore storage boundary; do not log/display/store a pasted token in source, test fixtures, screenshots, or chat.
-5. Add no token-value test. Test only empty/missing/cancelled UI/credential states locally.
-6. Do not ask the owner to enter a token until a local entry screen exists and an explicit device-test step is ready.
-7. Build/test/document one small increment, then stop before Division 11.
+### Narrow revised 09b work order
 
-### Upload required for 09a?
+1. Restore a verified local toolchain/dependency route, or prepare a separate external build route only with explicit owner approval for its exact upload/workflow step.
+2. Run `:app:testDebugUnitTest` and `:app:assembleDebug` against the revised manual-handoff source.
+3. Fix only revised Division 09 failures, rerun checks, and verify a fresh debug APK signature/checksum if assembly succeeds.
+4. Update `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md` and the detailed status table honestly.
+5. Treat browser/device handoff and real competition participation as separate, explicitly approved tests.
+6. Stop before Division 11 unless revised Division 09 is verified and closed.
+
+### Upload required for local 09b?
 
 ```text
 No.
 ```
 
-No GitHub/Kaggle/Colab upload, account request, or real credential is needed to start or complete the local UI/design portion.
+A remote CI build is not equivalent to local restoration. Before any source/workflow push or other external write, state **Upload needed? Yes**, identify the exact destination, files/data, and reason, and obtain explicit owner approval for that step.
 
 ## 8. Toolchain and repeatable build
 
@@ -162,9 +162,9 @@ Android Build Tools 36.0.0
 If available, build with:
 
 ```bash
-chmod +x /home/user/android/gradlew
+chmod +x /home/user/4CBOn2/android/gradlew
 source /home/user/.cache/4cbon2-android-toolchain/provision.env
-cd /home/user/android
+cd /home/user/4CBOn2/android
 ./gradlew --no-daemon --console=plain --max-workers=1 :app:testDebugUnitTest :app:assembleDebug
 ```
 
@@ -194,17 +194,12 @@ Banking/payment/password/OTP/biometric/permission/security-setting workflows rem
 
 ## 10. Backup/new-thread files
 
-The current workspace archive is intended to be uploaded to the GitHub repository root together with this handoff:
+Retain `4CBOn2_Checkpoint_Div10_source_docs.zip` and the repository recovery documents as historical backups. They contain source, tests, Gradle configuration, plans/evidence, and durable design documents while excluding generated caches/build folders, local settings, APK binaries, and credentials.
 
-```text
-4CBOn2_Checkpoint_Div10_Part9_source_docs.zip
-4CBOn2_New_Thread_Handoff.md
-```
+Current local branch edits do not require the owner to upload replacement files manually. Create another source/document checkpoint before replacing or removing any prior checkpoint, and keep generated artifacts and credentials out of it.
 
-The archive contains source, tests, Gradle configuration, current plans/evidence, and durable Markdown design documents. It excludes generated caches/build folders, local settings, APK binaries, and credentials.
-
-When the owner says the two replacement files are uploaded, perform only an unauthenticated public metadata/content-name/hash check. Do not use a credential or make any repository write.
+A local commit is not an upload. Any push, pull request, release, or other external write requires its own explicit owner-approved destination/files/reason step. Never use or request a credential in chat as part of checkpointing.
 
 ## 11. Ready-to-use new-thread message
 
-> Continue the 4CBOn2 Android prototype from the attached `4CBOn2_New_Thread_Handoff.md` and `4CBOn2_Checkpoint_Div10_Part9_source_docs.zip`. Follow the security and upload boundaries. Begin only with Division 09a — Prepare local Kaggle token route. Explain each update both like I am two years old and as an adult, unless I explicitly ask for only one style. Before every step state whether an upload is needed. Do not request or accept credentials in chat.
+> Continue the 4CBOn2 Android prototype from the attached `4CBOn2_New_Thread_Handoff.md` and `4CBOn2_Checkpoint_Div10_Part9_source_docs.zip`. Follow the security and upload boundaries. Continue only with revised Division 09b — verify the manual Kaggle competition handoff in `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`; use a local verified toolchain or a separately approved external build route, and do not skip to Division 11. Explain each update both like I am two years old and as an adult, unless I explicitly ask for only one style. Before every step state whether an upload is needed. Do not request or accept credentials in chat.
