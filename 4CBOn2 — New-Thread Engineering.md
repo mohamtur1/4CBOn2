@@ -2,7 +2,7 @@
 
 **Prepared:** 23 October 2026  
 **Purpose:** Continue the native Android prototype from a fresh, short conversation without depending on the prior long thread.  
-**Current safe stop:** Revised Division **09** replaces Kaggle API/token work with a manual competition handoff and is source/static-checkpointed but not compiled or finished. Former Division **09a** token work is superseded and its active code has been removed. Revised Division **09b** must verify the manual handoff before Division 11; the sandbox toolchain/dependency blocker remains.
+**Current safe stop:** Revised Divisions **09/09b** are finished for manual Kaggle-handoff source and CI build verification. Approved run **40228035751** passed 21 tests and fresh debug APK alignment/v2-signature/SHA-256 checks. Former Division **09a** is superseded. Division **11 — Local database** is next eligible but has not started. Browser/device handoff and real Kaggle participation remain separate owner-in-the-loop tests.
 
 ---
 
@@ -10,7 +10,7 @@
 
 - A GitHub Personal Access Token was exposed in the prior conversation and the owner reports that it has been **revoked**.
 - Never repeat, search for, request, accept, store, use, or include that token in any artifact.
-- Earlier GitHub verification was read-only public API work. In this continuation, no remote push, commit, or credential use has been performed by the agent.
+- Earlier GitHub verification was read-only public API work. Later source/workflow commits were pushed to the assigned branch only after separate exact-step owner approvals; no credential was requested in chat, CI made no repository writes, and no build artifact was uploaded.
 - The current Arena environment provides configured Git/GitHub tooling and an assigned working branch. This removes the old manual owner-upload requirement, but access does not imply approval for an external write.
 - Local reading, editing, and testing need no upload. Before any push, pull request, issue, release, or other external transfer, state the exact destination, files/data, and reason and obtain explicit owner approval for that step.
 - Never request a PAT or other GitHub credential in chat. Keep the original recovery archive; current local edits do not require the owner to upload a replacement checkpoint.
@@ -41,9 +41,9 @@
 | Division | Status | Meaning |
 | --- | --- | --- |
 | 01–08 | Finished | Scope, toolchain, Android foundation, navigation, credential boundary, and GitHub public-read boundary completed/verified as documented. |
-| 09 — Manual Kaggle competition handoff | **Source/static checkpoint; not finished** | API/token/OAuth code removed; validated competition URL and explicit browser handoff added. Static checks passed; 21 test methods present but unexecuted. No browser/device/competition test or current-source APK. See `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`. |
+| 09 — Manual Kaggle competition handoff | **Finished for manual source/build verification** | API/token/OAuth code removed; validated competition URL and explicit browser handoff added. Static checks and 21 CI unit tests passed. No browser/device/competition test. See `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`. |
 | 09a — Former local Kaggle token route | **Superseded; no further work** | Owner selected manual participation; token/API source and tests removed, historical evidence retained. |
-| 09b — Verify revised manual Kaggle handoff | **Next; not started** | Restore or approve a build route, compile/test the revised source, and verify a fresh debug APK before Division 11. Device/competition tests remain separate. |
+| 09b — Verify revised manual Kaggle handoff | **Finished** | Approved CI run 40228035751 passed compilation, 21 tests, fresh debug APK assembly, zip alignment, v2 signature, SHA-256, and clean-source checks. No artifact was retained; device/competition tests remain separate. |
 | 10 — Colab entry/control route | Finished (manual route only) | Fixed manual-handoff reference compiled/tested. The exact planned notebook is currently missing from the public repository path. No browser launch, account, runtime control, or AI call exists. |
 | 10a — toolchain restore/verification | Finished | Toolchain restored and Division 10 compile/test/APK checks passed. |
 | 11–42 | Not started | Not tested. |
@@ -53,16 +53,20 @@
 ## 4. Latest verified Android build
 
 ```text
-Gradle tasks: :app:testDebugUnitTest :app:assembleDebug
-Unit tests: 15 passed, 0 failures, 0 errors, 0 skipped
-APK v2 signature: passed
+Commit: d1be9aa3bfd15fcce30277e4f676e03326e29f2a
+GitHub Actions run: 40228035751
+:app:testDebugUnitTest — 21 passed, 0 failures, 0 errors, 0 skipped
+:app:assembleDebug — passed
+APK zip alignment — passed
+APK v2 signature — passed
 Generated debug APK SHA-256:
-e3250cd2c8aa86bd910e73575ce59f074618cccecf9219f5b1762e9de5169e07
+02eb96bebda5563bc00f55e35af7356d142e9b96185b896f877110dcc6b14264
 ```
 
-This Division 10 result predates all Division 09/09a and revised manual-handoff source changes. It is a historical local debug verification artifact, not a current-source build, retained release artifact, production build, or device-installed test.
+Run receipt: https://github.com/mohamtur1/4CBOn2/actions/runs/40228035751
 
-The historical retained root APK at `/home/user/4CBOn2-debug.apk` predates Divisions 06–10 and must not be represented as the latest source build.
+This was an ephemeral CI debug verification result. The APK was not uploaded or retained as an artifact, and it is not a production build, production signature, device-installed test, or live Kaggle result. Older Division 10 and retained root APK results are historical and must not be represented as the latest source build.
+
 
 ## 5. Current source and documents
 
@@ -115,28 +119,17 @@ android/README.md
 - `google.colab.ai` is an in-notebook Python library, not an Android remote-control API. Its genuine, bounded probe belongs to Division 30.
 - No Google/Colab sign-in, credential, runtime, AI call, or browser/UI automation occurred.
 
-## 7. Revised Division 09 checkpoint and required next work: Division 09b
+## 7. Revised Division 09/09b closure and next eligible division
 
-The owner selected manual Kaggle competition participation. Revised Division 09 removed the active Kaggle API/token/OAuth route and added strict competition-URL validation plus an explicit `ACTION_VIEW` handoff. Ten manual-handoff tests were added; the current source contains 21 test methods. Static checks passed, but nothing compiled and no tests executed. See `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`.
+The owner selected manual Kaggle competition participation. Revised Division 09 removed the active Kaggle API/token/OAuth route and added strict competition-URL validation plus an explicit `ACTION_VIEW` handoff. Former Division 09a is superseded and requires no further work.
 
-Former Division 09a is superseded and requires no further work. Revised Division 09 is **checkpointed, not finished**. The local toolchain/dependency blocker documented in `android/DIV09B_TOOLCHAIN_CHECKPOINT.md` remains.
+Revised Division 09b used separately approved source/workflow pushes. Final run [40228035751](https://github.com/mohamtur1/4CBOn2/actions/runs/40228035751) at commit `d1be9aa3bfd15fcce30277e4f676e03326e29f2a` passed compilation, exactly 21 unit tests with no failures/errors/skips, fresh debug APK assembly, zip alignment, APK Signature Scheme v2, SHA-256, and clean-source checks. The verified APK SHA-256 is `02eb96bebda5563bc00f55e35af7356d142e9b96185b896f877110dcc6b14264`. The artifact count was zero: the APK was not uploaded or retained.
 
-### Narrow revised 09b work order
+The local sandbox toolchain/dependency blocker remains historical environment evidence in `android/DIV09B_TOOLCHAIN_CHECKPOINT.md`; the approved CI route is not described as local restoration. Revised 09/09b are closed for source/build verification. Browser/device handoff and real Kaggle sign-in, joining, and submission remain separate owner-in-the-loop tests and have not occurred.
 
-1. Restore a verified local toolchain/dependency route, or prepare a separate external build route only with explicit owner approval for its exact upload/workflow step.
-2. Run `:app:testDebugUnitTest` and `:app:assembleDebug` against the revised manual-handoff source.
-3. Fix only revised Division 09 failures, rerun checks, and verify a fresh debug APK signature/checksum if assembly succeeds.
-4. Update `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md` and the detailed status table honestly.
-5. Treat browser/device handoff and real competition participation as separate, explicitly approved tests.
-6. Stop before Division 11 unless revised Division 09 is verified and closed.
+**Next eligible division:** 11 — Local database. Its narrow target is initial entities and a persistence/restart test. It has not started; do not represent this planning note as implementation.
 
-### Upload required for local 09b?
-
-```text
-No.
-```
-
-A remote CI build is not equivalent to local restoration. Before any source/workflow push or other external write, state **Upload needed? Yes**, identify the exact destination, files/data, and reason, and obtain explicit owner approval for that step.
+Local reading/editing/testing needs no upload. Before any source/workflow push or other external write, state **Upload needed? Yes**, identify the exact destination, files/data, and reason, and obtain explicit owner approval for that step.
 
 ## 8. Toolchain and repeatable build
 
@@ -153,7 +146,7 @@ Pinned/verified baseline:
 ```text
 Temurin JDK 17.0.21+9
 Gradle 9.4.1
-Android command-line tools 23.0.0
+Android command-line tools package 23.0 (archive 16111833; CI sdkmanager reports 1.1.16717390 (Android CLI))
 Android platform-tools 37.0.1
 Android platforms 36 and 37.0
 Android Build Tools 36.0.0
@@ -177,6 +170,8 @@ kotlin.compiler.execution.strategy=in-process
 ```
 
 If absent, restore from `android/TOOLCHAIN_PROVISIONING.md`, verify the recorded checksums, and do not claim a source change was built until restoration succeeds.
+
+The separately approved build-only CI alternative is `.github/workflows/android-division09b.yml`. It uses an unauthenticated public checkout, checksum-pinned tools, `contents: none`, no secrets, no CI repository writes, and no artifact upload. Its successful revised-09 receipt is run 40228035751. A new external build or workflow change still requires exact-step owner approval.
 
 ## 9. Phone-control safety design retained
 
@@ -202,4 +197,4 @@ A local commit is not an upload. Any push, pull request, release, or other exter
 
 ## 11. Ready-to-use new-thread message
 
-> Continue the 4CBOn2 Android prototype from the attached `4CBOn2_New_Thread_Handoff.md` and `4CBOn2_Checkpoint_Div10_Part9_source_docs.zip`. Follow the security and upload boundaries. Continue only with revised Division 09b — verify the manual Kaggle competition handoff in `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`; use a local verified toolchain or a separately approved external build route, and do not skip to Division 11. Explain each update both like I am two years old and as an adult, unless I explicitly ask for only one style. Before every step state whether an upload is needed. Do not request or accept credentials in chat.
+> Continue the 4CBOn2 Android prototype on the assigned working branch from `4CBOn2 — New-Thread Engineering.md`, `4CBOn2_Build_Divisions.md`, and the retained recovery archive. Follow the security and upload boundaries. Revised 09/09b are closed with CI evidence in `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`; start only Division 11 — Local database, in one maximum-30-minute session, and do not claim browser/device or live Kaggle verification. Explain each update both like I am two years old and as an adult, unless I explicitly ask for only one style. Before every step state whether an upload is needed and obtain exact-step approval before any external write. Do not request or accept credentials in chat.

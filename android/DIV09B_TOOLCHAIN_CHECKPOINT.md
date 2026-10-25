@@ -1,12 +1,12 @@
 # 4CBOn2 Android Prototype — Division 09b Toolchain Checkpoint
 
 **Build division:** 09b — Restore and verify the Division 09a toolchain checkpoint  
-**Status:** **Blocked by sandbox toolchain/dependency distribution access; not finished**  
+**Status:** **Historical local-environment checkpoint; revised 09b separately finished through approved CI verification**
 **Date:** 24 October 2026  
 **Investigation window:** 11:54:28–11:56:07 UTC; checkpoint documentation followed  
 **Upload/commit/push:** None
 
-> **Scope update 25 October 2026:** The environment blocker recorded here remains relevant, but the revised 09b now verifies the manual Kaggle competition handoff—not the removed token route. See `KAGGLE_MANUAL_COMPETITION_HANDOFF.md`.
+> **Current-status override, 25 October 2026:** This remains accurate historical evidence for the local sandbox network/toolchain blocker. Revised 09b later used a separately approved GitHub Actions route and passed run [40228035751](https://github.com/mohamtur1/4CBOn2/actions/runs/40228035751): 21 tests, fresh debug APK assembly, zip alignment, v2 signature, SHA-256, and clean-source checks. See `KAGGLE_MANUAL_COMPETITION_HANDOFF.md` for the current closure record. Do not use the historical “next work” statements below to reopen the removed token route or repeat already completed verification blindly.
 
 ## Like you are two
 
@@ -22,7 +22,7 @@ Division 09b could not restore a usable Android build environment. The sandbox h
 
 The exact Temurin JDK archive remains available from its official GitHub release with the previously recorded SHA-256. Downloading only that JDK was not useful enough to justify a partial installation: Gradle, the Android SDK, AGP/Kotlin/Compose dependencies, and their caches would still be unavailable. No tool archive was downloaded or executed in this division.
 
-Division 09a remains source/static-checkpointed. Its Kotlin/Compose source has not compiled, its three new test cases have not executed, and no current-source APK exists. Division 11 remains blocked.
+At this historical 24 October checkpoint, Division 09a remained source/static-checkpointed: its Kotlin/Compose source had not compiled, its three new test cases had not executed, and no then-current-source APK existed. Division 11 was blocked at that time. The current-status override above records the later approved CI result.
 
 ## Actual inventory
 
@@ -79,4 +79,4 @@ After remediation, repeat Division 09b: run `:app:testDebugUnitTest`, `:app:asse
 
 A remote CI build would be a different external-write route, not this local restoration division. It must not be substituted silently and would require separate explicit owner approval for the exact upload/workflow step.
 
-**Next eligible work:** Retry Division 09b after the environment blocker is remediated. Divisions 09a and 09b are not closed; Division 11 remains blocked.
+**Historical local-remediation note:** The direct local-restoration route would still require the remediation above. It is not a claim that revised 09b remains unfinished: the separate approved CI route completed that verification on 25 October 2026. Division 11 is next eligible but has not started.

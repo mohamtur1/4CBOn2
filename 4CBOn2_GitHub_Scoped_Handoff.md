@@ -1,7 +1,7 @@
 # 4CBOn2 — GitHub-Scoped New-Thread Handoff
 
 **Repository scope:** `https://github.com/mohamtur1/4CBOn2`  
-**Branch:** `main`  
+**Assigned working branch:** `arena/0eb49904-4cbon2` (`main` fingerprints below are historical)
 **Prepared:** 23 October 2026  
 **Purpose:** Let a new thread continue only the 4CBOn2 Android prototype safely from the public repository record and its source checkpoint.
 
@@ -51,24 +51,24 @@ The three verified Git blob fingerprints are:
 e4cc4a5df540e4434228328c8a001c173d0727d8
 ```
 
-These are historical public-object fingerprints from 23 October 2026. The local Division 09/09a/09b and revised manual-handoff edits are not represented by them and have not been committed or uploaded.
+These are historical public-object fingerprints from 23 October 2026. They do not represent the later manual-handoff source. Separately approved pushes have published revised 09/09b source and workflow commits through `d1be9aa3bfd15fcce30277e4f676e03326e29f2a` on `arena/0eb49904-4cbon2`; any newer evidence-edit commit must be identified by its own hash and approval record.
 
 ## Current source of truth and continuation order
 
 1. Read **`4CBOn2 — New-Thread Engineering.md`** first.
 2. Read **`4CBOn2_Build_Divisions.md`** next. Its detailed status table is the operational status; if any short summary line appears inconsistent, defer to the detailed status table and the engineering handoff.
 3. Use **`4CBOn2_Checkpoint_Div10_source_docs.zip`** as the source/test/document snapshot if the new thread does not already have workspace access.
-4. Revised Division 09 is a **manual Kaggle competition handoff**, source/static-checkpointed but not finished. Former Division 09a token work is superseded and its active code has been removed. Revised Division 09b must verify the manual handoff; see `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`.
-5. Do not jump to Division 11 until revised Division 09 is compiled, tested, documented, and closed.
+4. Revised Divisions 09/09b are **finished for manual source/build verification**. Former Division 09a token work is superseded and its active code has been removed. See `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md` for the CI receipt and separate device/competition limitations.
+5. Division 11 — Local database is next eligible but has not started. Do not claim later work merely because it is listed in the plan.
 
 ## Current actual status
 
 | Division | State |
 | --- | --- |
 | 01–08 | Finished and locally verified as documented. |
-| 09 — Manual Kaggle competition handoff | **Source/static checkpoint; not finished.** Active API/token/OAuth code removed. Validated competition URL and explicit browser handoff added. Static checks passed; 21 test methods present but unexecuted. No browser/device/competition test or current-source APK. See `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`. |
+| 09 — Manual Kaggle competition handoff | **Finished for manual source/build verification.** Active API/token/OAuth code removed. Validated competition URL and explicit browser handoff added. Static checks and 21 CI unit tests passed. No browser/device/competition test. See `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`. |
 | 09a — Former local Kaggle token route | **Superseded; no further work.** Owner selected manual participation; token/API source and tests removed, historical evidence retained. |
-| 09b — Verify revised manual Kaggle handoff | **Next; not started.** Restore or approve a build route, compile/test the revised source, and verify a fresh debug APK before Division 11. Device/competition tests remain separate. |
+| 09b — Verify revised manual Kaggle handoff | **Finished.** Approved CI run 40228035751 passed compilation, 21 tests, fresh debug APK assembly, zip alignment, v2 signature, SHA-256, and clean-source checks. No artifact was retained; device/competition tests remain separate. |
 | 10 — Colab entry/control | Finished as a fixed manual-handoff reference. The planned public notebook path reported “Notebook not found.” No browser launch, account, runtime, or AI call exists. |
 | 10a — toolchain restoration and verification | Finished. |
 | 11–42 | Not started. |
@@ -76,14 +76,19 @@ These are historical public-object fingerprints from 23 October 2026. The local 
 Latest verified Android source result:
 
 ```text
-:app:testDebugUnitTest :app:assembleDebug
-15 tests passed; 0 failures, 0 errors, 0 skipped
-APK v2 signature passed
+Commit: d1be9aa3bfd15fcce30277e4f676e03326e29f2a
+GitHub Actions run: 40228035751
+:app:testDebugUnitTest — 21 passed; 0 failures, 0 errors, 0 skipped
+:app:assembleDebug — passed
+APK zip alignment — passed
+APK v2 signature — passed
 Generated debug verification APK SHA-256:
-e3250cd2c8aa86bd910e73575ce59f074618cccecf9219f5b1762e9de5169e07
+02eb96bebda5563bc00f55e35af7356d142e9b96185b896f877110dcc6b14264
 ```
 
-This Division 10 result predates all Division 09/09a and revised manual-handoff source changes. It was a local debug verification result—not a current-source build, retained release APK, store release, device installation, authenticated-service proof, or production certification.
+Run receipt: https://github.com/mohamtur1/4CBOn2/actions/runs/40228035751
+
+This was an ephemeral CI debug verification result. The APK was not uploaded or retained as an artifact, and the result is not a store release, device installation, authenticated Kaggle/Colab proof, production signature, or production certification. The older Division 10 local APK result remains historical.
 
 ## Critical Kaggle route boundary
 
@@ -116,7 +121,7 @@ Use honest evidence labels: static/source, local unit test, build/signature, emu
 
 ## Suggested new-thread message
 
-> Continue only the 4CBOn2 Android prototype scoped to `https://github.com/mohamtur1/4CBOn2`. Use `4CBOn2 — New-Thread Engineering.md`, `4CBOn2_Build_Divisions.md`, and `4CBOn2_Checkpoint_Div10_source_docs.zip` as the recovery set. Continue only with revised Division 09b — verify the manual Kaggle competition handoff in `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`; use a local verified toolchain or a separately approved external build route, and do not skip to Division 11. Before every step state whether an upload is needed. Do not request or accept credentials in chat. Explain updates like I am two years old and as an adult unless I explicitly request only one style.
+> Continue only the 4CBOn2 Android prototype scoped to `https://github.com/mohamtur1/4CBOn2` on the assigned working branch. Use `4CBOn2 — New-Thread Engineering.md`, `4CBOn2_Build_Divisions.md`, and the retained recovery archive as guidance. Revised 09/09b are closed with CI evidence in `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`; start only Division 11 — Local database, in one maximum-30-minute session, and do not claim browser/device or live Kaggle verification. Before every step state whether an upload is needed and obtain exact-step approval before any external write. Do not request or accept credentials in chat. Explain updates like I am two years old and as an adult unless I explicitly request only one style.
 
 ## Honest backup assurance
 

@@ -1,11 +1,12 @@
 # 4CBOn2 Android Prototype — Manual Kaggle Competition Handoff
 
-**Build division:** Revised 09 — Manual Kaggle competition handoff  
-**Status:** **Source/static checkpoint; not build-verified or finished**  
-**Date:** 25 October 2026  
-**Session checkpoint:** 18:05:49–18:10:36 UTC (approximately 5 minutes)  
-**Supersedes:** Authenticated Kaggle read and local-token route  
-**Upload/commit/push:** None
+**Build division:** Revised 09/09b — Manual Kaggle competition handoff and verification
+**Status:** **Finished: manual source and CI build verified; device/competition tests remain separate**
+**Date:** 25 October 2026
+**Source session:** 18:05:49–18:10:36 UTC (approximately 5 minutes)
+**09b sessions:** Preparation 19:10:47–19:24:24 UTC (approximately 14 minutes); verification 19:36:39–19:55:42 UTC (approximately 19 minutes), separated by owner permission recovery
+**Supersedes:** Authenticated Kaggle read and local-token route
+**Upload/commit/push:** Approved source/workflow pushes through `d1be9aa`; this evidence update remains local until separately approved
 
 ## Like you are two
 
@@ -15,7 +16,7 @@ Now you can paste a competition link and tap a button to ask your browser to ope
 
 The app cannot join or submit for you. It does not know your Kaggle password and does not check your Kaggle account.
 
-The new app pieces passed paper checks. They still need their real build checks.
+The new app pieces passed their real build checks and all 21 tests. The APK also passed its alignment and signature checks. We still have not tested the browser button on a phone or joined a real competition.
 
 ## Like you are an adult
 
@@ -60,7 +61,7 @@ The AndroidKeyStore boundary remains for the separately scoped future GitHub cre
 - `KaggleCompetitionHandoffTest.kt` — ten source test cases covering accepted links, rejection rules, missing reference, open request/failure, and cancellation
 - `MainActivity.kt` — Home entry and explicit manual browser-handoff screen
 
-There are currently **21 `@Test` methods in source**. They have **not been executed** in this division.
+There are **21 `@Test` methods in source**. All 21 executed and passed in the approved GitHub Actions verification run, with zero failures, errors, or skipped tests.
 
 ## Verification record
 
@@ -73,13 +74,27 @@ There are currently **21 `@Test` methods in source**. They have **not been execu
 | Kotlin final-newline/trailing-whitespace checks | Passed |
 | Manifest XML parse | Passed |
 | Original recovery archive retained | Passed |
-| Kotlin/Compose compilation | **Not run: toolchain/dependency blocker remains** |
-| JUnit tests | **Not run** |
-| Current-source APK/signature/checksum | **Not produced** |
-| Android browser intent on emulator/real device | Not tested |
-| Real Kaggle sign-in, competition join, or submission | Not performed |
+| Kotlin/Compose compilation | **Passed in approved GitHub Actions run 40228035751** |
+| JUnit tests | **21 passed; 0 failures, 0 errors, 0 skipped** |
+| Fresh debug APK assembly | **Passed on ephemeral CI runner** |
+| APK zip alignment | **Passed** |
+| APK Signature Scheme v2 | **Passed** |
+| Fresh debug APK SHA-256 | `02eb96bebda5563bc00f55e35af7356d142e9b96185b896f877110dcc6b14264` |
+| Artifact retention/upload | **None; run artifact count was zero** |
+| Source unchanged by build | **Passed** |
+| Android browser intent on emulator/real device | Not tested; separate owner-in-the-loop work |
+| Real Kaggle sign-in, competition join, or submission | Not performed; separate owner-driven work |
 
-The previously recorded sandbox blocker still prevents Gradle/Android/dependency restoration. See `DIV09B_TOOLCHAIN_CHECKPOINT.md` for that environment evidence. The current 09b task is now to verify this revised manual handoff, not the removed token route.
+Final verification evidence:
+
+- Commit: `d1be9aa3bfd15fcce30277e4f676e03326e29f2a`
+- Workflow: `.github/workflows/android-division09b.yml`
+- Run: https://github.com/mohamtur1/4CBOn2/actions/runs/40228035751
+- Job: `121273552843`; completed successfully at 19:55:42 UTC
+- Android command-line-tools archive `16111833` retained its pinned SHA-256. Its `sdkmanager --version` reported `1.1.16717390 (Android CLI)`, which is the CLI implementation version rather than the package label used in older records.
+- Platform-tools reported `Version 37.0.1-15733141`; CI invoked the explicitly installed ADB path.
+
+The local sandbox toolchain/distribution blocker remains historical environment evidence in `DIV09B_TOOLCHAIN_CHECKPOINT.md`; it was not silently relabeled as local restoration. The separately approved CI route completed the revised-source build instead. The CI APK was verified but not retained as a downloadable artifact, and it is not a production-signed or device-installed build.
 
 ## Later-division planning impacts
 
@@ -90,12 +105,16 @@ The previously recorded sandbox blocker still prevents Gradle/Android/dependency
 
 These are planning updates only. Those divisions have not started.
 
-## Required next work: revised 09b
+## Revised 09/09b closure and remaining owner tests
 
-1. Restore a verified local toolchain/dependency route, or use a separately owner-approved external build route.
-2. Run `:app:testDebugUnitTest` and `:app:assembleDebug` against the revised manual-handoff source.
-3. Fix only failures related to this revision and rerun the checks.
-4. If assembly succeeds, record a fresh debug APK signature/checksum without implying a device or Kaggle result.
-5. Treat browser/device handoff and real competition participation as separate, explicitly approved tests.
+- [x] Used a separately owner-approved external build route; no credentials or artifact uploads were added.
+- [x] Ran `:app:testDebugUnitTest` and verified exactly 21 passing tests.
+- [x] Ran `:app:assembleDebug` and verified a fresh debug APK.
+- [x] Verified zip alignment, APK Signature Scheme v2, and the recorded SHA-256.
+- [x] Confirmed the build did not modify source and uploaded no artifact.
+- [ ] Test the browser handoff on an emulator or owner device as a separate approved step.
+- [ ] Let the owner personally perform any real Kaggle sign-in, rules review, joining, or submission; none is claimed here.
 
-**Next eligible work:** Revised Division 09b — verify the manual Kaggle competition handoff. Division 11 remains blocked until the revised Division 09 is verified and closed.
+Revised Divisions 09 and 09b are **closed for manual source/build verification**. This does not close the separate device or live-competition tests.
+
+**Next eligible division:** 11 — Local database. It has not started.
