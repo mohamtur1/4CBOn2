@@ -103,37 +103,48 @@ jobs:
           TOOLS_VERSION="$(sdkmanager --version)"
           printf 'Android command-line tools version: %s\n' "$TOOLS_VERSION"
           printf '::notice title=Android command-line tools version::%s\n' "$TOOLS_VERSION"
-          case "$TOOLS_VERSION" in
-            "23.0"|"23.0.0") ;;
-            *)
-              printf 'Unexpected Android command-line tools version: %s\n' "$TOOLS_VERSION" >&2
-              exit 1
-              ;;
-          esac
+          test "$TOOLS_VERSION" = "1.1.16717390 (Android CLI)"
 
-      - name: Install and verify the required Android SDK packages
+      - name: Accept Android SDK licenses
         shell: bash
         run: |
           set -euo pipefail
           set +o pipefail
           yes | sdkmanager --licenses >/dev/null
           set -o pipefail
+
+      - name: Install the required Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
           sdkmanager --install "platforms;android-37.0" "build-tools;36.0.0" "platform-tools"
+
+      - name: Verify the required Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
           test -f "$ANDROID_HOME/platforms/android-37.0/android.jar"
           test -x "$ANDROID_HOME/build-tools/36.0.0/apksigner"
           test -x "$ANDROID_HOME/build-tools/36.0.0/zipalign"
           ADB_VERSION="$(adb version)"
           printf '%s\n' "$ADB_VERSION"
-          grep -q 'Version 37.0.1' <<<"$ADB_VERSION"
+          PLATFORM_TOOLS_VERSION="$(grep 'Version 37.0.1' <<<"$ADB_VERSION")"
+          printf '::notice title=Android platform-tools::%s\n' "$PLATFORM_TOOLS_VERSION"
 
-      - name: Run unit tests and assemble the debug APK
+      - name: Run the 21 unit tests
         shell: bash
         working-directory: android
         run: |
           set -euo pipefail
           chmod +x gradlew
-          ./gradlew --no-daemon --console=plain --max-workers=1 \
-            :app:testDebugUnitTest :app:assembleDebug
+          ./gradlew --no-daemon --console=plain --max-workers=1 :app:testDebugUnitTest
+
+      - name: Assemble the debug APK
+        shell: bash
+        working-directory: android
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --console=plain --max-workers=1 :app:assembleDebug
 
       - name: Verify test results and the debug APK
         shell: bash
@@ -153,13 +164,17 @@ jobs:
                   totals[key] += int(suite.attrib.get(key, '0'))
           assert totals == {'tests': 21, 'failures': 0, 'errors': 0, 'skipped': 0}, totals
           print('Verified unit-test totals:', totals)
+          print('::notice title=Unit tests::21 passed; 0 failures; 0 errors; 0 skipped')
           PY
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -v 4 "$APK" >/dev/null
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK" | tee "$RUNNER_TEMP/apksigner-verification.txt"
           grep -F 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/apksigner-verification.txt"
-          sha256sum "$APK"
+          APK_SHA256="$(sha256sum "$APK")"
+          APK_SHA256="${APK_SHA256%% *}"
+          printf '%s  %s\n' "$APK_SHA256" "$APK"
+          printf '::notice title=Verified debug APK::zip alignment and v2 signature passed; SHA-256 %s\n' "$APK_SHA256"
 
       - name: Confirm the build did not modify source
         shell: bash
