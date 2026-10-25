@@ -2,7 +2,7 @@
 
 **Prepared:** 23 October 2026  
 **Purpose:** Continue the native Android prototype from a fresh, short conversation without depending on the prior long thread.  
-**Current safe stop:** Revised Divisions **09/09b** are finished for manual Kaggle-handoff source and CI build verification. Approved run **40228035751** passed 21 tests and fresh debug APK alignment/v2-signature/SHA-256 checks. Former Division **09a** is superseded. Division **11 — Local database** is next eligible but has not started. Browser/device handoff and real Kaggle participation remain separate owner-in-the-loop tests.
+**Current safe stop:** Revised Divisions **09/09b** are finished for manual Kaggle-handoff source and CI build verification. Former Division **09a** is superseded. Division **09c — owner device/browser smoke test** is prepared in `4CBOn2_Next_Thread_Handoff.md`; no phone/browser test or live Kaggle action has occurred. Division **11 — Local database** has not started and may follow a passed 09c or a documented device-unavailable limitation.
 
 ---
 
@@ -44,6 +44,7 @@
 | 09 — Manual Kaggle competition handoff | **Finished for manual source/build verification** | API/token/OAuth code removed; validated competition URL and explicit browser handoff added. Static checks and 21 CI unit tests passed. No browser/device/competition test. See `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`. |
 | 09a — Former local Kaggle token route | **Superseded; no further work** | Owner selected manual participation; token/API source and tests removed, historical evidence retained. |
 | 09b — Verify revised manual Kaggle handoff | **Finished** | Approved CI run 40228035751 passed compilation, 21 tests, fresh debug APK assembly, zip alignment, v2 signature, SHA-256, and clean-source checks. No artifact was retained; device/competition tests remain separate. |
+| 09c — Owner device/browser smoke test | **Prepared; owner test not performed** | One-time debug-APK route and exact owner checklist are in `4CBOn2_Next_Thread_Handoff.md`. No phone/browser intent, Kaggle sign-in, join, or submission has occurred. |
 | 10 — Colab entry/control route | Finished (manual route only) | Fixed manual-handoff reference compiled/tested. The exact planned notebook is currently missing from the public repository path. No browser launch, account, runtime control, or AI call exists. |
 | 10a — toolchain restore/verification | Finished | Toolchain restored and Division 10 compile/test/APK checks passed. |
 | 11–42 | Not started | Not tested. |
@@ -127,7 +128,7 @@ Revised Division 09b used separately approved source/workflow pushes. Final run 
 
 The local sandbox toolchain/dependency blocker remains historical environment evidence in `android/DIV09B_TOOLCHAIN_CHECKPOINT.md`; the approved CI route is not described as local restoration. Revised 09/09b are closed for source/build verification. Browser/device handoff and real Kaggle sign-in, joining, and submission remain separate owner-in-the-loop tests and have not occurred.
 
-**Next eligible division:** 11 — Local database. Its narrow target is initial entities and a persistence/restart test. It has not started; do not represent this planning note as implementation.
+**Next prepared work:** Division 09c — owner device/browser smoke test, using `4CBOn2_Next_Thread_Handoff.md`. No PR is required. A one-time retained debug APK needs separate exact-step approval; the owner performs the phone taps without signing in, joining, or submitting to Kaggle. Division 11 — Local database remains not started and may follow a passed 09c or a documented device-unavailable limitation. Do not represent this planning note as a completed device test.
 
 Local reading/editing/testing needs no upload. Before any source/workflow push or other external write, state **Upload needed? Yes**, identify the exact destination, files/data, and reason, and obtain explicit owner approval for that step.
 
@@ -197,4 +198,4 @@ A local commit is not an upload. Any push, pull request, release, or other exter
 
 ## 11. Ready-to-use new-thread message
 
-> Continue the 4CBOn2 Android prototype on the assigned working branch from `4CBOn2 — New-Thread Engineering.md`, `4CBOn2_Build_Divisions.md`, and the retained recovery archive. Follow the security and upload boundaries. Revised 09/09b are closed with CI evidence in `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`; start only Division 11 — Local database, in one maximum-30-minute session, and do not claim browser/device or live Kaggle verification. Explain each update both like I am two years old and as an adult, unless I explicitly ask for only one style. Before every step state whether an upload is needed and obtain exact-step approval before any external write. Do not request or accept credentials in chat.
+> Continue the 4CBOn2 Android prototype on branch `arena/0eb49904-4cbon2` from `4CBOn2_Next_Thread_Handoff.md`, `4CBOn2 — New-Thread Engineering.md`, and `4CBOn2_Build_Divisions.md`. Follow the security and upload boundaries. Revised 09/09b are closed with CI evidence; continue only with prepared Division 09c — owner device/browser smoke test—in one maximum-30-minute session. Do not sign in, join, or submit to Kaggle and do not open a PR unless separately approved. Explain each update both like I am two years old and as an adult, unless I explicitly ask for only one style. Before every step state whether an upload is needed and obtain exact-step approval before any external write or transfer. Do not request or accept credentials in chat.

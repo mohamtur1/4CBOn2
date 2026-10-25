@@ -183,3 +183,13 @@ jobs:
           set -euo pipefail
           git diff --exit-code
           test -z "$(git status --short)"
+
+      # Only the separately approved 09c commit may retain a device-test APK.
+      - name: Retain the owner-approved Division 09c debug APK
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[device-apk-09c]')
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+          archive: false

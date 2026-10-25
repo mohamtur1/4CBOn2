@@ -117,4 +117,4 @@ These are planning updates only. Those divisions have not started.
 
 Revised Divisions 09 and 09b are **closed for manual source/build verification**. This does not close the separate device or live-competition tests.
 
-**Next eligible division:** 11 — Local database. It has not started.
+**Next prepared work:** Division 09c — owner device/browser smoke test, using `4CBOn2_Next_Thread_Handoff.md`. No PR is required; a one-time retained debug APK needs separate exact-step approval. Division 11 — Local database has not started and may follow a passed 09c or a documented device-unavailable limitation.
