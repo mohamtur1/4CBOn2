@@ -26,7 +26,34 @@ jobs:
           gradle-version: '8.9'
 
       - name: Unit tests + build debug APK
-        run: gradle -p text-to-speech/android-app testDebugUnitTest assembleDebug --stacktrace
+        run: |
+          set -o pipefail
+          gradle -p text-to-speech/android-app testDebugUnitTest assembleDebug --stacktrace 2>&1 | tee build-log.txt
+
+      # Raw job logs are not fetchable from every environment, so re-publish the
+      # important lines as annotations + job summary (both readable via the API).
+      - name: Surface build errors
+        if: failure()
+        run: |
+          test -f build-log.txt || exit 0
+          {
+            echo '## Gradle failure excerpt'
+            echo '```'
+            grep -nE '(^e: |error:|FAILED|FAILURE:|What went wrong|Execution failed|Caused by:|Unresolved reference|Type mismatch|AssertionError|expected)' build-log.txt | head -80
+            echo '--- tail ---'
+            tail -n 80 build-log.txt
+            echo '```'
+            for f in $(find text-to-speech/android-app/app/build/test-results -name '*.xml' 2>/dev/null | head -10); do
+              echo "### $f"
+              echo '```xml'
+              grep -A6 -E '<failure|<error' "$f" | head -60
+              echo '```'
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+          grep -E '(^e: |error:|FAILED|FAILURE:)' build-log.txt | head -30 | while IFS= read -r line; do
+            clean=$(printf '%s' "$line" | sed 's/%/%25/g' | cut -c1-500)
+            echo "::error::$clean"
+          done
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
