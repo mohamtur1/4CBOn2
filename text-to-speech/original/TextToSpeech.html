@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional TTS for uTest Academy</title>
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f8f9fa; }
+        .container { max-width: 900px; margin: 30px auto; }
+        #displayArea {
+            width: 100%; height: 300px; font-size: 17px; padding: 20px;
+            overflow-y: auto; white-space: pre-wrap; border: 1px solid #ddd;
+            background: white; line-height: 1.7; border-radius: 4px;
+        }
+        .highlight { 
+            background-color: #FFF9C4; 
+            padding: 2px 0;
+            border-radius: 3px;
+            box-shadow: 0 0 3px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+        }
+        .text-controls { margin: 20px 0; }
+        .progress-bar {
+            height: 4px; background: #e0e0e0; margin-top: 10px;
+            display: none; /* Shown during speech */
+        }
+        .progress { height: 100%; background: #4CAF50; width: 0%; }
+    </style>
+</head>
+<body>
+    <div class="w3-card-4 w3-white w3-padding container">
+        <h2 class="w3-center w3-padding" style="background: linear-gradient(135deg, #6e8efb, #a777e3); color: white;">
+            uTest Academy TTS Pro
+        </h2>
+        
+        <div class="text-controls">
+            <textarea id="text" placeholder="Paste uTest Academy content here..." 
+                     style="height: 180px; font-size: 16px;"></textarea>
+            <div>
+                <button class="w3-button w3-blue" onclick="pasteText()">Paste</button>
+                <button class="w3-button w3-dark-grey" onclick="loadSample()">Load Sample</button>
+                <button class="w3-button w3-light-grey" onclick="formatText()">Format Text</button>
+            </div>
+        </div>
+
+        <div class="w3-row">
+            <div class="w3-half">
+                <label for="voiceSelect"><i class="fas fa-user"></i> Voice:</label>
+                <select id="voiceSelect" class="w3-select"></select>
+            </div>
+            <div class="w3-half">
+                <label for="languageSelect"><i class="fas fa-globe"></i> Language:</label>
+                <select id="languageSelect" class="w3-select">
+                    <option value="en-US">English (US)</option>
+                    <option value="en-GB">English (UK)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="w3-row" style="margin-top: 15px;">
+            <div class="w3-half">
+                <label for="rate">Speed: <span id="rateValue">1.2</span></label>
+                <input class="w3-range" type="range" id="rate" min="0.5" max="3" value="1.2" step="0.1">
+            </div>
+            <div class="w3-half">
+                <label for="pitch">Pitch: <span id="pitchValue">1</span></label>
+                <input class="w3-range" type="range" id="pitch" min="0.8" max="1.5" value="1" step="0.05">
+            </div>
+        </div>
+
+        <div class="progress-bar" id="progressContainer">
+            <div class="progress" id="progressBar"></div>
+        </div>
+
+        <div class="w3-center" style="margin: 20px 0;">
+            <button class="w3-button w3-green w3-large" onclick="speak()">
+                <i class="fas fa-play"></i> Speak
+            </button>
+            <button class="w3-button w3-red w3-large" onclick="pauseSpeech()">
+                <i class="fas fa-pause"></i> Pause
+            </button>
+            <button class="w3-button w3-grey w3-large" onclick="resumeSpeech()">
+                <i class="fas fa-step-forward"></i> Resume
+            </button>
+            <button class="w3-button w3-black w3-large" onclick="stopSpeech()">
+                <i class="fas fa-stop"></i> Stop
+            </button>
+        </div>
+
+        <div id="displayArea" class="w3-margin-top"></div>
+    </div>
+
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+
+    <script>
+        // DOM Elements
+        const voiceSelect = document.getElementById("voiceSelect");
+        const languageSelect = document.getElementById("languageSelect");
+        const rateInput = document.getElementById("rate");
+        const pitchInput = document.getElementById("pitch");
+        const rateValue = document.getElementById("rateValue");
+        const pitchValue = document.getElementById("pitchValue");
+        const textArea = document.getElementById("text");
+        const displayArea = document.getElementById("displayArea");
+        const progressContainer = document.getElementById("progressContainer");
+        const progressBar = document.getElementById("progressBar");
+
+        // Speech state
+        let voices = [];
+        let isPaused = false;
+        let currentChunk = 0;
+        let chunks = [];
+        let utterance = null;
+        let speechTimeout = null;
+        let speechStartTime = 0;
+
+        // Initialize voices
+        speechSynthesis.onvoiceschanged = populateVoices;
+        function populateVoices() {
+            voices = speechSynthesis.getVoices();
+            
+            // Filter voices by selected language
+            const lang = languageSelect.value;
+            const langVoices = voices.filter(voice => voice.lang.includes(lang));
+            
+            voiceSelect.innerHTML = langVoices.map((voice, i) => 
+                `<option value="${i}">${voice.name} (${voice.lang})</option>`
+            ).join('');
+            
+            // Auto-select natural sounding voices
+            const preferredVoices = ['Microsoft David', 'Google UK English Male', 'Alex'];
+            for (let v of preferredVoices) {
+                const voice = langVoices.find(x => x.name.includes(v));
+                if (voice) {
+                    voiceSelect.value = langVoices.indexOf(voice);
+                    break;
+                }
+            }
+        }
+
+        // Event listeners
+        languageSelect.onchange = populateVoices;
+        rateInput.oninput = () => rateValue.textContent = rateInput.value;
+        pitchInput.oninput = () => pitchValue.textContent = pitchInput.value;
+
+        // Text operations
+        function pasteText() {
+            navigator.clipboard.readText()
+                .then(clipText => {
+                    textArea.value = clipText;
+                    formatText();
+                })
+                .catch(err => {
+                    console.error("Clipboard error:", err);
+                    alert("Clipboard access denied. Please paste manually.");
+                });
+        }
+
+        function loadSample() {
+            textArea.value = `Academy / 1. Introduction to uTest
+uTest Academy
+https://youtu.be/NMLd9asWp7w?rel=0
+
+What is the uTest Academy?
+The uTest Academy is a training program designed to teach the basic essentials of how to be a tester in the uTest community.
+
+How does it work?
+The uTest Academy is comprised of numerous training courses that include text and video instructions inside of each course.
+
+Should the courses be completed in order?
+Yes. The courses are ordered from beginner to advanced. We strongly suggest starting with course number 1 and working your way through each course at your own pace.
+
+Why should the courses be completed?
+Testers who complete the uTest Academy courses and excel in the practice test cycles are more likely to be invited to participate in paid test cycles for real clients.`;
+            formatText();
+        }
+
+        function formatText() {
+            let text = textArea.value;
+            // Normalize whitespace and line breaks
+            text = text.replace(/\r\n/g, '\n')
+                      .replace(/\n{3,}/g, '\n\n')
+                      .replace(/[ \t]+/g, ' ');
+            textArea.value = text.trim();
+        }
+
+        // Advanced text chunking with special handling for technical content
+        function chunkText(text) {
+            // Normalize text
+            text = text.replace(/\r\n/g, '\n').trim();
+            
+            // First split by major sections (double line breaks)
+            let sections = text.split(/\n\n+/);
+            
+            let refinedChunks = [];
+            
+            sections.forEach(section => {
+                // Split section into sentences
+                let sentences = section.split(/([.!?]\s+|\n)/);
+                
+                sentences.forEach(sentence => {
+                    if (!sentence.trim()) return;
+                    
+                    // Handle bullet points and lists
+                    if (sentence.match(/^\s*[\-•*]\s/) || sentence.match(/\n\s*[\-•*]\s/)) {
+                        refinedChunks.push(sentence);
+                        return;
+                    }
+                    
+                    // Split long sentences at natural break points
+                    if (sentence.length > 60) {
+                        // Split at commas, conjunctions, and colons
+                        const clauses = sentence.split(/(,\s|;\s|\sand\s|\sor\s|\sbut\s|:\s)/i);
+                        
+                        // Recombine with delimiters while avoiding tiny chunks
+                        let buffer = '';
+                        clauses.forEach((clause, i) => {
+                            if (i % 2 === 0) {
+                                buffer = clause;
+                            } else {
+                                buffer += clause;
+                                if (buffer.length > 30 || i === clauses.length - 1) {
+                                    refinedChunks.push(buffer);
+                                    buffer = '';
+                                }
+                            }
+                        });
+                        if (buffer) refinedChunks.push(buffer);
+                    } else {
+                        refinedChunks.push(sentence);
+                    }
+                });
+            });
+            
+            return refinedChunks.filter(chunk => chunk.trim().length > 0);
+        }
+
+        // Highlight current chunk with smooth scrolling
+        function highlightChunk() {
+            let html = '';
+            chunks.forEach((chunk, i) => {
+                if (i === currentChunk) {
+                    html += `<span class="highlight">${chunk}</span>`;
+                } else {
+                    // Preserve formatting in non-highlighted text
+                    html += chunk.replace(/\n/g, '<br>');
+                }
+            });
+            displayArea.innerHTML = html;
+            
+            // Update progress
+            const progress = ((currentChunk + 1) / chunks.length) * 100;
+            progressBar.style.width = `${progress}%`;
+            
+            // Smooth scroll to highlighted element
+            const highlighted = displayArea.querySelector(".highlight");
+            if (highlighted) {
+                highlighted.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                    inline: "nearest"
+                });
+            }
+        }
+
+        // Calculate dynamic pause duration based on content and position
+        function getPauseDuration(chunk, index) {
+            // Base pause durations (ms)
+            const pauses = {
+                sentenceEnd: 350,
+                clause: 180,
+                listItem: 220,
+                conjunction: 120,
+                default: 100
+            };
+            
+            // Adjust based on content
+            if (chunk.match(/[.!?](?:\s|$)/)) return pauses.sentenceEnd;
+            if (chunk.match(/[,;](?:\s|$)/)) return pauses.clause;
+            if (chunk.match(/\n\s*[\-•*]\s/)) return pauses.listItem;
+            if (chunk.match(/\s(and|or|but)\s/i)) return pauses.conjunction;
+            
+            // Gradual increase for long sequences
+            return Math.min(pauses.default + (index * 2), 200);
+        }
+
+        // Core speaking function
+        function speak() {
+            if (speechSynthesis.speaking) {
+                speechSynthesis.cancel();
+                clearTimeout(speechTimeout);
+            }
+            
+            const text = textArea.value.trim();
+            if (!text) return alert("Please enter text first!");
+            
+            // Prepare chunks
+            chunks = chunkText(text);
+            currentChunk = 0;
+            isPaused = false;
+            
+            // Show progress
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            
+            // Initial display
+            displayArea.innerHTML = text.replace(/\n/g, '<br>');
+            
+            // Start speaking
+            speechStartTime = Date.now();
+            speakNextChunk();
+        }
+
+        function speakNextChunk() {
+            if (isPaused || currentChunk >= chunks.length) {
+                if (currentChunk >= chunks.length) {
+                    // Speech complete
+                    progressContainer.style.display = 'none';
+                    console.log(`Speech completed in ${(Date.now() - speechStartTime)/1000}s`);
+                }
+                return;
+            }
+
+            const chunk = chunks[currentChunk];
+            highlightChunk();
+
+            utterance = new SpeechSynthesisUtterance(chunk.replace(/\n/g, ' '));
+            
+            // Set speech properties
+            const langVoices = voices.filter(v => v.lang.includes(languageSelect.value));
+            utterance.voice = langVoices[voiceSelect.value];
+            utterance.rate = parseFloat(rateInput.value);
+            utterance.pitch = parseFloat(pitchInput.value);
+            
+            // Calculate dynamic pause
+            const basePause = getPauseDuration(chunk, currentChunk);
+            const speedAdjustedPause = basePause / Math.sqrt(parseFloat(rateInput.value));
+
+            utterance.onboundary = (event) => {
+                if (event.name === 'word' && chunk.length > 40) {
+                    // Update highlighting during long chunks
+                    highlightChunk();
+                }
+            };
+
+            utterance.onend = () => {
+                currentChunk++;
+                speechTimeout = setTimeout(speakNextChunk, speedAdjustedPause);
+            };
+
+            utterance.onerror = (event) => {
+                console.error('Speech error:', event);
+                currentChunk++;
+                speechTimeout = setTimeout(speakNextChunk, 100);
+            };
+
+            speechSynthesis.speak(utterance);
+        }
+
+        function pauseSpeech() {
+            isPaused = true;
+            speechSynthesis.pause();
+            clearTimeout(speechTimeout);
+        }
+
+        function resumeSpeech() {
+            if (isPaused) {
+                isPaused = false;
+                speechSynthesis.resume();
+                if (!speechSynthesis.speaking && currentChunk < chunks.length) {
+                    speakNextChunk();
+                }
+            }
+        }
+
+        function stopSpeech() {
+            speechSynthesis.cancel();
+            clearTimeout(speechTimeout);
+            isPaused = false;
+            currentChunk = 0;
+            progressContainer.style.display = 'none';
+            displayArea.innerHTML = textArea.value.replace(/\n/g, '<br>');
+        }
+
+        // Initialize
+        formatText();
+    </script>
+</body>
+</html>
