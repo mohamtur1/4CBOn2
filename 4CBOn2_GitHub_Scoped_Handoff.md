@@ -1,5 +1,6 @@
 # 4CBOn2 — GitHub-Scoped New-Thread Handoff
 
+> **Division 11 update (26 October 2026):** The current active source has 25 tests, not 21. A file-backed local entity store and a synthetic close/reopen test were added, and no-artifact CI run [40316111676](https://github.com/mohamtur1/4CBOn2/actions/runs/40316111676) passed at commit `eef1a18d671db2747ea5d4ca7c739e696079377d`. Debug APK SHA-256: `471efe77c87f83088796a7710295e353e5cf10f8e9a6a735c01be46d1a676b3a`; artifact count: zero. See `4CBOn2_Division11_Verification.md` and the updated `4CBOn2_Next_Thread_Handoff.md`. Historical 21-test records below remain historical.
 **Repository scope:** `https://github.com/mohamtur1/4CBOn2`  
 **Assigned working branch:** `arena/0eb49904-4cbon2` (`main` fingerprints below are historical)
 **Prepared:** 23 October 2026  

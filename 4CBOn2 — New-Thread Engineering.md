@@ -1,5 +1,6 @@
 # 4CBOn2 — New-Thread Engineering Handoff (Division 10 + Part 9 Update)
 
+> **Division 11 update (26 October 2026):** The current active source has 25 tests, not 21. A file-backed local entity store and a synthetic close/reopen test were added, and no-artifact CI run [40316111676](https://github.com/mohamtur1/4CBOn2/actions/runs/40316111676) passed at commit `eef1a18d671db2747ea5d4ca7c739e696079377d`. Debug APK SHA-256: `471efe77c87f83088796a7710295e353e5cf10f8e9a6a735c01be46d1a676b3a`; artifact count: zero. See `4CBOn2_Division11_Verification.md` and the updated `4CBOn2_Next_Thread_Handoff.md`. Historical 21-test records below remain historical.
 **Prepared:** 23 October 2026  
 **Purpose:** Continue the native Android prototype from a fresh, short conversation without depending on the prior long thread.  
 **Current safe stop:** Revised Divisions **09/09b** are finished for source/CI verification. Division **09c** recorded the installed Kaggle app opening the correct page before sign-in, followed by owner-performed sign-in, Cancel, and Back; no join/submission or credential sharing occurred. Browser-specific and unreported subchecks remain unverified. A wording-only correction must pass CI before **Division 11 — Local database** starts. See `4CBOn2_Next_Thread_Handoff.md`.
