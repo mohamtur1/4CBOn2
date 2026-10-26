@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - arena/0eb49904-4cbon2
+      - arena/74f65509-4cbon2
     paths:
       - "android/**"
       - ".github/workflows/android-division09b.yml"
@@ -32,7 +33,7 @@ jobs:
           set -euo pipefail
           git init .
           git remote add origin https://github.com/mohamtur1/4CBOn2.git
-          git -c credential.helper= fetch --depth=1 origin arena/0eb49904-4cbon2
+          git -c credential.helper= fetch --depth=1 origin "$GITHUB_REF"
           test "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA"
           git checkout --detach FETCH_HEAD
           test -z "$(git status --short)"
@@ -132,7 +133,25 @@ jobs:
           PLATFORM_TOOLS_VERSION="$(grep 'Version 37.0.1' <<<"$ADB_VERSION")"
           printf '::notice title=Android platform-tools::%s\n' "$PLATFORM_TOOLS_VERSION"
 
-      - name: Run the 21 unit tests
+      - name: Verify the active test inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          tests = sum(
+              len(re.findall(r'(?m)^\s*@Test\b', path.read_text(encoding='utf-8')))
+              for path in Path('android/app/src/test').rglob('*.kt')
+          )
+          assert tests == 25, tests
+          workflow = Path('.github/workflows/android-division09b.yml').read_text(encoding='utf-8')
+          assert "'tests': 25" in workflow, 'CI XML total is not 25'
+          print(f'Active Kotlin source tests: {tests}')
+          PY
+
+      - name: Run the 25 unit tests
         shell: bash
         working-directory: android
         run: |
@@ -163,9 +182,9 @@ jobs:
               suite = ET.parse(report).getroot()
               for key in totals:
                   totals[key] += int(suite.attrib.get(key, '0'))
-          assert totals == {'tests': 21, 'failures': 0, 'errors': 0, 'skipped': 0}, totals
+          assert totals == {'tests': 25, 'failures': 0, 'errors': 0, 'skipped': 0}, totals
           print('Verified unit-test totals:', totals)
-          print('::notice title=Unit tests::21 passed; 0 failures; 0 errors; 0 skipped')
+          print('::notice title=Unit tests::25 passed; 0 failures; 0 errors; 0 skipped')
           PY
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK"

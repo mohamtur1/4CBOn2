@@ -61,7 +61,7 @@ The AndroidKeyStore boundary remains for the separately scoped future GitHub cre
 - `KaggleCompetitionHandoffTest.kt` — ten source test cases covering accepted links, rejection rules, missing reference, open request/failure, and cancellation
 - `MainActivity.kt` — Home entry and explicit manual browser-handoff screen
 
-There are **21 `@Test` methods in source**. All 21 executed and passed in the approved GitHub Actions verification run, with zero failures, errors, or skipped tests.
+At the close of revised Division 09 there were **21 `@Test` methods in source**; all 21 executed and passed in the historical approved GitHub Actions verification run, with zero failures, errors, or skipped tests. Division 11 later added four persistence tests, making the active source total 25; that later total is verified separately by the Division 11 CI run.
 
 ## Verification record
 
