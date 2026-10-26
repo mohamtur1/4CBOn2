@@ -1,22 +1,22 @@
-# 4CBOn2 — Next-Thread Handoff for Division 09c
+# 4CBOn2 — Next-Thread Handoff after Division 09c
 
 **Repository:** `mohamtur1/4CBOn2`
 **Assigned branch:** `arena/0eb49904-4cbon2`
-**Prepared:** 25 October 2026
-**Current task:** Division 09c — owner-in-the-loop Android browser-handoff smoke test
-**Not the current task:** Real Kaggle sign-in, rules acceptance, joining, or submission
+**Prepared:** 25 October 2026; owner result recorded 26 October 2026
+**Current task:** Confirm green CI for the 09c external-handoff wording correction, then start Division 11 — Local database
+**Not the current task:** Real Kaggle rules acceptance, joining, or submission
 
 ## Like you are two
 
-The app passed its builder tests. Next, you can try its Kaggle button on your phone.
+You tried the Kaggle button on your phone. It opened the correct page in your Kaggle app, and you tried Cancel and Back.
 
-The button should only ask your browser to open the competition page. It should not join, submit, sign in, or control Kaggle for you.
-
-A grown-up helper called a pull request is **not needed** for this test.
+The app now says “an installed app or browser” so its words match what can happen. After the builder checks that small wording change, the next job is Division 11.
 
 ## Like you are an adult
 
-Revised Divisions 09/09b are closed for source/build verification. Division 09c checks the already implemented manual browser handoff on an owner device. It is a small, separately evidenced test; it is not live Kaggle participation and not a production-release test.
+Revised Divisions 09/09b are closed for source/build verification. Division 09c recorded a successful explicit external app-link handoff: the installed Kaggle app opened the correct competition page before the owner signed in. The owner later signed in personally and performed Cancel and Back. No credential was shared with 4CBOn2 or the agent, and no competition join or submission occurred.
+
+This is not browser-specific verification. Empty-field, invalid-link, no-automatic-launch, device-model/Android-version, and installer-permission-revocation outcomes were not separately reported. The functional intent code is unchanged; only wording/evidence is corrected. Division 11 must wait for green CI on that correction.
 
 No pull request is required before this test or before continuing on the assigned branch. The branch is already published. A PR is optional later for review/merge into `main`, and opening or merging one requires its own exact-step owner approval.
 
@@ -30,11 +30,11 @@ No pull request is required before this test or before continuing on the assigne
 - Artifact count for that run: **zero**
 - Application ID: `io.github.mohamtur1.fourcbon2`
 - App label/version: `4CBOn2` / `0.1.0-dev`
-- No browser/device test or real Kaggle account action has occurred.
+- Division 09c owner result: installed Kaggle app opened the correct page before sign-in; owner later signed in personally; Cancel and Back performed; no join/submission or credential sharing.
 
 The hash above belongs only to run 40228830760. A new 09c build must be identified by its own commit, run, and freshly reported hash. Do not install one APK while checking the hash of another.
 
-## Current 09c test artifact — ready for the owner device test
+## Historical 09c test artifact — used for the owner smoke test
 
 - Build commit: `042bc6dbcc341562efdba61242d38062955863f9`
 - Successful run: https://github.com/mohamtur1/4CBOn2/actions/runs/40230830330
@@ -45,12 +45,12 @@ The hash above belongs only to run 40228830760. A new 09c build must be identifi
 - Expires: `2026-11-01T20:30:15Z`
 - Verification: 21 tests passed; APK assembled, zip-aligned, and v2-signature verified; exactly one artifact was retained.
 
-The phone/browser test has **not** been performed yet. Check that the artifact is still unexpired before installing it. If it has expired or the source changes, prepare a new artifact only through a new exact-step approval and record the new commit/run/hash.
+This artifact was used for the reported 09c smoke test. The subsequent wording correction changes source, so this APK is historical and must not be represented as the latest build. Do not repeat the device test merely for the wording-only change; if a functional change or a new artifact is later required, use a new exact-step approval and record the new commit/run/hash.
 
 
-## Division 09c APK route
+## Historical Division 09c APK route
 
-The artifact above has now been produced and verified. The next thread must inspect its current expiry/source state rather than assuming it remains usable.
+The artifact above was produced, verified, and used for 09c. It is retained only as historical evidence for that exact build; it is not a current-source APK after the wording correction.
 
 The prepared workflow change retains an APK only when all of these conditions are true:
 
@@ -81,7 +81,7 @@ The owner must approve that exact step. No PR is needed for this push-triggered 
 
 Do not repeat the artifact build while this artifact remains valid for the unchanged source. If CI had failed, installation would not have been offered. The owner may now follow Part B; the agent should not perform the phone taps or request an account credential.
 
-## Part B — Owner downloads and installs the debug APK
+## Historical Part B — 09c download/install procedure (already performed)
 
 You need an Android phone running **Android 8.0/API 26 or later** (`minSdk = 26`) with a browser. This declared minimum is not proof of compatibility. A computer is optional. You do **not** need a Kaggle account for this smoke test.
 
@@ -110,7 +110,7 @@ shasum -a 256 app-debug.apk
 Get-FileHash .\app-debug.apk -Algorithm SHA256
 ```
 
-## Part C — Owner performs the browser-handoff smoke test
+## Historical Part C — 09c smoke-test procedure (already performed)
 
 Use only this public test reference:
 
@@ -132,33 +132,33 @@ Do not sign in, accept rules, tap Join, upload a notebook, or submit during 09c.
 
 A network failure while Kaggle loads in the browser is not automatically an app-intent failure. Record separately whether the browser accepted the intent and whether the website loaded. Do not troubleshoot by adding credentials or weakening app validation.
 
-## Part D — Record the result without sensitive data
+## Part D — Recorded 09c result without sensitive data
 
-Copy this table into the 09c result record and use **Passed**, **Failed**, **Blocked**, or **Not tested** with a short factual note:
+The owner-reported outcomes are recorded below. Unreported items remain explicitly unverified rather than being inferred as passes:
 
 | Item | Result / evidence to record |
 | --- | --- |
 | CI run, commit, artifact name, and fresh APK SHA-256 | Run 40230830330; commit `042bc6d`; `app-debug.apk`; SHA-256 `638f1cf46e473b8bd2e2087bf9dc140a4d0cd436be2a5c9105840327adf02cc1` |
-| Phone make/model and Android version | Pending; do not record serial numbers, device IDs, phone numbers, or account identifiers |
-| Browser and version, if known | Pending |
-| 09c-01 Launch/navigation | Pending |
-| 09c-02 Empty state | Pending |
-| 09c-03 Invalid reference | Pending |
-| 09c-04 Valid reference/no automatic launch | Pending |
-| 09c-05 Browser accepted the handoff | Pending |
-| 09c-06 Correct canonical destination and honest app state | Pending |
-| 09c-07 Cancellation/back | Pending |
-| Temporary installer permission revoked | Pending |
-| Kaggle sign-in/join/submission | Must remain **Not performed** in 09c |
+| Phone make/model and Android version | **Not reported**; no serial numbers, device IDs, phone numbers, or account identifiers recorded |
+| Browser and version, if known | **Not applicable to the reported handler**; the installed Kaggle app, not a browser, opened the link |
+| 09c-01 Launch/navigation | **Passed by owner report**: the manual screen was reached and used |
+| 09c-02 Empty state | **Not separately reported**; do not claim a device pass |
+| 09c-03 Invalid reference | **Not separately reported**; do not claim a device pass |
+| 09c-04 Valid reference/no automatic launch | **Not separately reported**; do not claim this specific device check |
+| 09c-05 External handler accepted the handoff | **Passed with route correction**: the installed Kaggle app handled the link; browser-specific handling was not verified |
+| 09c-06 Correct canonical destination and honest app state | **Correct page passed before sign-in**; the old “Browser handoff requested” wording was inaccurate for this handler and is corrected in source |
+| 09c-07 Cancellation/back | **Passed by owner report**: owner cancelled the link and pressed Back |
+| Temporary installer permission revoked | **Not reported** |
+| Kaggle sign-in/join/submission | Owner signed in personally in the Kaggle app after the page opened; **no join or submission**, and no credential shared with 4CBOn2 or the agent |
 
 Do not upload screenshots, screen recordings, browser sessions, or account data without a separate exact-step approval. A text result is sufficient for this smoke test.
 
 ## What happens next
 
-- If 09c passes, record the evidence and proceed to **Division 11 — Local database** in a new maximum-30-minute division.
-- If 09c finds an app defect, pause Division 11, fix only the relevant handoff issue, rerun the 21 tests and APK checks, and repeat the affected owner test.
-- If no device is available, mark 09c **Blocked/Not tested**. Division 11 may proceed with that limitation documented, but never claim device compatibility.
-- Real owner-driven Kaggle participation remains scheduled after Division 38 and before final packaging at Division 42.
+- Confirm that the 09c wording-correction commit passes all 21 tests and APK/source checks in CI. Do not start Division 11 on a failed or unverified run.
+- The intent implementation is unchanged, so no repeat phone test is required solely for the wording correction. Browser-specific handling and unreported subchecks remain unverified limitations.
+- After green CI, proceed to **Division 11 — Local database** in a new maximum-30-minute division: initial entities and a persistence/restart test.
+- Real owner-driven Kaggle joining/submission remains scheduled after Division 38 and before final packaging at Division 42. The 09c sign-in does not evidence either action.
 
 ## Standing rules for the next thread
 
@@ -169,8 +169,8 @@ Do not upload screenshots, screen recordings, browser sessions, or account data 
 - Explain progress/completion updates in both **Like you are two** and **Like you are an adult** styles unless the owner explicitly asks otherwise.
 - Do not ask design clarification questions; choose interaction design within the documented safety boundaries.
 - Never claim universal phone/app control, production signing, Play Store approval, or live Kaggle verification without actual evidence.
-- No PR is needed for 09c. Any later PR/merge is a separate owner-approved operation.
+- No PR is needed for 09c closure or Division 11. Any later PR/merge is a separate owner-approved operation.
 
 ## Ready-to-paste next-thread message
 
-> Continue the 4CBOn2 Android prototype in `mohamtur1/4CBOn2` on branch `arena/0eb49904-4cbon2`. Read `4CBOn2_Next_Thread_Handoff.md`, `4CBOn2 — New-Thread Engineering.md`, and `4CBOn2_Build_Divisions.md`. Continue only with Division 09c: verify that the recorded debug-APK artifact is still valid, then guide and record the owner-in-the-loop browser-handoff smoke test exactly as documented. If the artifact expired or source changed, obtain new exact-step approval before replacing it. Do not sign in, join, or submit to Kaggle. Do not open a PR unless separately approved. Work in one maximum-30-minute session, preserve both explanation styles, state upload requirements before every step, and obtain exact-step approval before every external write or transfer. Never request or accept credentials.
+> Continue the 4CBOn2 Android prototype in `mohamtur1/4CBOn2` on branch `arena/0eb49904-4cbon2`. Read `4CBOn2_Next_Thread_Handoff.md`, `4CBOn2 — New-Thread Engineering.md`, and `4CBOn2_Build_Divisions.md`. First confirm green CI for the recorded 09c external-handoff wording correction; do not proceed if it failed. Then start only Division 11 — Local database, targeting initial entities and a persistence/restart test in one maximum-30-minute session. The owner’s Kaggle-app handoff and sign-in are documented; no join or submission occurred. Do not open a PR unless separately approved. Preserve both explanation styles, state upload requirements before every step, and obtain exact-step approval before every external write or transfer. Never request or accept credentials.

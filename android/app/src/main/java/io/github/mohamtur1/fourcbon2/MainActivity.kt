@@ -182,7 +182,7 @@ private fun KaggleManualHandoffScreen(
             detail = "This screen stores no Kaggle credential, reads no Kaggle account data, and cannot join or submit for you.",
         )
         Text(
-            text = "1. Paste a competition link. 2. Tap to request your browser. 3. On Kaggle, sign in if needed, review the rules, and tap Join yourself.",
+            text = "1. Paste a competition link. 2. Tap to request an installed app or browser. 3. On Kaggle, sign in if needed, review the rules, and tap Join yourself.",
             style = MaterialTheme.typography.bodyMedium,
         )
         Text(
@@ -263,19 +263,19 @@ private fun KaggleManualHandoffScreen(
         when (handoffState.notice) {
             KaggleManualHandoffState.Notice.NONE -> Unit
             KaggleManualHandoffState.Notice.INVALID_REFERENCE -> Text(
-                text = "A valid Kaggle competition link is required. No browser handoff was requested.",
+                text = "A valid Kaggle competition link is required. No external handoff was requested.",
                 style = MaterialTheme.typography.bodyMedium,
             )
             KaggleManualHandoffState.Notice.OPEN_REQUESTED -> Text(
-                text = "Browser handoff requested. Joining, rules acceptance, and submission remain manual and unverified by this app.",
+                text = "External app or browser handoff requested. Joining, rules acceptance, and submission remain manual and unverified by this app.",
                 style = MaterialTheme.typography.bodyMedium,
             )
             KaggleManualHandoffState.Notice.OPEN_FAILED -> Text(
-                text = "No browser accepted the handoff. No competition page was opened by this app.",
+                text = "No installed app or browser accepted the handoff. No competition page was opened by this app.",
                 style = MaterialTheme.typography.bodyMedium,
             )
             KaggleManualHandoffState.Notice.CANCELLED -> Text(
-                text = "Cancelled. The competition link was cleared and no browser handoff was requested.",
+                text = "Cancelled. The competition link was cleared and no external handoff was requested.",
                 style = MaterialTheme.typography.bodyMedium,
             )
         }

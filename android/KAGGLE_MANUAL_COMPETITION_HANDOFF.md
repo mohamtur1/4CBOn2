@@ -12,7 +12,7 @@
 
 We took out the Kaggle pass box.
 
-Now you can paste a competition link and tap a button to ask your browser to open it. You sign in, read the rules, and tap Join on Kaggle yourself.
+Now you can paste a competition link and tap a button to ask an installed app or browser to open it. You sign in, read the rules, and tap Join on Kaggle yourself.
 
 The app cannot join or submit for you. It does not know your Kaggle password and does not check your Kaggle account.
 
@@ -22,7 +22,7 @@ The new app pieces passed their real build checks and all 21 tests. The APK also
 
 The active Android Kaggle integration is now a manual competition handoff. It has no Kaggle API client, token entry/storage, OAuth flow, competition-list read, account-status synchronization, automated download/upload, or submission mechanism.
 
-A validated competition URL can be handed to an Android browser only after an explicit owner tap. The owner handles any Kaggle sign-in, rules review, joining, notebook submission, and final submission on Kaggle. The app records only local handoff UI state and deliberately has no joined, submitted, or synchronized status.
+A validated competition URL can be handed to an external Android handler—an installed app or browser—only after an explicit owner tap. Android does not guarantee which eligible handler answers. The owner handles any Kaggle sign-in, rules review, joining, notebook submission, and final submission on Kaggle. The app records only local handoff UI state and deliberately has no joined, submitted, or synchronized status.
 
 This preserves owner-driven competition participation without app-side Kaggle authorization. It does not make Kaggle itself account-free and does not claim autonomous competition entry.
 
@@ -33,9 +33,9 @@ This preserves owner-driven competition participation without app-side Kaggle au
 | Accepted destination | Only `https://www.kaggle.com/competitions/<slug>` with an optional single trailing slash |
 | Rejections | Empty/malformed input, non-HTTPS schemes, other hosts, explicit ports, user-info, query/fragment, non-competition paths, extra paths, and overlong input |
 | Canonicalization | Rebuilds the accepted URL from the fixed HTTPS host/path and validated slug; does not retain arbitrary URL components |
-| Browser handoff | Explicit button tap creates `Intent.ACTION_VIEW` with `CATEGORY_BROWSABLE`; no automatic launch or redirect handling in the app |
+| External app/browser handoff | Explicit button tap creates `Intent.ACTION_VIEW` with `CATEGORY_BROWSABLE`; an installed Kaggle app or browser may handle it; no automatic launch or redirect handling in the app |
 | No-browser/security failure | Reports only `OPEN_FAILED`; does not convert failure into a successful handoff |
-| Successful `startActivity` return | Reports only `OPEN_REQUESTED`; this is not proof of page visibility, sign-in, joining, or submission |
+| Successful `startActivity` return | Reports only `OPEN_REQUESTED`; this does not identify the handler or prove page visibility, sign-in, joining, or submission |
 | Cancellation/back | Clears the transient URL/reference and records only cancellation |
 | Kaggle account/session | Not accessed, stored, logged, inspected, or controlled |
 | Competition data/status | Not fetched or synchronized; no joined/submitted model exists |
@@ -82,8 +82,11 @@ There are **21 `@Test` methods in source**. All 21 executed and passed in the ap
 | Fresh debug APK SHA-256 | `02eb96bebda5563bc00f55e35af7356d142e9b96185b896f877110dcc6b14264` |
 | Artifact retention/upload | **None; run artifact count was zero** |
 | Source unchanged by build | **Passed** |
-| Android browser intent on emulator/real device | Not tested; separate owner-in-the-loop work |
-| Real Kaggle sign-in, competition join, or submission | Not performed; separate owner-driven work |
+| External app-link handoff on owner device | **Passed in 09c:** installed Kaggle app opened the correct competition page before sign-in; browser-specific handling not verified |
+| Owner Kaggle sign-in | **Performed personally in the Kaggle app during 09c**; no credential shared with 4CBOn2 or the agent |
+| Real competition join or submission | **Not performed**; remains separate owner-driven work |
+| Cancel and Back | **Performed by owner during 09c** |
+| Empty/invalid/no-automatic-launch device subchecks | Not separately reported; not claimed as device passes |
 
 Final verification evidence:
 
@@ -112,9 +115,10 @@ These are planning updates only. Those divisions have not started.
 - [x] Ran `:app:assembleDebug` and verified a fresh debug APK.
 - [x] Verified zip alignment, APK Signature Scheme v2, and the recorded SHA-256.
 - [x] Confirmed the build did not modify source and uploaded no artifact.
-- [ ] Test the browser handoff on an emulator or owner device as a separate approved step.
-- [ ] Let the owner personally perform any real Kaggle sign-in, rules review, joining, or submission; none is claimed here.
+- [x] Record the 09c external app-link handoff: the installed Kaggle app opened the correct page before sign-in; owner then signed in personally and performed Cancel/Back.
+- [ ] Keep browser-specific handling and unreported device subchecks explicitly unverified.
+- [ ] Let the owner personally perform any future rules review, joining, or submission; none occurred in 09c.
 
 Revised Divisions 09 and 09b are **closed for manual source/build verification**. This does not close the separate device or live-competition tests.
 
-**Next prepared work:** Division 09c — owner device/browser smoke test, using `4CBOn2_Next_Thread_Handoff.md`. No PR is required; a one-time retained debug APK needs separate exact-step approval. Division 11 — Local database has not started and may follow a passed 09c or a documented device-unavailable limitation.
+**Next prepared work:** Confirm green CI for the 09c external-handoff wording correction, then start Division 11 — Local database in a new maximum-30-minute session. The intent implementation is unchanged, so no repeat phone test is required solely for this wording change. See `4CBOn2_Next_Thread_Handoff.md`.
