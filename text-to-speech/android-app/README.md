@@ -38,14 +38,17 @@ voice/speed changes apply from the next sentence.
 
 ## Get the APK
 
-Every push builds a debug APK in GitHub Actions and stores it as a build
-artifact named **TTSQueuePlayer-APK**:
+Every push builds a debug APK in GitHub Actions and publishes it to the
+rolling **`tts-latest` Release** as `TTSQueuePlayer.apk`:
 
-1. GitHub → this repo → **Actions** → latest *Build TTS Queue Player APK* run.
-2. Download **TTSQueuePlayer-APK** (a zip containing `app-debug.apk`).
-3. Copy the APK to the phone, tap it, and allow "install unknown apps" for
-   your file manager/browser when Android asks. (Debug APK = installable
-   directly; Play Store publishing would need a signed release build.)
+👉 **https://github.com/mohamtur1/4CBOn2/releases/tag/tts-latest**
+
+1. Open that link **on your phone**, tap `TTSQueuePlayer.apk` to download.
+2. Tap the downloaded file to install, and allow "install unknown apps" for
+   your browser when Android asks. (Debug APK = installable directly; Play
+   Store publishing would need a signed release build.)
+   The same APK is also kept as the build artifact **TTSQueuePlayer-APK** on
+   each Actions run, as a backup.
 4. On first launch, allow notifications (Android 13+) — that's what puts the
    player in your notification bar.
 5. If your phone brand aggressively kills background apps (some Xiaomi/

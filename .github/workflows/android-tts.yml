@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # to publish the APK as a downloadable Release asset
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -61,3 +63,17 @@ jobs:
           name: TTSQueuePlayer-APK
           path: text-to-speech/android-app/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Publish APK to the tts-latest release (direct phone download)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp text-to-speech/android-app/app/build/outputs/apk/debug/app-debug.apk TTSQueuePlayer.apk
+          if gh release view tts-latest >/dev/null 2>&1; then
+            gh release upload tts-latest TTSQueuePlayer.apk --clobber
+          else
+            gh release create tts-latest TTSQueuePlayer.apk \
+              --prerelease \
+              --title "TTS Queue Player — latest build" \
+              --notes "Installable Android APK (debug build, Android 8.0+). Tap TTSQueuePlayer.apk on your phone to download, then tap the file to install and allow 'install unknown apps' when asked. Rebuilt automatically on every push to the app."
+          fi
