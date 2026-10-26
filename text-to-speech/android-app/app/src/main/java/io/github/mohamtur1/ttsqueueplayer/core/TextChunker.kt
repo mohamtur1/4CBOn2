@@ -137,7 +137,7 @@ object TextChunker {
                 i++
             }
         }
-        if (splitPoints.isEmpty()) return listOf(from to)
+        if (splitPoints.isEmpty()) return listOf(Pair(from, to))
 
         val out = mutableListOf<Pair<Int, Int>>()
         var pieceStart = from
@@ -151,9 +151,9 @@ object TextChunker {
             // Avoid a tiny tail: merge it into the previous piece when very short.
             if (out.isNotEmpty() && to - pieceStart < MIN_CLAUSE) {
                 val last = out.removeAt(out.size - 1)
-                out.add(last.first to to)
+                out.add(Pair(last.first, to))
             } else {
-                out.add(pieceStart to to)
+                out.add(Pair(pieceStart, to))
             }
         }
         return out
