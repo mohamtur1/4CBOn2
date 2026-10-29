@@ -45,10 +45,12 @@
 | 09 — Manual Kaggle competition handoff | **Finished for manual source/build verification** | API/token/OAuth code removed; validated competition URL and explicit browser handoff added. Static checks and 21 CI unit tests passed. No browser/device/competition test. See `android/KAGGLE_MANUAL_COMPETITION_HANDOFF.md`. |
 | 09a — Former local Kaggle token route | **Superseded; no further work** | Owner selected manual participation; token/API source and tests removed, historical evidence retained. |
 | 09b — Verify revised manual Kaggle handoff | **Finished** | Approved CI run 40228035751 passed compilation, 21 tests, fresh debug APK assembly, zip alignment, v2 signature, SHA-256, and clean-source checks. No artifact was retained; device/competition tests remain separate. |
-| 09c — Owner external-handoff smoke test | **Owner test recorded; wording correction requires green CI before Division 11** | Installed Kaggle app opened the correct page before sign-in; owner later signed in personally and performed Cancel/Back. No join/submission or credential sharing; browser-specific and unreported subchecks remain unverified. |
+| 09c — Owner external-handoff smoke test | **Finished for recorded scope** | Installed Kaggle app opened the correct page before sign-in; owner later signed in personally and performed Cancel/Back. No join/submission or credential sharing; browser-specific and unreported subchecks remain unverified. |
 | 10 — Colab entry/control route | Finished (manual route only) | Fixed manual-handoff reference compiled/tested. The exact planned notebook is currently missing from the public repository path. No browser launch, account, runtime control, or AI call exists. |
 | 10a — toolchain restore/verification | Finished | Toolchain restored and Division 10 compile/test/APK checks passed. |
-| 11–42 | Not started | Not tested. |
+| 11 — Local database | Finished for source/build scope | File-backed local entity store with synthetic close/reopen test; no-artifact CI run 40316111676 passed 25 tests plus APK verification with zero artifacts. |
+| 12 — Selected-app capability registry | **In progress; approved no-artifact CI pending** | Owner-selected app identity, least-to-most-powerful route ordering, explicit unavailable reasons, and narrow non-enumerating discovery; 15 synthetic JVM tests bring the suite to 40. No UI, persistence, or installed-app inventory. |
+| 13–42 | Not started | Not tested. |
 
 **Authoritative plan:** `/home/user/4CBOn2/4CBOn2_Build_Divisions.md`
 
@@ -129,7 +131,7 @@ Revised Division 09b used separately approved source/workflow pushes. Final run 
 
 The local sandbox toolchain/dependency blocker remains historical environment evidence in `android/DIV09B_TOOLCHAIN_CHECKPOINT.md`; the approved CI route is not described as local restoration. Revised 09/09b are closed for source/build verification. During 09c the installed Kaggle app opened the correct page before sign-in, after which the owner signed in personally and performed Cancel/Back. No join/submission or credential sharing occurred. Browser-specific and unreported subchecks remain unverified.
 
-**Next prepared work:** Confirm green CI for the 09c external-handoff wording correction, then start Division 11 — Local database in a new maximum-30-minute session. The intent implementation is unchanged, so no repeat phone test is required solely for this wording change. No PR is required. Real Kaggle joining/submission remains later owner-driven work.
+**Next prepared work:** Division 12 — Selected-app capability registry is implemented locally and awaits an owner-approved source push and no-artifact CI run. Division 13 — On-device scope contract starts only after that verification, in a new maximum-30-minute session. The 09c intent implementation is unchanged, so no repeat phone test is required solely for that wording change. No PR is required. Real Kaggle joining/submission remains later owner-driven work.
 
 Local reading/editing/testing needs no upload. Before any source/workflow push or other external write, state **Upload needed? Yes**, identify the exact destination, files/data, and reason, and obtain explicit owner approval for that step.
 
