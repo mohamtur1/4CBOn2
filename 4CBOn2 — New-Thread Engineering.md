@@ -49,7 +49,7 @@
 | 10 — Colab entry/control route | Finished (manual route only) | Fixed manual-handoff reference compiled/tested. The exact planned notebook is currently missing from the public repository path. No browser launch, account, runtime control, or AI call exists. |
 | 10a — toolchain restore/verification | Finished | Toolchain restored and Division 10 compile/test/APK checks passed. |
 | 11 — Local database | Finished for source/build scope | File-backed local entity store with synthetic close/reopen test; no-artifact CI run 40316111676 passed 25 tests plus APK verification with zero artifacts. |
-| 12 — Selected-app capability registry | **In progress; approved no-artifact CI pending** | Owner-selected app identity, least-to-most-powerful route ordering, explicit unavailable reasons, and narrow non-enumerating discovery; 15 synthetic JVM tests bring the suite to 40. No UI, persistence, or installed-app inventory. |
+| 12 — Selected-app capability registry | **Finished for source/build scope** | Owner-selected app identity, least-to-most-powerful route ordering, explicit unavailable reasons, and narrow non-enumerating discovery; 15 synthetic JVM tests bring the suite to 40. No-artifact CI run 40812912554 passed 40 tests plus APK verification with zero artifacts. No UI, persistence, or installed-app inventory. |
 | 13–42 | Not started | Not tested. |
 
 **Authoritative plan:** `/home/user/4CBOn2/4CBOn2_Build_Divisions.md`
@@ -131,7 +131,7 @@ Revised Division 09b used separately approved source/workflow pushes. Final run 
 
 The local sandbox toolchain/dependency blocker remains historical environment evidence in `android/DIV09B_TOOLCHAIN_CHECKPOINT.md`; the approved CI route is not described as local restoration. Revised 09/09b are closed for source/build verification. During 09c the installed Kaggle app opened the correct page before sign-in, after which the owner signed in personally and performed Cancel/Back. No join/submission or credential sharing occurred. Browser-specific and unreported subchecks remain unverified.
 
-**Next prepared work:** Division 12 — Selected-app capability registry is implemented locally and awaits an owner-approved source push and no-artifact CI run. Division 13 — On-device scope contract starts only after that verification, in a new maximum-30-minute session. The 09c intent implementation is unchanged, so no repeat phone test is required solely for that wording change. No PR is required. Real Kaggle joining/submission remains later owner-driven work.
+**Next prepared work:** Division 12 passed no-artifact CI run 40812912554 at commit `75564a8` (40 tests, APK verified, zero artifacts) and is closed for its documented source/build scope. Division 13 — On-device scope contract is next, in a new maximum-30-minute session. The 09c intent implementation is unchanged, so no repeat phone test is required solely for that wording change. No PR is required. Real Kaggle joining/submission remains later owner-driven work.
 
 Local reading/editing/testing needs no upload. Before any source/workflow push or other external write, state **Upload needed? Yes**, identify the exact destination, files/data, and reason, and obtain explicit owner approval for that step.
 
