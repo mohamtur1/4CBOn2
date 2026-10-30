@@ -145,13 +145,13 @@ jobs:
               len(re.findall(r'(?m)^\s*@Test\b', path.read_text(encoding='utf-8')))
               for path in Path('android/app/src/test').rglob('*.kt')
           )
-          assert tests == 119, tests
+          assert tests == 144, tests
           workflow = Path('.github/workflows/android-division09b.yml').read_text(encoding='utf-8')
-          assert "'tests': 119" in workflow, 'CI XML total is not 119'
+          assert "'tests': 144" in workflow, 'CI XML total is not 144'
           print(f'Active Kotlin source tests: {tests}')
           PY
 
-      - name: Run the 119 unit tests
+      - name: Run the 144 unit tests
         shell: bash
         working-directory: android
         run: |
@@ -182,9 +182,9 @@ jobs:
               suite = ET.parse(report).getroot()
               for key in totals:
                   totals[key] += int(suite.attrib.get(key, '0'))
-          assert totals == {'tests': 119, 'failures': 0, 'errors': 0, 'skipped': 0}, totals
+          assert totals == {'tests': 144, 'failures': 0, 'errors': 0, 'skipped': 0}, totals
           print('Verified unit-test totals:', totals)
-          print('::notice title=Unit tests::119 passed; 0 failures; 0 errors; 0 skipped')
+          print('::notice title=Unit tests::144 passed; 0 failures; 0 errors; 0 skipped')
           PY
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK"
