@@ -1,22 +1,22 @@
-# 4CBOn2 — New-Thread Handoff for Division 16
+# 4CBOn2 — New-Thread Handoff for Division 17
 
 **Repository:** `mohamtur1/4CBOn2`
 **Current session branch:** `arena/74f65509-4cbon2`
 **Source baseline used:** `arena/0eb49904-4cbon2` at `2a4520118e31e9eb8d2cc2585f3ad95d3847cb2f`
 **Prepared:** 30 October 2026
-**Verified Division 15 commit:** `dd09caf00fe2238530748fa3c6237235bf0748b1`
-**Next division:** 16 — Safe file import/export
-**Do not start:** Division 16 without an explicit “Continue”, Division 17 or later, live Kaggle joining/submission, a PR/merge, or any credential/account action
+**Verified Division 16 commit:** `47c5b167ca1130b19f830fc88424c3b325a6e328`
+**Next division:** 17 — Offline knowledge library
+**Do not start:** Division 17 without an explicit “Continue”, Division 18 or later, live Kaggle joining/submission, a PR/merge, or any credential/account action
 
 ## Like you are two
 
-The app now has a little notebook where you can write a plan and find it again later. You can change it, or cross it out for good. Writing a plan never turns anything on and never starts a job. The big robot checked 86 little things and all passed, and it did not keep any big app file. The next job is letting you pick a file yourself — the app should never go looking through your phone on its own. We are not doing that yet.
+You pick a file yourself now, and the app only peeks at its label — the name, the type, and how big it says it is. It never looks inside. Too big? No. Wrong kind? No. It says “no” with one clear reason. The big robot checked 103 little things and all passed, and it did not keep any big app file. The next job is a little shelf where the app can keep the things it already learned, so it can find them again. We are not doing that yet.
 
 ## Like you are an adult
 
-Division 15 is complete for its documented source/build scope. A bounded create/edit/list/load layer now sits over the existing local entity database at unchanged schema version 1, with an explicit draft state machine, terminal cancellation, paired events, and structural inertness toward the registry, scope, and lease. The 71 earlier tests remain intact; 15 new tests bring the active total to 86.
+Division 16 is complete for its documented source/build scope. A bounded owner-picked file model now exists with an exact-match MIME allow-list, a 5 MiB cap applied to reported metadata, six fail-closed refusal reasons checked in a fixed order, and a plan-only export side. Content access is absent by construction and proved by reflection. The 86 earlier tests remain intact; 17 new tests bring the active total to 103.
 
-The no-artifact CI run [40989542029](https://github.com/mohamtur1/4CBOn2/actions/runs/40989542029) succeeded at commit `dd09caf00fe2238530748fa3c6237235bf0748b1`: 86 passed, 0 failures/errors/skips; debug APK assembled, zip-aligned, and v2-signature verified; SHA-256 `2c79ed9de20b2cf7ed95a942c31c824be40a42b6aa63a7eaea44102873d3f347`; clean-source check passed; artifact-retention step skipped; artifact count zero. This is CI/JVM and build evidence, not an emulator, real-device, permission-granted, or live-service test. See `4CBOn2_Division15_Verification.md` and `android/OFFLINE_DRAFTS.md`.
+The no-artifact CI run [40990799099](https://github.com/mohamtur1/4CBOn2/actions/runs/40990799099) succeeded at commit `47c5b167ca1130b19f830fc88424c3b325a6e328`: 103 passed, 0 failures/errors/skips; debug APK assembled, zip-aligned, and v2-signature verified; SHA-256 `2607e0016380fe7f67fbe73d7fe3d6d25774f20e36f082cdc3fee85b2207c533`; clean-source check passed; artifact-retention step skipped; artifact count zero. This is CI/JVM and build evidence, not an emulator, real-device, permission-granted, or live-service test. See `4CBOn2_Division16_Verification.md` and `android/FILE_HANDOFF.md`.
 
 Arena fixes this session to `arena/74f65509-4cbon2`, so work continued from the named `arena/0eb49904-4cbon2` source baseline on the fixed session branch and was pushed only there. No PR was opened.
 
@@ -24,30 +24,31 @@ Arena fixes this session to `arena/74f65509-4cbon2`, so work continued from the 
 
 | Item | Evidence |
 | --- | --- |
-| Branch/head | `arena/74f65509-4cbon2`, verified source commit `dd09caf00fe2238530748fa3c6237235bf0748b1` |
-| Final Division 15 CI | https://github.com/mohamtur1/4CBOn2/actions/runs/40989542029 — **Success** |
-| Unit tests | **86 passed; 0 failures, 0 errors, 0 skipped** |
+| Branch/head | `arena/74f65509-4cbon2`, verified source commit `47c5b167ca1130b19f830fc88424c3b325a6e328` |
+| Final Division 16 CI | https://github.com/mohamtur1/4CBOn2/actions/runs/40990799099 — **Success** |
+| Unit tests | **103 passed; 0 failures, 0 errors, 0 skipped** |
 | APK verification | Debug APK assembled, zip-aligned, APK Signature Scheme v2 verified |
-| Division 15 APK SHA-256 | `2c79ed9de20b2cf7ed95a942c31c824be40a42b6aa63a7eaea44102873d3f347` |
+| Division 16 APK SHA-256 | `2607e0016380fe7f67fbe73d7fe3d6d25774f20e36f082cdc3fee85b2207c533` |
 | CI artifacts | **Zero** |
 | Database schema | **Version 1**, unchanged since Division 11 |
+| Manifest permissions | `INTERNET` only |
 | Credentials/live accounts | None used; no PR or merge |
-| Unverified limits | No emulator/real-device test, no permission-granted or accessibility flow, no production signing, no Play approval, no authentication proof, no encryption of the local database, no universal phone control |
+| Unverified limits | No emulator/real-device test, no permission-granted or accessibility flow, no production signing, no Play approval, no authentication proof, no encryption of the local database, no picker wiring, no universal phone control |
 
-The historical 09c APK artifact and earlier 21-/25-/40-/55-/71-test CI records are not current-source evidence. Earlier division evidence remains in Git history and the root/Android documentation.
+The historical 09c APK artifact and earlier CI records at 21/25/40/55/71/86 tests are not current-source evidence. Earlier division evidence remains in Git history and the root/Android documentation.
 
-## Division 16 narrow work order — do not begin yet
+## Division 17 narrow work order — do not begin yet
 
-When the owner explicitly says “Continue”, start only Division 16 — Safe file import/export:
+When the owner explicitly says “Continue”, start only Division 17 — Offline knowledge library:
 
-1. Model an **owner-picked** file: the owner chooses the document, and 4CBOn2 receives only that selection. No directory walking, no media-store scanning, no whole-filesystem access, and no `MANAGE_EXTERNAL_STORAGE` or broad-storage permission.
-2. Keep the model a bounded, pure-Kotlin value layer (label, size and type limits, declared purpose) that is testable with synthetic data. Any platform picker wiring is a separate, explicitly scoped step; do not imply the picker exists before it does.
-3. Reject oversized, wrong-type, missing, and unselected inputs with explicit refusal reasons. Prefer a size cap checked **before** reading content.
-4. Never read, log, copy, or transmit file contents during this division. Provenance metadata only, and no cloud upload.
-5. Do not modify the schema casually: reuse `LocalEntityDatabase` version 1 if the model fits. If a persisted field is genuinely needed, treat it as an explicit schema decision and document the migration honestly.
-6. Preserve the 86 existing tests and update the CI exact total honestly if new tests are added.
+1. Model saved reports and evidence with bounded title, body, source label, and provenance — where it came from and when it was saved.
+2. Read and search those saved items locally, with deterministic ordering and bounded result counts.
+3. Keep provenance honest: a saved item records what the owner supplied or observed, never an invented completion, citation, or service response that did not occur.
+4. Reuse `LocalEntityDatabase` where it fits. Adding a new persisted entity type is a **schema decision**: bump the version, document the migration, and prove old files still load, or explain honestly why the model fits at version 1.
+5. Keep the library inert: saving or reading items must not grant permission, start a job, or bypass `ScopeContract`, `ActionLease`, or the capability registry. No network, no cloud upload, no credential, and no real personal data.
+6. Preserve the 103 existing tests and update the CI exact total honestly if new tests are added.
 7. Require full no-artifact CI verification before closure, then update the plan/recovery documents.
-8. Stop before Division 17.
+8. Stop before Division 18.
 
 ## Standing owner requirements
 
@@ -63,12 +64,13 @@ When the owner explicitly says “Continue”, start only Division 16 — Safe f
 ## Files to read first in the next thread
 
 ```text
-4CBOn2_Division15_Verification.md
+4CBOn2_Division16_Verification.md
 4CBOn2_Build_Divisions.md
 4CBOn2 — New-Thread Engineering.md
+android/FILE_HANDOFF.md
 android/OFFLINE_DRAFTS.md
 android/LOCAL_DATABASE.md
-android/app/src/main/java/io/github/mohamtur1/fourcbon2/OfflineDraftRepository.kt
+android/app/src/main/java/io/github/mohamtur1/fourcbon2/OwnerFileIntake.kt
 android/app/src/main/java/io/github/mohamtur1/fourcbon2/LocalEntityDatabase.kt
 .github/workflows/android-division09b.yml
 ```
@@ -77,4 +79,4 @@ Retain `4CBOn2_Checkpoint_Div10_source_docs.zip` as historical backup. Do not re
 
 ## Ready-to-paste new-thread message
 
-> Continue 4CBOn2 in `mohamtur1/4CBOn2` on the active Arena session branch. Read `4CBOn2_Next_Thread_Handoff.md` first. Start only Division 16 — Safe file import/export when explicitly asked, and do not skip ahead. Preserve the existing 86 tests, update CI’s exact test-count assertion if needed, and require full no-artifact CI verification before closure. Do not use live accounts, open a PR, or request/accept credentials. Work in one maximum-30-minute session, preserve both explanation styles, state upload requirements before every step, and obtain exact-step approval before every external write or transfer.
+> Continue 4CBOn2 in `mohamtur1/4CBOn2` on the active Arena session branch. Read `4CBOn2_Next_Thread_Handoff.md` first. Start only Division 17 — Offline knowledge library when explicitly asked, and do not skip ahead. Preserve the existing 103 tests, update CI’s exact test-count assertion if needed, and require full no-artifact CI verification before closure. Do not use live accounts, open a PR, or request/accept credentials. Work in one maximum-30-minute session, preserve both explanation styles, state upload requirements before every step, and obtain exact-step approval before every external write or transfer.
