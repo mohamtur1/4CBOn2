@@ -12,17 +12,35 @@ import java.util.Base64
  * that file. Closing releases the open file; a fresh instance must read the
  * same file to recover records. This is intentionally not cloud storage,
  * encrypted storage, or a full SQL/Room engine.
+ *
+ * **Schema history**
+ *
+ * - Version 1 stored `LocalAgentDraft` and `LocalActionEvent`.
+ * - Version 2 adds `LocalKnowledgeItem` (Division 17, offline knowledge library).
+ *
+ * A version 1 file is still readable: `open()` accepts either header, loads the
+ * existing rows unchanged, and then rewrites the file with the version 2 header on the
+ * first mutation (or immediately on open, because opening always normalises the file).
+ * No version 1 row shape changed, so the migration is a header upgrade rather than a
+ * data rewrite. Unknown future versions are still rejected.
  */
 class LocalEntityDatabase(
     private val databaseFile: File,
 ) : AutoCloseable {
     companion object {
-        const val SCHEMA_VERSION = 1
+        const val SCHEMA_VERSION = 2
+
+        /** Oldest file format this build can still read. */
+        const val OLDEST_READABLE_SCHEMA_VERSION = 1
+
         const val DEFAULT_FILE_NAME = "4cbon2-local-entities.v1.db"
 
-        private const val HEADER = "4CBON2_LOCAL_ENTITY_DB\t1"
+        private const val HEADER_PREFIX = "4CBON2_LOCAL_ENTITY_DB\t"
+        private const val HEADER = HEADER_PREFIX + "2"
+        private const val LEGACY_V1_HEADER = HEADER_PREFIX + "1"
         private const val DRAFT_ROW = "DRAFT"
         private const val EVENT_ROW = "EVENT"
+        private const val KNOWLEDGE_ROW = "KNOWLEDGE"
         private const val EMPTY_FIELD = "~"
 
         fun defaultFile(storageDirectory: File): File = File(storageDirectory, DEFAULT_FILE_NAME)
@@ -30,6 +48,7 @@ class LocalEntityDatabase(
 
     private val drafts = linkedMapOf<String, LocalAgentDraft>()
     private val events = linkedMapOf<String, LocalActionEvent>()
+    private val knowledge = linkedMapOf<String, LocalKnowledgeItem>()
     private var openFile: RandomAccessFile? = null
 
     @Synchronized
@@ -39,8 +58,10 @@ class LocalEntityDatabase(
         val loaded = readOrEmpty()
         drafts.clear()
         events.clear()
+        knowledge.clear()
         drafts.putAll(loaded.drafts)
         events.putAll(loaded.events)
+        knowledge.putAll(loaded.knowledge)
 
         databaseFile.parentFile?.let { parent ->
             check(parent.exists() || parent.mkdirs()) { "Cannot create local database directory." }
@@ -48,12 +69,14 @@ class LocalEntityDatabase(
         val file = RandomAccessFile(databaseFile, "rw")
         openFile = file
         try {
+            // Normalises a legacy version 1 header to version 2 without changing any row.
             persist()
         } catch (error: Throwable) {
             openFile = null
             file.close()
             drafts.clear()
             events.clear()
+            knowledge.clear()
             throw error
         }
     }
@@ -86,9 +109,27 @@ class LocalEntityDatabase(
     }
 
     @Synchronized
+    fun saveKnowledgeItem(item: LocalKnowledgeItem) {
+        ensureOpen()
+        val previous = knowledge.put(item.id, item)
+        try {
+            persist()
+        } catch (error: Throwable) {
+            if (previous == null) knowledge.remove(item.id) else knowledge[item.id] = previous
+            throw error
+        }
+    }
+
+    @Synchronized
     fun findDraft(id: String): LocalAgentDraft? {
         ensureOpen()
         return drafts[id]
+    }
+
+    @Synchronized
+    fun findKnowledgeItem(id: String): LocalKnowledgeItem? {
+        ensureOpen()
+        return knowledge[id]
     }
 
     @Synchronized
@@ -104,11 +145,18 @@ class LocalEntityDatabase(
     }
 
     @Synchronized
+    fun knowledgeItems(): List<LocalKnowledgeItem> {
+        ensureOpen()
+        return orderedKnowledge().toList()
+    }
+
+    @Synchronized
     override fun close() {
         openFile?.close()
         openFile = null
         drafts.clear()
         events.clear()
+        knowledge.clear()
     }
 
     private fun ensureOpen() {
@@ -123,13 +171,15 @@ class LocalEntityDatabase(
             .filter { it.isNotEmpty() }
             .toList()
         if (lines.isEmpty()) return LoadedState()
-        check(lines.first() == HEADER) {
-            "Unsupported local entity database header: ${lines.first()}"
+        val header = lines.first()
+        check(header == HEADER || header == LEGACY_V1_HEADER) {
+            "Unsupported local entity database header: $header"
         }
 
         val loaded = LoadedState(
             drafts = linkedMapOf(),
             events = linkedMapOf(),
+            knowledge = linkedMapOf(),
         )
         lines.drop(1).forEachIndexed { index, line ->
             parseRow(line, lineNumber = index + 2, loaded)
@@ -185,6 +235,25 @@ class LocalEntityDatabase(
                 }
                 if (loaded.events.put(event.id, event) != null) {
                     throw IllegalStateException(invalidRow(lineNumber, "duplicate event id"))
+                }
+            }
+
+            KNOWLEDGE_ROW -> {
+                check(columns.size == 7) { invalidRow(lineNumber, "knowledge field count") }
+                val item = try {
+                    LocalKnowledgeItem(
+                        id = decode(columns[1], lineNumber),
+                        title = decode(columns[2], lineNumber),
+                        body = decode(columns[3], lineNumber),
+                        sourceLabel = decode(columns[4], lineNumber),
+                        provenance = parseEnum<KnowledgeProvenance>(columns[5], lineNumber),
+                        savedAtEpochMillis = parseTimestamp(columns[6], lineNumber),
+                    )
+                } catch (error: IllegalArgumentException) {
+                    throw IllegalStateException(invalidRow(lineNumber, error.message), error)
+                }
+                if (loaded.knowledge.put(item.id, item) != null) {
+                    throw IllegalStateException(invalidRow(lineNumber, "duplicate knowledge id"))
                 }
             }
 
@@ -248,6 +317,17 @@ class LocalEntityDatabase(
                 event.createdAtEpochMillis.toString(),
             ).joinToString("\t")
         }
+        orderedKnowledge().forEach { item ->
+            lines += listOf(
+                KNOWLEDGE_ROW,
+                encode(item.id),
+                encode(item.title),
+                encode(item.body),
+                encode(item.sourceLabel),
+                item.provenance.name,
+                item.savedAtEpochMillis.toString(),
+            ).joinToString("\t")
+        }
         return lines.joinToString(separator = "\n", postfix = "\n")
     }
 
@@ -272,8 +352,16 @@ class LocalEntityDatabase(
         },
     )
 
+    private fun orderedKnowledge(): Collection<LocalKnowledgeItem> = knowledge.values.sortedWith(
+        Comparator { left, right ->
+            val byTime = left.savedAtEpochMillis.compareTo(right.savedAtEpochMillis)
+            if (byTime != 0) byTime else left.id.compareTo(right.id)
+        },
+    )
+
     private data class LoadedState(
         val drafts: MutableMap<String, LocalAgentDraft> = linkedMapOf(),
         val events: MutableMap<String, LocalActionEvent> = linkedMapOf(),
+        val knowledge: MutableMap<String, LocalKnowledgeItem> = linkedMapOf(),
     )
 }

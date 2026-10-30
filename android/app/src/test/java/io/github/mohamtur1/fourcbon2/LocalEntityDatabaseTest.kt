@@ -41,7 +41,7 @@ class LocalEntityDatabaseTest {
     }
 
     @Test
-    fun freshDatabaseWritesTheVersionOneSchemaHeader() {
+    fun freshDatabaseWritesTheCurrentSchemaHeader() {
         val databaseFile = databaseFile()
         val database = LocalEntityDatabase(databaseFile)
 
@@ -49,19 +49,24 @@ class LocalEntityDatabaseTest {
         database.close()
 
         val lines = databaseFile.readLines(Charsets.UTF_8)
-        assertEquals("4CBON2_LOCAL_ENTITY_DB\t1", lines.first())
-        assertEquals(1, LocalEntityDatabase.SCHEMA_VERSION)
+        // Division 17 raised the current schema to version 2 and kept version 1 readable.
+        assertEquals("4CBON2_LOCAL_ENTITY_DB\t2", lines.first())
+        assertEquals(2, LocalEntityDatabase.SCHEMA_VERSION)
+        assertEquals(1, LocalEntityDatabase.OLDEST_READABLE_SCHEMA_VERSION)
         assertEquals(emptyList<String>(), lines.drop(1))
     }
 
     @Test
     fun unsupportedSchemaAndMalformedRowsAreRejected() {
         val databaseFile = databaseFile()
-        databaseFile.writeText("4CBON2_LOCAL_ENTITY_DB\t2\n", Charsets.UTF_8)
+
+        // Version 2 is now current, so an unknown future version must be the rejected one.
+        databaseFile.writeText("4CBON2_LOCAL_ENTITY_DB\t3\n", Charsets.UTF_8)
         assertThrows(IllegalStateException::class.java) {
             LocalEntityDatabase(databaseFile).open()
         }
 
+        // A readable legacy version 1 header still rejects a malformed row.
         databaseFile.writeText("4CBON2_LOCAL_ENTITY_DB\t1\nDRAFT\tbad\n", Charsets.UTF_8)
         assertThrows(IllegalStateException::class.java) {
             LocalEntityDatabase(databaseFile).open()
