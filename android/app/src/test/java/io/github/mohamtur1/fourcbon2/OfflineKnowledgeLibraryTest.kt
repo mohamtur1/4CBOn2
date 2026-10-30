@@ -142,7 +142,7 @@ class OfflineKnowledgeLibraryTest {
     }
 
     @Test
-    fun legacyVersionOneFileIsReadAndUpgradedToVersionTwo() {
+    fun legacyVersionOneFileIsReadAndUpgradedToTheCurrentVersion() {
         val databaseFile = File(temporaryFolder.newFolder(), "legacy.db")
         databaseFile.writeText(legacyVersionOneFile(), Charsets.UTF_8)
         assertEquals("4CBON2_LOCAL_ENTITY_DB\t1", databaseFile.readLines(Charsets.UTF_8).first())
@@ -161,7 +161,8 @@ class OfflineKnowledgeLibraryTest {
             assertEquals(emptyList<LocalKnowledgeItem>(), database.knowledgeItems())
 
             // The header was upgraded in place.
-            assertEquals("4CBON2_LOCAL_ENTITY_DB\t2", databaseFile.readLines(Charsets.UTF_8).first())
+            // Division 19 raised the current schema to version 3; a version 1 file still loads.
+            assertEquals("4CBON2_LOCAL_ENTITY_DB\t3", databaseFile.readLines(Charsets.UTF_8).first())
 
             // And a version 2 write still coexists with the legacy rows.
             database.saveKnowledgeItem(
@@ -249,7 +250,7 @@ class OfflineKnowledgeLibraryTest {
             library.saveItem("row-1", "Row title", "Row body.", "Row source", KnowledgeProvenance.OWNER_OBSERVED)
 
             val lines = databaseFile.readLines(Charsets.UTF_8)
-            assertEquals("4CBON2_LOCAL_ENTITY_DB\t2", lines.first())
+            assertEquals("4CBON2_LOCAL_ENTITY_DB\t3", lines.first())
             val knowledgeLines = lines.drop(1).filter { it.startsWith("KNOWLEDGE\t") }
             assertEquals(1, knowledgeLines.size)
             assertEquals(7, knowledgeLines.single().split('\t').size)

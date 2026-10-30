@@ -17,18 +17,19 @@ import java.util.Base64
  *
  * - Version 1 stored `LocalAgentDraft` and `LocalActionEvent`.
  * - Version 2 adds `LocalKnowledgeItem` (Division 17, offline knowledge library).
+ * - Version 3 adds `LocalQueuedJob` (Division 19, persistent waiting queue).
  *
- * A version 1 file is still readable: `open()` accepts either header, loads the
- * existing rows unchanged, and then rewrites the file with the version 2 header on the
- * first mutation (or immediately on open, because opening always normalises the file).
- * No version 1 row shape changed, so the migration is a header upgrade rather than a
- * data rewrite. Unknown future versions are still rejected.
+ * Every older file is still readable: `open()` accepts the version 1, 2, or 3 header,
+ * loads the existing rows unchanged, and then rewrites the file with the version 3 header
+ * immediately, because opening always normalises the file. No earlier row shape changed in
+ * either migration, so both are header upgrades rather than data rewrites. Unknown future
+ * versions are still rejected.
  */
 class LocalEntityDatabase(
     private val databaseFile: File,
 ) : AutoCloseable {
     companion object {
-        const val SCHEMA_VERSION = 2
+        const val SCHEMA_VERSION = 3
 
         /** Oldest file format this build can still read. */
         const val OLDEST_READABLE_SCHEMA_VERSION = 1
@@ -36,12 +37,22 @@ class LocalEntityDatabase(
         const val DEFAULT_FILE_NAME = "4cbon2-local-entities.v1.db"
 
         private const val HEADER_PREFIX = "4CBON2_LOCAL_ENTITY_DB\t"
-        private const val HEADER = HEADER_PREFIX + "2"
+        private const val HEADER = HEADER_PREFIX + "3"
+        private const val LEGACY_V2_HEADER = HEADER_PREFIX + "2"
         private const val LEGACY_V1_HEADER = HEADER_PREFIX + "1"
         private const val DRAFT_ROW = "DRAFT"
         private const val EVENT_ROW = "EVENT"
         private const val KNOWLEDGE_ROW = "KNOWLEDGE"
+        private const val QUEUED_JOB_ROW = "QUEUED_JOB"
         private const val EMPTY_FIELD = "~"
+
+        /**
+         * Sentinel for "no deferral reason".
+         *
+         * A hyphen can never collide with an enum name, because `enumValueOf` only accepts
+         * identifiers, so it cannot be confused with a real [DeferralReason].
+         */
+        private const val NO_DEFERRAL = "-"
 
         fun defaultFile(storageDirectory: File): File = File(storageDirectory, DEFAULT_FILE_NAME)
     }
@@ -49,6 +60,7 @@ class LocalEntityDatabase(
     private val drafts = linkedMapOf<String, LocalAgentDraft>()
     private val events = linkedMapOf<String, LocalActionEvent>()
     private val knowledge = linkedMapOf<String, LocalKnowledgeItem>()
+    private val queuedJobs = linkedMapOf<String, LocalQueuedJob>()
     private var openFile: RandomAccessFile? = null
 
     @Synchronized
@@ -59,9 +71,11 @@ class LocalEntityDatabase(
         drafts.clear()
         events.clear()
         knowledge.clear()
+        queuedJobs.clear()
         drafts.putAll(loaded.drafts)
         events.putAll(loaded.events)
         knowledge.putAll(loaded.knowledge)
+        queuedJobs.putAll(loaded.queuedJobs)
 
         databaseFile.parentFile?.let { parent ->
             check(parent.exists() || parent.mkdirs()) { "Cannot create local database directory." }
@@ -77,6 +91,7 @@ class LocalEntityDatabase(
             drafts.clear()
             events.clear()
             knowledge.clear()
+            queuedJobs.clear()
             throw error
         }
     }
@@ -121,6 +136,18 @@ class LocalEntityDatabase(
     }
 
     @Synchronized
+    fun saveQueuedJob(job: LocalQueuedJob) {
+        ensureOpen()
+        val previous = queuedJobs.put(job.id, job)
+        try {
+            persist()
+        } catch (error: Throwable) {
+            if (previous == null) queuedJobs.remove(job.id) else queuedJobs[job.id] = previous
+            throw error
+        }
+    }
+
+    @Synchronized
     fun findDraft(id: String): LocalAgentDraft? {
         ensureOpen()
         return drafts[id]
@@ -130,6 +157,12 @@ class LocalEntityDatabase(
     fun findKnowledgeItem(id: String): LocalKnowledgeItem? {
         ensureOpen()
         return knowledge[id]
+    }
+
+    @Synchronized
+    fun findQueuedJob(id: String): LocalQueuedJob? {
+        ensureOpen()
+        return queuedJobs[id]
     }
 
     @Synchronized
@@ -151,12 +184,19 @@ class LocalEntityDatabase(
     }
 
     @Synchronized
+    fun queuedJobs(): List<LocalQueuedJob> {
+        ensureOpen()
+        return orderedQueuedJobs().toList()
+    }
+
+    @Synchronized
     override fun close() {
         openFile?.close()
         openFile = null
         drafts.clear()
         events.clear()
         knowledge.clear()
+        queuedJobs.clear()
     }
 
     private fun ensureOpen() {
@@ -172,7 +212,7 @@ class LocalEntityDatabase(
             .toList()
         if (lines.isEmpty()) return LoadedState()
         val header = lines.first()
-        check(header == HEADER || header == LEGACY_V1_HEADER) {
+        check(header == HEADER || header == LEGACY_V2_HEADER || header == LEGACY_V1_HEADER) {
             "Unsupported local entity database header: $header"
         }
 
@@ -180,6 +220,7 @@ class LocalEntityDatabase(
             drafts = linkedMapOf(),
             events = linkedMapOf(),
             knowledge = linkedMapOf(),
+            queuedJobs = linkedMapOf(),
         )
         lines.drop(1).forEachIndexed { index, line ->
             parseRow(line, lineNumber = index + 2, loaded)
@@ -257,6 +298,25 @@ class LocalEntityDatabase(
                 }
             }
 
+            QUEUED_JOB_ROW -> {
+                check(columns.size == 7) { invalidRow(lineNumber, "queued job field count") }
+                val job = try {
+                    LocalQueuedJob(
+                        id = decode(columns[1], lineNumber),
+                        summary = decode(columns[2], lineNumber),
+                        state = parseEnum<QueuedJobState>(columns[3], lineNumber),
+                        deferral = parseDeferral(columns[4], lineNumber),
+                        queuedAtEpochMillis = parseTimestamp(columns[5], lineNumber),
+                        lastOwnerActionAtEpochMillis = parseTimestamp(columns[6], lineNumber),
+                    )
+                } catch (error: IllegalArgumentException) {
+                    throw IllegalStateException(invalidRow(lineNumber, error.message), error)
+                }
+                if (loaded.queuedJobs.put(job.id, job) != null) {
+                    throw IllegalStateException(invalidRow(lineNumber, "duplicate queued job id"))
+                }
+            }
+
             else -> throw IllegalStateException(invalidRow(lineNumber, "unknown entity type"))
         }
     }
@@ -274,6 +334,11 @@ class LocalEntityDatabase(
         enumValueOf<T>(value)
     } catch (error: IllegalArgumentException) {
         throw IllegalStateException(invalidRow(lineNumber, "unknown enum value"), error)
+    }
+
+    private fun parseDeferral(value: String, lineNumber: Int): DeferralReason? {
+        if (value == NO_DEFERRAL) return null
+        return parseEnum<DeferralReason>(value, lineNumber)
     }
 
     private fun parseTimestamp(value: String, lineNumber: Int): Long =
@@ -328,6 +393,17 @@ class LocalEntityDatabase(
                 item.savedAtEpochMillis.toString(),
             ).joinToString("\t")
         }
+        orderedQueuedJobs().forEach { job ->
+            lines += listOf(
+                QUEUED_JOB_ROW,
+                encode(job.id),
+                encode(job.summary),
+                job.state.name,
+                job.deferral?.name ?: NO_DEFERRAL,
+                job.queuedAtEpochMillis.toString(),
+                job.lastOwnerActionAtEpochMillis.toString(),
+            ).joinToString("\t")
+        }
         return lines.joinToString(separator = "\n", postfix = "\n")
     }
 
@@ -359,9 +435,17 @@ class LocalEntityDatabase(
         },
     )
 
+    private fun orderedQueuedJobs(): Collection<LocalQueuedJob> = queuedJobs.values.sortedWith(
+        Comparator { left, right ->
+            val byTime = left.queuedAtEpochMillis.compareTo(right.queuedAtEpochMillis)
+            if (byTime != 0) byTime else left.id.compareTo(right.id)
+        },
+    )
+
     private data class LoadedState(
         val drafts: MutableMap<String, LocalAgentDraft> = linkedMapOf(),
         val events: MutableMap<String, LocalActionEvent> = linkedMapOf(),
         val knowledge: MutableMap<String, LocalKnowledgeItem> = linkedMapOf(),
+        val queuedJobs: MutableMap<String, LocalQueuedJob> = linkedMapOf(),
     )
 }

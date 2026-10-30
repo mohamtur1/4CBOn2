@@ -1,6 +1,7 @@
 package io.github.mohamtur1.fourcbon2
 
 import java.io.File
+import java.util.Base64
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -49,9 +50,9 @@ class LocalEntityDatabaseTest {
         database.close()
 
         val lines = databaseFile.readLines(Charsets.UTF_8)
-        // Division 17 raised the current schema to version 2 and kept version 1 readable.
-        assertEquals("4CBON2_LOCAL_ENTITY_DB\t2", lines.first())
-        assertEquals(2, LocalEntityDatabase.SCHEMA_VERSION)
+        // Division 19 raised the current schema to version 3 and kept versions 1 and 2 readable.
+        assertEquals("4CBON2_LOCAL_ENTITY_DB\t3", lines.first())
+        assertEquals(3, LocalEntityDatabase.SCHEMA_VERSION)
         assertEquals(1, LocalEntityDatabase.OLDEST_READABLE_SCHEMA_VERSION)
         assertEquals(emptyList<String>(), lines.drop(1))
     }
@@ -60,8 +61,8 @@ class LocalEntityDatabaseTest {
     fun unsupportedSchemaAndMalformedRowsAreRejected() {
         val databaseFile = databaseFile()
 
-        // Version 2 is now current, so an unknown future version must be the rejected one.
-        databaseFile.writeText("4CBON2_LOCAL_ENTITY_DB\t3\n", Charsets.UTF_8)
+        // Version 3 is now current, so an unknown future version must be the rejected one.
+        databaseFile.writeText("4CBON2_LOCAL_ENTITY_DB\t4\n", Charsets.UTF_8)
         assertThrows(IllegalStateException::class.java) {
             LocalEntityDatabase(databaseFile).open()
         }
@@ -70,6 +71,46 @@ class LocalEntityDatabaseTest {
         databaseFile.writeText("4CBON2_LOCAL_ENTITY_DB\t1\nDRAFT\tbad\n", Charsets.UTF_8)
         assertThrows(IllegalStateException::class.java) {
             LocalEntityDatabase(databaseFile).open()
+        }
+    }
+
+    @Test
+    fun legacyVersionTwoFileLoadsUnchangedAndUpgradesToVersionThree() {
+        val databaseFile = databaseFile()
+        // A version 2 file as Division 17 wrote it: header 2 plus one knowledge row.
+        val knowledgeId = Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("kept-1".toByteArray(Charsets.UTF_8))
+        val title = Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("Synthetic title".toByteArray(Charsets.UTF_8))
+        val body = Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("Synthetic body.".toByteArray(Charsets.UTF_8))
+        val label = Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("Notebook".toByteArray(Charsets.UTF_8))
+        databaseFile.writeText(
+            "4CBON2_LOCAL_ENTITY_DB\t2\n" +
+                "KNOWLEDGE\t$knowledgeId\t$title\t$body\t$label\tOWNER_SUPPLIED\t1700000000000\n",
+            Charsets.UTF_8,
+        )
+
+        val database = LocalEntityDatabase(databaseFile)
+        database.open()
+        try {
+            // Rows survive the header upgrade untouched.
+            assertEquals("Synthetic title", database.knowledgeItems().single().title)
+            assertEquals(emptyList<LocalQueuedJob>(), database.queuedJobs())
+            // Opening normalises the header to the current version.
+            assertEquals("4CBON2_LOCAL_ENTITY_DB\t3", databaseFile.readLines(Charsets.UTF_8).first())
+        } finally {
+            database.close()
+        }
+
+        // A fresh instance reads the upgraded file and still sees the row.
+        val reopened = LocalEntityDatabase(databaseFile)
+        reopened.open()
+        try {
+            assertEquals("Synthetic body.", reopened.findKnowledgeItem("kept-1")?.body)
+        } finally {
+            reopened.close()
         }
     }
 

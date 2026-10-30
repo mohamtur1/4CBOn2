@@ -4,8 +4,11 @@ package io.github.mohamtur1.fourcbon2
 enum class KnowledgeRefusal {
     UNKNOWN_ITEM,
     DUPLICATE_ITEM_ID,
-    QUERY_TOO_LONG,
-    LIMIT_OUT_OF_RANGE,
+    // An over-long query or an out-of-range limit is a caller programming error, not a
+    // runtime refusal: `search` enforces both with `require` and throws rather than
+    // returning. Two values that could never be returned used to sit here; they were
+    // removed instead of being left as decoration, so the enum no longer promises a
+    // refusal path that does not exist.
 }
 
 /** One local search hit, plus how many matches existed in total. */
