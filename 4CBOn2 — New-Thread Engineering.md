@@ -52,7 +52,8 @@
 | 12 — Selected-app capability registry | **Finished for source/build scope** | Owner-selected app identity, least-to-most-powerful route ordering, explicit unavailable reasons, and narrow non-enumerating discovery; 15 synthetic JVM tests bring the suite to 40. No-artifact CI run 40812912554 passed 40 tests plus APK verification with zero artifacts. No UI, persistence, or installed-app inventory. |
 | 13 — On-device scope contract | **Finished for source/build scope** | Bounded per-job scope with target/action allow-lists, exclusions, cloud transfer off by default, 20-action/5-minute caps, expiry, and pre-discovery refusals; 15 synthetic JVM tests bring the suite to 55. No-artifact CI run 40831655312 passed 55 tests plus APK verification with zero artifacts. No UI, persistence, real data, or network. |
 | 14 — Takeover and cancellation lease | **Finished for source/build scope** | Local owner Take Over/Pause/Stop with owner-only resume, epoch-bound stale-command rejection, terminal stop, and a fresh post-resume state check; lease is evaluated before scope and discovery. 16 synthetic JVM tests bring the suite to 71. No-artifact CI run 40987374233 passed 71 tests plus APK verification with zero artifacts. No UI wiring, persistence, network, or authentication claim. |
-| 15–42 | Not started | Not tested. |
+| 15 — Offline agent drafts | **In progress; approved no-artifact CI pending** | Create/edit/list/load drafts over the existing entity database at unchanged schema version 1, with an explicit state machine, terminal cancel, paired events, and inert behaviour toward registry/scope/lease. 15 synthetic JVM tests bring the suite to 86. No UI, encryption, network, or cap persistence. |
+| 16–42 | Not started | Not tested. |
 
 **Authoritative plan:** `/home/user/4CBOn2/4CBOn2_Build_Divisions.md`
 
@@ -133,7 +134,7 @@ Revised Division 09b used separately approved source/workflow pushes. Final run 
 
 The local sandbox toolchain/dependency blocker remains historical environment evidence in `android/DIV09B_TOOLCHAIN_CHECKPOINT.md`; the approved CI route is not described as local restoration. Revised 09/09b are closed for source/build verification. During 09c the installed Kaggle app opened the correct page before sign-in, after which the owner signed in personally and performed Cancel/Back. No join/submission or credential sharing occurred. Browser-specific and unreported subchecks remain unverified.
 
-**Next prepared work:** Division 14 passed no-artifact CI run 40987374233 at commit `8ae74d2` (71 tests, APK verified, zero artifacts) and is closed for its documented source/build scope. Division 15 — Offline agent drafts is next, in a new maximum-30-minute session. The 09c intent implementation is unchanged, so no repeat phone test is required solely for that wording change. No PR is required. Real Kaggle joining/submission remains later owner-driven work.
+**Next prepared work:** Division 15 — Offline agent drafts is implemented locally and awaits an owner-approved source push and no-artifact CI run. Division 16 — Safe file import/export starts only after that verification, in a new maximum-30-minute session. The 09c intent implementation is unchanged, so no repeat phone test is required solely for that wording change. No PR is required. Real Kaggle joining/submission remains later owner-driven work.
 
 Local reading/editing/testing needs no upload. Before any source/workflow push or other external write, state **Upload needed? Yes**, identify the exact destination, files/data, and reason, and obtain explicit owner approval for that step.
 
