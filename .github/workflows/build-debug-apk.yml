@@ -118,7 +118,7 @@ jobs:
           with summary.open("a") as fh:
               fh.write("## Gradle failure\n\n```\n" + "\n".join(picks[:40]) + "\n```\n")
 
-          for line in picks[:15]:
+          for line in picks[:100]:
               msg = line.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")[:3500]
               print(f"::error title=Gradle::{msg}")
           PY

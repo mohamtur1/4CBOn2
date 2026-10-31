@@ -1,7 +1,7 @@
 package io.github.mohamtur1.fourcbon2.github
 
 import io.github.mohamtur1.fourcbon2.local.LocalDocumentStore
-import kotlin.io.createTempDirectory
+import io.github.mohamtur1.fourcbon2.testutil.createTempDirectory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull

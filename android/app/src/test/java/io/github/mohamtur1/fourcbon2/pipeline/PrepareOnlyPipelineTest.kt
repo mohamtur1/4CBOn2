@@ -1,7 +1,7 @@
 package io.github.mohamtur1.fourcbon2.pipeline
 
 import io.github.mohamtur1.fourcbon2.bundle.JobBundle
-import kotlin.io.createTempDirectory
+import io.github.mohamtur1.fourcbon2.testutil.createTempDirectory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

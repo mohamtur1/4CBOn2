@@ -3,7 +3,7 @@ package io.github.mohamtur1.fourcbon2.timeline
 import io.github.mohamtur1.fourcbon2.local.LocalDocumentStore
 import io.github.mohamtur1.fourcbon2.local.TimelineEventKind
 import io.github.mohamtur1.fourcbon2.local.TimelineEventStatus
-import kotlin.io.createTempDirectory
+import io.github.mohamtur1.fourcbon2.testutil.createTempDirectory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
