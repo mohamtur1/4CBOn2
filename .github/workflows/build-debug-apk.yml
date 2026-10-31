@@ -1,0 +1,55 @@
+name: Build 4CBOn2 Debug APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Tests + Debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          compile-sdk: 37
+          build-tools: 37.0.0
+
+      - name: Run unit tests (Divisions 09a + 11-42)
+        working-directory: android
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Upload APK artifact (per-run backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: 4CBOn2-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+
+      - name: Publish stable debug-apk-latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: debug-apk-latest
+          name: 4CBOn2 Debug APK
+          make_latest: true
+          files: android/app/build/outputs/apk/debug/*.apk
+          body: |
+            Auto-built debug APK from branch arena/61ac1ccb-4cbon2 via GitHub Actions.
+
+            - Personal use only. Not a release build, not Play-ready.
+            - Install on Android 8+ (API 26+). Device install may require allowing
+              "Install unknown apps" for the browser used to download it.
