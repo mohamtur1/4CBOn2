@@ -1,6 +1,6 @@
 # 4CBOn2 — Timeboxed Build Plan
 
-**Build in progress · Revised 23 October 2026 · Divisions 01–08 completed, Division 09 authorization-blocked, and Division 10 checkpointed pending Android toolchain restoration; public GitHub read is verified, Kaggle public read requires authorization, the fixed Colab notebook target is currently missing, and no updated retained APK, notebook, account connection, credential entry, or phone/device test exists yet**
+**Build in progress · Revised 31 October 2026 · Divisions 01–10 verified in the Division 10 checkpoint; Division 09a + 11–42 implemented as source + unit-test checkpoints in batches A–E (see `android/BATCH_*.md` receipts); the fixed Colab notebook `4CBOn2_Kaggle6.ipynb` now exists; live Kaggle/Colab remain authorization/runtime-blocked; no updated retained APK, account connection, credential entry, or phone/device test exists yet**
 
 ## Decision
 
@@ -86,7 +86,39 @@ If unfinished, stop safely, checkpoint the exact state, and create a small conti
 | 09a — Prepare local Kaggle token route | **Not started** | Confirm documented token format/scoping and design/test a local-entry route before any real token is entered; no token in chat/source/logs | None |
 | 10 — Prove Colab entry/control route | **Finished (manual route)** | Fixed manual-handoff reference and public route investigation complete; target notebook reported missing; compile, aggregate 15-test suite, debug build, v2 signature, and static checks passed; no account/runtime/AI/device test | `android/COLAB_ENTRY_ROUTE.md` |
 | 10a — Restore/verify Division 10 toolchain checkpoint | **Finished** | Toolchain restored from verified sources; compile/test/APK verification completed with bounded one-worker memory configuration | `android/COLAB_ENTRY_ROUTE.md` |
-| 11–42 | **Not started** | Not tested | None |
+| 09a — Prepare local Kaggle token route | **Finished (design checkpoint)** | Documented token format/scoping and local-entry route; no token entered, probed, or stored | `android/KAGGLE_TOKEN_ROUTE.md` |
+| 11 — Local database | **Finished (source)** | JSON document store with restart persistence; unit tests written; no build verification in this sandbox | `android/local/` |
+| 12 — Selected-app capability registry | **Finished (source)** | Action-level support with unavailable states; unit tests written | `android/capability/` |
+| 13 — On-device scope contract | **Finished (source)** | Destination allow-list, expiry, action cap, cloud-transfer gate; unit tests written | `android/scope/` |
+| 14 — Takeover and cancellation lease | **Finished (source)** | Stale-command rejection, explicit resume; unit tests written | `android/control/` |
+| 15 — Offline agent drafts | **Finished (source)** | Draft lifecycle with budget/scope; unit tests written | `android/agents/` |
+| 16 — Safe file import/export | **Finished (source)** | Workspace-only paths, traversal rejection; unit tests written | `android/files/` |
+| 17 — Offline knowledge library | **Finished (source)** | Search with provenance and update time; unit tests written | `android/knowledge/` |
+| 18 — Small local analysis | **Finished (source)** | Bounded CSV stats + structural JSON validation; valid/invalid fixtures in tests | `android/analysis/` |
+| 19 — Persistent waiting queue | **Finished (source)** | Durable states, restart recovery, no consequential replay; unit tests written | `android/local/` |
+| 20 — Sensitive-action approval gate | **Finished (source)** | Scoped destination/artifact, expiry, per-request caps; unit tests written | `android/approval/` |
+| 21 — One harmless app intent/API action | **Finished (source)** | Open/prepare/share result/handoff semantics; no unrestricted UI input; unit tests written | `android/action/` |
+| 22 — GitHub cache and diff | **Finished (source)** | Permitted-path refresh, local diff, exportable change requiring approval; unit tests written | `android/github/` |
+| 23 — Kaggle metadata/status | **Finished (source, live data auth-blocked)** | Status adapter with honest Unauthorized state; no credential entered; live refresh requires owner authorization | `android/kaggle/` |
+| 24 — Chrome-backed opening | **Finished (source)** | Custom Tab decision with external fallback; HTTPS/host policy; unit tests written | `android/browser/` |
+| 25 — Controlled browser workspace | **Finished (source)** | Host allow-list, private/metadata block, no native bridge; unit tests written | `android/browser/` |
+| 26 — Consented observation boundary | **Finished (source)** | Capture Off by default, sensitive-context exclusion, cloud upload Off by default; unit tests written | `android/observation/` |
+| 27 — Actual action timeline | **Finished (source)** | Plan/action/result/check events with honest statuses, restart-persistent; unit tests written | `android/timeline/` |
+| 28 — Shared job bundle | **Finished (source)** | SHA-256 manifest, import/export with hash + contract revalidation; unit tests written | `android/bundle/` |
+| 29 — Notebook skeleton | **Finished (source + JSON validated)** | `4CBOn2_Kaggle6.ipynb` with runtime detection, controller/runner roles, capability panel; notebook JSON verified by parser | `4CBOn2_Kaggle6.ipynb`, `android/notebook/` |
+| 30 — Colab built-in AI adapter | **Finished (source, runtime-blocked)** | Adapter with honest capability states; live probe requires an actual Colab runtime; no fallback | `android/ai/` |
+| 31 — One bounded agent loop | **Finished (source)** | Goal → permitted action → verification with budget, stop, error paths; unit tests written | `android/agent/` |
+| 32 — Critical phone-action guard | **Finished (source)** | Sensitive contexts manual-only, preview + account checks, no blind retry; unit tests written | `android/guard/` |
+| 33 — Human-defined routine engine | **Finished (source)** | Fixed script, explicit trigger, preconditions, bounded execution; unit tests written | `android/routines/` |
+| 34 — Conditional personal-lab UI runner | **Finished (source, device-blocked)** | Eligibility gate (config + fixture + device test); execution requires an eligible device; not Play-compliance proof | `android/lab/` |
+| 35 — Privacy and prompt-injection tests | **Finished (tests)** | Malicious destination/leakage/tamper/consent fixtures; unit tests written | `android/app/src/test/.../safety/` |
+| 36 — Online/offline phone-control routing | **Finished (source)** | Local/API/model only; locked device NONE; prompt text never routes; unit tests written | `android/routing/` |
+| 37 — Kaggle prepare-only pipeline | **Finished (source, live submission blocked)** | Trusted template, explicit validation, artifact hash checks, reproducible result; submission separately authorized | `android/pipeline/` |
+| 38 — Submission gate and receipt states | **Finished (source, mocked tests)** | Durable intent, limits, ack/uncertainty handling, reconcile-before-retry; live submission separately authorized | `android/submission/` |
+| 39 — Minimal Improvement Lab | **Finished (source)** | Baseline/candidate reports, preserved versions, fixed evaluator, approval before promotion; unit tests written | `android/lab/` |
+| 40 — Harmless cross-app integration test | **Finished (tests)** | Selected supported workflows with synthetic data; scope escape, takeover, manual handoff | `android/app/src/test/.../integration/` |
+| 41 — Focused recovery/safety smoke tests | **Finished (tests)** | Offline/reconnect, stale response, interrupted work, revoked permission, ambiguous ack, duplicate action | `android/app/src/test/.../safety/` |
+| 42 — Package prototype and support matrix | **Finished (manifest)** | Source checksums, rebuild instructions, blocked capabilities; rebuild requires Android toolchain | `android/PROTOTYPE_PACKAGE_MANIFEST.md` |
 
 Divisions 01–02 are foundation documentation checkpoints; Division 03/03a provisioned the active sandbox toolchain; Division 04 created and locally compiled the source skeleton; Division 05 retained and verified a debug-signed development APK; Division 06 added locally verified navigation source; Division 07 added a compiled, unpopulated credential-storage boundary; Division 08 added a read-only GitHub boundary and verified public repository visibility from the build environment; Division 09 added a read-only Kaggle boundary but correctly stopped at Kaggle’s authorization requirement; Division 10 added and locally verified a fixed manual Colab handoff reference, while the target notebook itself remains missing and runtime/AI capability remains untested. These results do **not** establish phone compatibility, authenticated GitHub/Kaggle access, a Colab account/notebook/runtime or built-in-AI call, special permissions beyond the normal Internet declaration, a real device test, store eligibility, credential entry/storage on a device, production signing, or production release readiness. The retained Division 05 APK predates the Division 06–10 source updates. No later division is implied to exist merely because it is listed.
 

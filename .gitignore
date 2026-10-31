@@ -16,3 +16,6 @@ data_test/
 4cbon2_exports/
 4cbon2_reports/
 4cbon2_logs/
+
+# Local extraction of the committed Division 10 checkpoint zip (scratch copy)
+4CBOn2_Checkpoint_Div10/
