@@ -76,9 +76,44 @@ jobs:
         working-directory: android
         shell: bash
         run: |
-          set -euo pipefail
+          set -o pipefail
           chmod +x gradlew
-          ./gradlew --no-daemon --console=plain --max-workers=1 stacktrace :app:assembleDebug
+          ./gradlew --no-daemon --console=plain --max-workers=1 --stacktrace :app:assembleDebug 2>&1 \
+            | tee "$RUNNER_TEMP/gradle.log"
+
+      - name: Surface Gradle errors as annotations and in the summary
+        if: failure()
+        shell: bash
+        run: |
+          LOG="$RUNNER_TEMP/gradle.log"
+          if [ ! -f "$LOG" ]; then
+            echo "::error::The Gradle step produced no log file."
+            exit 0
+          fi
+          python3 - "$LOG" <<'PY'
+          import pathlib
+          import sys
+
+          lines = pathlib.Path(sys.argv[1]).read_text(errors="replace").splitlines()
+          print("tail-" + "=" * 60)
+          print("\n".join(lines[-40:]))
+
+          picks = [l for l in lines if l.startswith("e: ") or "error:" in l.lower()]
+          if not picks:
+              idx = [i for i, l in enumerate(lines) if "What went wrong" in l]
+              if idx:
+                  picks = lines[idx[0]: idx[0] + 18]
+          if not picks:
+              picks = lines[-15:]
+
+          summary = pathlib.Path(__import__("os").environ["GITHUB_STEP_SUMMARY"])
+          with summary.open("a") as fh:
+              fh.write("## Gradle failure\n\n```\n" + "\n".join(picks[:40]) + "\n```\n")
+
+          for line in picks[:15]:
+              msg = line.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")[:3500]
+              print(f"::error title=Gradle::{msg}")
+          PY
 
       - name: Verify the APK
         shell: bash
