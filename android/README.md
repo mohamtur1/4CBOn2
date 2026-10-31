@@ -12,6 +12,15 @@ It does **not** yet contain working question answers, tutorial plans, agents, lo
 
 A narrow Android Keystore-backed credential-storage boundary exists in source for future local GitHub/Kaggle entry, but it has no user interface or stored secret. Fixed, read-only GitHub and Kaggle probe boundaries also exist in source, but have no app UI and no authenticated device test. GitHub public metadata/root listing was visible from the build environment; the selected Kaggle competition-list endpoint returned authorization-required. A fixed, manual-handoff-only Colab notebook reference also exists; its target notebook was not publicly found, and it has no browser launch/runtime-control/AI call. See `CREDENTIAL_STORAGE.md`, `GITHUB_READ_ACCESS.md`, `KAGGLE_READ_ACCESS.md`, and `COLAB_ENTRY_ROUTE.md`.
 
+## Get the APK without a build machine
+
+GitHub Actions builds the debug APK and publishes it to a rolling release:
+
+<https://github.com/mohamtur1/4CBOn2/releases/download/4cbon2-debug-apk-latest/4CBOn2-debug.apk>
+
+Step-by-step phone instructions: [`APK_DOWNLOAD.md`](APK_DOWNLOAD.md).
+Workflow: `.github/workflows/build-debug-apk.yml`.
+
 ## Baseline
 
 - Application ID: `io.github.mohamtur1.fourcbon2`
