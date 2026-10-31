@@ -31,9 +31,9 @@ object RecordCodec {
         var i = 0
         while (i < value.length) {
             val ch = value[i]
-            if (ch == '\\' && i + 6 < value.length) {
-                sb.append(value.substring(i + 1, i + 7).toInt(16).toChar())
-                i += 7
+            if (ch == '\\' && i + 5 < value.length && value[i + 1] == 'u') {
+                sb.append(value.substring(i + 2, i + 6).toInt(16).toChar())
+                i += 6
             } else {
                 sb.append(ch)
                 i++

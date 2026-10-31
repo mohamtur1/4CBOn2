@@ -54,7 +54,7 @@ class JobQueue(
      */
     fun reconcileOnReconnect(): List<JobRecord> {
         val reconciled = mutableListOf<JobRecord>()
-        for (job in jobs) {
+        for (job in jobs.toList()) {
             when {
                 job.isExpired -> reconciled.add(transition(job.id, JobState.FAILED) ?: job)
                 job.state == JobState.UNCERTAIN_EXTERNAL_OUTCOME -> {

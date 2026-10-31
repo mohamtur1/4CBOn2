@@ -35,11 +35,11 @@ class JobQueueTest {
         queue.add(job("j1"))
         assertEquals(JobState.DRAFT, queue.list()[0].state)
         queue.prepareForDispatch("j1")
-        assertEquals(JobState.READY, queue.list("READY")[0].state)
+        assertEquals(JobState.READY, queue.list(JobState.READY)[0].state)
         queue.transition("j1", JobState.RUNNING)
-        assertEquals(JobState.RUNNING, queue.list("RUNNING")[0].state)
+        assertEquals(JobState.RUNNING, queue.list(JobState.RUNNING)[0].state)
         queue.complete("j1")
-        assertEquals(JobState.COMPLETED, queue.list("COMPLETED")[0].state)
+        assertEquals(JobState.COMPLETED, queue.list(JobState.COMPLETED)[0].state)
     }
 
     @Test
@@ -94,7 +94,7 @@ class JobQueueTest {
         val second = JobQueue(LocalDocumentStore(dir))
         second.load()
         assertTrue(second.dispatchable().none { it.id == "j1" })
-        assertEquals(JobState.RUNNING, second.list("RUNNING")[0].state)
+        assertEquals(JobState.RUNNING, second.list(JobState.RUNNING)[0].state)
     }
 
     @Test
@@ -106,8 +106,8 @@ class JobQueueTest {
         queue.add(job("waiting", state = JobState.WAITING_FOR_INTERNET))
 
         queue.reconcileOnReconnect()
-        assertEquals(JobState.FAILED, queue.list("FAILED")[0].state)
-        assertEquals(JobState.UNCERTAIN_EXTERNAL_OUTCOME, queue.list("UNCERTAIN_EXTERNAL_OUTCOME")[0].state)
-        assertEquals(1, queue.list("WAITING_FOR_INTERNET").size)
+        assertEquals(JobState.FAILED, queue.list(JobState.FAILED)[0].state)
+        assertEquals(JobState.UNCERTAIN_EXTERNAL_OUTCOME, queue.list(JobState.UNCERTAIN_EXTERNAL_OUTCOME)[0].state)
+        assertEquals(1, queue.list(JobState.WAITING_FOR_INTERNET).size)
     }
 }

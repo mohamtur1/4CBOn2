@@ -10,8 +10,8 @@ class LocalDocumentStoreTest {
     fun dataSurvivesRestart() {
         val dir = createTempDirectory("store-restart")
         val first = LocalDocumentStore(dir)
-        first.writeCollection("jobs") { "alpha" }
-        first.writeCollection("drafts") { "beta" }
+        first.writeCollection("jobs", listOf("alpha")) { it }
+        first.writeCollection("drafts", listOf("beta")) { it }
 
         val second = LocalDocumentStore(dir)
         assertEquals(listOf("alpha"), second.readCollection("jobs") { it })
@@ -29,7 +29,7 @@ class LocalDocumentStoreTest {
         val dir = createTempDirectory("store-special")
         val store = LocalDocumentStore(dir)
         val tricky = "line1\nline2\twith \\ backslash \u001f and unit separator"
-        store.writeCollection("notes") { tricky }
-        assertEquals(listOf(tricky), store.readCollection("notes") { it })
+        store.writeCollection("notes", listOf(tricky)) { RecordCodec.escape(it) }
+        assertEquals(listOf(tricky), store.readCollection("notes") { RecordCodec.unescape(it) })
     }
 }
