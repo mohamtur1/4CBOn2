@@ -22,9 +22,7 @@ historical; they are not proof that the end-to-end features work.
   found failures in the inherited unit tests. These include privacy/safety
   and local analysis behavior, not just test configuration. The current
   debug release **has not been replaced**. CI publication remains disabled.
-- GitHub Actions builds a debug APK artifact even when tests fail, but the job
-  remains failed, and that artifact is not a verified release. Re-run all tests
-  and review remaining failures before enabling publication.
+- [GitHub Actions run 41184416667](https://github.com/mohamtur1/4CBOn2/actions/runs/41184416667) assembled, zipalign-checked, signature-checked and uploaded a debug APK as a workflow artifact. The overall job failed because the full unit suite still has failures; the artifact is not a tested release. Re-run all tests and review remaining failures before enabling publication.
 - No emulator, phone installation, Android Keystore, real accounts, live
   Kaggle/Colab operation, or production signing has been tested here.
 - Debug signing keys may change between builds. Android may reject an upgrade;
