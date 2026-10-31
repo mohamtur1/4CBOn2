@@ -51,7 +51,7 @@ class RecoverySmokeTest {
 
         val reconnected = JobQueue(LocalDocumentStore(dir))
         reconnected.load()
-        assertEquals(1, reconnected.list("WAITING_FOR_INTERNET").size)
+        assertEquals(1, reconnected.list(JobState.WAITING_FOR_INTERNET).size)
         // Reconnect does not auto-dispatch waiting jobs.
         assertTrue(reconnected.dispatchable().none { it.id == "j1" })
     }

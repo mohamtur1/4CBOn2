@@ -106,7 +106,7 @@ jobs:
           print("tail-" + "=" * 60)
           print("\n".join(lines[-40:]))
 
-          picks = [l for l in lines if l.startswith("e: ") or "error:" in l.lower()]
+          picks = [l for l in lines if l.startswith("e: ") or "error:" in l.lower() or " FAILED" in l]
           if not picks:
               idx = [i for i, l in enumerate(lines) if "What went wrong" in l]
               if idx:
@@ -122,6 +122,21 @@ jobs:
               msg = line.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")[:3500]
               print(f"::error title=Gradle::{msg}")
           PY
+
+      - name: Report failed unit tests
+        if: failure()
+        shell: bash
+        run: |
+          python3 - <<'PYTEST'
+          import glob, xml.etree.ElementTree as ET
+          for path in glob.glob('android/app/build/test-results/testDebugUnitTest/TEST-*.xml'):
+              root = ET.parse(path).getroot()
+              for case in root.findall('testcase'):
+                  failure = case.find('failure')
+                  if failure is not None:
+                      msg = (case.get('classname', '') + '.' + case.get('name', '') + ': ' + failure.get('message', '')).replace('%', '%25').replace('\n', '%0A').replace('\r', '%0D')
+                      print('::error title=Unit test::' + msg)
+          PYTEST
 
       - name: Verify the APK
         shell: bash
