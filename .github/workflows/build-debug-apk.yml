@@ -73,6 +73,8 @@ jobs:
           test -x "${ANDROID_HOME}/build-tools/36.0.0/apksigner"
 
       - name: Run unit tests
+        id: tests
+        continue-on-error: true
         working-directory: android
         shell: bash
         run: |
@@ -90,7 +92,7 @@ jobs:
             | tee "$RUNNER_TEMP/gradle.log"
 
       - name: Surface Gradle errors as annotations and in the summary
-        if: failure()
+        if: failure() || steps.tests.outcome == 'failure'
         shell: bash
         run: |
           LOG="$RUNNER_TEMP/gradle.log"
@@ -124,7 +126,7 @@ jobs:
           PY
 
       - name: Report failed unit tests
-        if: failure()
+        if: steps.tests.outcome == 'failure'
         shell: bash
         run: |
           python3 - <<'PYTEST'
@@ -204,3 +206,7 @@ jobs:
             a verified device-tested release. Source and build status live in the
             `android/` folder of the repository.
 
+
+      - name: Fail the build if unit tests failed
+        if: steps.tests.outcome != 'success'
+        run: exit 1

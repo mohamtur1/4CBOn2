@@ -54,7 +54,7 @@ class ObservationConsent {
      */
     fun mayObserve(context: SensitiveContext, captureConsentOn: Boolean = true): Boolean {
         if (context != SensitiveContext.NONE) return false
-        return captureConsentOn
+        return captureConsent == CaptureConsent.ON && captureConsentOn
     }
 
     /** Whether a cloud upload of observed data is allowed right now. */

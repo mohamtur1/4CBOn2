@@ -1,5 +1,7 @@
 # 4CBOn2 — Timeboxed Build Plan
 
+> **Continuation (31 October 2026):** Android release source was recovered and a small offline UI increment added. The inherited full test suite currently fails; no updated APK has been published. See `android/CONTINUATION_2026-10-31.md` for the latest status. The table below is the historical Division 10 checkpoint.
+
 **Build in progress · Revised 23 October 2026 · Divisions 01–08 completed, Division 09 authorization-blocked, and Division 10 checkpointed pending Android toolchain restoration; public GitHub read is verified, Kaggle public read requires authorization, the fixed Colab notebook target is currently missing, and no updated retained APK, notebook, account connection, credential entry, or phone/device test exists yet**
 
 ## Decision
