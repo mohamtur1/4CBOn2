@@ -37,9 +37,11 @@ class BoundedAgentLoop(
         require(maxActions > 0) { "Action budget must be positive." }
         val executed = mutableListOf<StepOutcome>()
 
-        for (step in steps) {
+        for ((index, step) in steps.withIndex()) {
+            // A Step is a bare lambda, so it is identified by its position in the plan.
+            val stepLabel = "step ${index + 1}"
             if (stopCheck()) {
-                return LoopResult(Outcome.STOPPED, executed.toList(), "Owner stop requested before '${step.name}'.")
+                return LoopResult(Outcome.STOPPED, executed.toList(), "Owner stop requested before $stepLabel.")
             }
             if (executed.size >= maxActions) {
                 return LoopResult(Outcome.STOPPED, executed.toList(), "Action budget reached.")
@@ -47,8 +49,8 @@ class BoundedAgentLoop(
             val outcome = try {
                 step.execute()
             } catch (e: Exception) {
-                executed.add(StepOutcome(step.name, executed = false, verified = false))
-                return LoopResult(Outcome.ERROR, executed.toList(), "Step '${step.name}' failed: ${e.message}")
+                executed.add(StepOutcome(stepLabel, executed = false, verified = false))
+                return LoopResult(Outcome.ERROR, executed.toList(), "Step $stepLabel failed: ${e.message}")
             }
             executed.add(outcome)
             if (!outcome.verified) {

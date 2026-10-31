@@ -44,18 +44,18 @@ class RoutineEngine {
      */
     fun trigger(id: String, triggerOwner: String, preconditionsHold: Boolean): TriggerOutcome {
         require(triggerOwner.isNotBlank()) { "Trigger owner is required." }
-        val routine = routines.find { it.id == id } ?: return TriggerOutcome(NOT_FOUND, emptyList(), "Routine not found.")
+        val routine = routines.find { it.id == id } ?: return TriggerOutcome(TriggerResult.NOT_FOUND, emptyList(), "Routine not found.")
         if (!preconditionsHold) {
-            return TriggerOutcome(NOT_READY, emptyList(), "Preconditions do not hold.")
+            return TriggerOutcome(TriggerResult.NOT_READY, emptyList(), "Preconditions do not hold.")
         }
         val previous = executedSteps[id] ?: 0
         if (previous >= MAX_STEPS) {
-            return TriggerOutcome(MAX_STEPS_REACHED, emptyList(), "Routine execution budget reached.")
+            return TriggerOutcome(TriggerResult.MAX_STEPS_REACHED, emptyList(), "Routine execution budget reached.")
         }
         val stepsToRun = routine.steps.take(MAX_STEPS - previous)
         val executed = stepsToRun.toList()
         executedSteps[id] = previous + executed.size
-        return TriggerOutcome(TRIGGERED, executed, "Routine executed ${executed.size} step(s).")
+        return TriggerOutcome(TriggerResult.TRIGGERED, executed, "Routine executed ${executed.size} step(s).")
     }
 
     fun executionCount(id: String): Int = executedSteps[id] ?: 0

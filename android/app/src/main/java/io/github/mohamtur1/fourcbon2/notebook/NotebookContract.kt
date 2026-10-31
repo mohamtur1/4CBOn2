@@ -38,7 +38,7 @@ object NotebookContract {
         fun nbformat(): Int {
             i = indexOf("\"nbformat\"", i)
             if (i < 0) return -1
-            i = indexOf(':', i + 1)
+            i = text.indexOf(':', i + 1)
             if (i < 0) return -1
             i = skipWhitespace()
             var value = 0

@@ -39,7 +39,7 @@ class JobQueue(
     }
 
     /** Jobs that may be dispatched: explicitly Ready and still eligible. */
-    fun dispatchable(): List<JobRecord> = jobs.filter { it.isDispatchable && isEligible(it) }
+    fun dispatchable(): List<JobRecord> = jobs.filter { it.state.isDispatchable && isEligible(it) }
 
     fun isEligible(job: JobRecord): Boolean =
         !job.isExpired &&
