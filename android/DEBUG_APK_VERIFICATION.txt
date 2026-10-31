@@ -1,0 +1,134 @@
+4CBOn2 debug APK verification
+UTC: 2026-10-23T03:58:27Z
+
+[SHA-256]
+b568e5a46b9fd80e9d8c64165418479e065205e10c645af481e2287f4ee9dc5e  /home/user/4CBOn2-debug.apk
+
+[ZIP ALIGNMENT]
+
+[APK SIGNATURE]
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: C=US, O=Android, CN=Android Debug
+Signer #1 certificate SHA-256 digest: 3c20f399f3414977dfff9af77db2701a471c5de4ab0e0821be6cb1d81b7da876
+Signer #1 certificate SHA-1 digest: 9e2d97727984f58d7c3cab114b382bf151ffedf7
+Signer #1 certificate MD5 digest: a31537a0425a648f67da8b2b100ee60d
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 2048
+Signer #1 public key SHA-256 digest: 6c6c2ecdb979ff400dede6d26e9e646bcd9f760818c136e7341bffc46ed178e4
+Signer #1 public key SHA-1 digest: a8edf67cab62abda112b20db194ee9db8e50b3fd
+Signer #1 public key MD5 digest: 6d0f91f64bae33a31a821f0e8b359565
+
+[PACKAGE BADGING]
+package: name='io.github.mohamtur1.fourcbon2' versionCode='1' versionName='0.1.0-dev' platformBuildVersionName='17' platformBuildVersionCode='37' compileSdkVersion='37' compileSdkVersionCodename='17'
+sdkVersion:'26'
+targetSdkVersion:'36'
+uses-permission: name='io.github.mohamtur1.fourcbon2.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
+application-label:'4CBOn2'
+application-label-af:'4CBOn2'
+application-label-am:'4CBOn2'
+application-label-ar:'4CBOn2'
+application-label-as:'4CBOn2'
+application-label-az:'4CBOn2'
+application-label-be:'4CBOn2'
+application-label-bg:'4CBOn2'
+application-label-bn:'4CBOn2'
+application-label-bs:'4CBOn2'
+application-label-ca:'4CBOn2'
+application-label-cs:'4CBOn2'
+application-label-da:'4CBOn2'
+application-label-de:'4CBOn2'
+application-label-el:'4CBOn2'
+application-label-en-AU:'4CBOn2'
+application-label-en-CA:'4CBOn2'
+application-label-en-GB:'4CBOn2'
+application-label-en-IN:'4CBOn2'
+application-label-en-XC:'4CBOn2'
+application-label-es:'4CBOn2'
+application-label-es-US:'4CBOn2'
+application-label-et:'4CBOn2'
+application-label-eu:'4CBOn2'
+application-label-fa:'4CBOn2'
+application-label-fi:'4CBOn2'
+application-label-fr:'4CBOn2'
+application-label-fr-CA:'4CBOn2'
+application-label-gl:'4CBOn2'
+application-label-gu:'4CBOn2'
+application-label-hi:'4CBOn2'
+application-label-hr:'4CBOn2'
+application-label-hu:'4CBOn2'
+application-label-hy:'4CBOn2'
+application-label-in:'4CBOn2'
+application-label-is:'4CBOn2'
+application-label-it:'4CBOn2'
+application-label-iw:'4CBOn2'
+application-label-ja:'4CBOn2'
+application-label-ka:'4CBOn2'
+application-label-kk:'4CBOn2'
+application-label-km:'4CBOn2'
+application-label-kn:'4CBOn2'
+application-label-ko:'4CBOn2'
+application-label-ky:'4CBOn2'
+application-label-lo:'4CBOn2'
+application-label-lt:'4CBOn2'
+application-label-lv:'4CBOn2'
+application-label-mk:'4CBOn2'
+application-label-ml:'4CBOn2'
+application-label-mn:'4CBOn2'
+application-label-mr:'4CBOn2'
+application-label-ms:'4CBOn2'
+application-label-my:'4CBOn2'
+application-label-nb:'4CBOn2'
+application-label-ne:'4CBOn2'
+application-label-nl:'4CBOn2'
+application-label-or:'4CBOn2'
+application-label-pa:'4CBOn2'
+application-label-pl:'4CBOn2'
+application-label-pt:'4CBOn2'
+application-label-pt-BR:'4CBOn2'
+application-label-pt-PT:'4CBOn2'
+application-label-ro:'4CBOn2'
+application-label-ru:'4CBOn2'
+application-label-si:'4CBOn2'
+application-label-sk:'4CBOn2'
+application-label-sl:'4CBOn2'
+application-label-sq:'4CBOn2'
+application-label-sr:'4CBOn2'
+application-label-sr-Latn:'4CBOn2'
+application-label-sv:'4CBOn2'
+application-label-sw:'4CBOn2'
+application-label-ta:'4CBOn2'
+application-label-te:'4CBOn2'
+application-label-th:'4CBOn2'
+application-label-tl:'4CBOn2'
+application-label-tr:'4CBOn2'
+application-label-uk:'4CBOn2'
+application-label-ur:'4CBOn2'
+application-label-uz:'4CBOn2'
+application-label-vi:'4CBOn2'
+application-label-zh-CN:'4CBOn2'
+application-label-zh-HK:'4CBOn2'
+application-label-zh-TW:'4CBOn2'
+application-label-zu:'4CBOn2'
+application: label='4CBOn2' icon=''
+application-debuggable
+launchable-activity: name='io.github.mohamtur1.fourcbon2.MainActivity'  label='' icon=''
+uses-library-not-required:'androidx.window.extensions'
+uses-library-not-required:'androidx.window.sidecar'
+feature-group: label=''
+  uses-feature: name='android.hardware.faketouch'
+  uses-implied-feature: name='android.hardware.faketouch' reason='default feature for all apps'
+main
+other-activities
+other-receivers
+supports-screens: 'small' 'normal' 'large' 'xlarge'
+supports-any-density: 'true'
+locales: '--_--' 'af' 'am' 'ar' 'as' 'az' 'be' 'bg' 'bn' 'bs' 'ca' 'cs' 'da' 'de' 'el' 'en-AU' 'en-CA' 'en-GB' 'en-IN' 'en-XC' 'es' 'es-US' 'et' 'eu' 'fa' 'fi' 'fr' 'fr-CA' 'gl' 'gu' 'hi' 'hr' 'hu' 'hy' 'in' 'is' 'it' 'iw' 'ja' 'ka' 'kk' 'km' 'kn' 'ko' 'ky' 'lo' 'lt' 'lv' 'mk' 'ml' 'mn' 'mr' 'ms' 'my' 'nb' 'ne' 'nl' 'or' 'pa' 'pl' 'pt' 'pt-BR' 'pt-PT' 'ro' 'ru' 'si' 'sk' 'sl' 'sq' 'sr' 'sr-Latn' 'sv' 'sw' 'ta' 'te' 'th' 'tl' 'tr' 'uk' 'ur' 'uz' 'vi' 'zh-CN' 'zh-HK' 'zh-TW' 'zu'
+densities: '160' '240' '320'
+native-code: 'arm64-v8a' 'armeabi-v7a' 'x86' 'x86_64'
