@@ -154,3 +154,68 @@ Label verification accurately by the highest tier actually executed, and omit pe
 ## Build readiness
 
 **Cleared for continuous, multi-division execution.** Advance directly through `09a` and `11–42` in batches, verify with automated tests and updated debug APKs, and defer only live credential or hardware checks that require direct owner interaction.
+
+---
+
+# v0.3 — The Daily Experiment Cycle (Divisions 43–52)
+
+**Active build · 2 November 2026 · Divisions 43–50 code-complete with 59/59 pure-JVM Kotlin tests;
+Division 51 shipped with 10/10 Python notebook tests. APK re-packaging (52) is pending an environment
+with Android SDK access — see `4CBOn2_v0.3_Verification_Report.md`.**
+
+## Why v0.3 exists
+
+v0.2 could open a notebook, prepare a tabular artifact, and gate a submission, but it could not *run
+its own research day*. The owner's question during the live ARC-AGI-3 campaign — *"4CBOn2 app was
+supposed to think and get better at this everyday by itself — Right?"* — exposed three concrete gaps:
+
+1. The evaluator only understood local `.csv` folds, not interactive-benchmark evidence
+   (`score`, `levels`, `actions`, `tokens`).
+2. Nothing pulled run telemetry back into the app, so no candidate could be proposed automatically.
+3. There was no closed-loop, daily UX: ingest → diagnose → propose → dispatch → gate → promote.
+
+v0.3 closes all three, and it does so with the same safety posture as v0.2: nothing promotes itself,
+nothing is invented, and every external action stays owner-gated.
+
+## The 10 v0.3 divisions
+
+| No. | Division | Deliverable / verification target |
+| --- | --- | --- |
+| 43 | Run telemetry contract & ingest | `4cbon2.run_telemetry.v1` normalized record, ARC diagnostics / Kaggle kernel status / manual ingest, credential-shaped material stripped before storage, rejects instead of defaulting |
+| 44 | Fixed benchmark evaluator registry | Candidate-immutable evaluator per benchmark family; unknown metric or family rejected, under-sampled or unfinished runs inconclusive |
+| 45 | Run diagnoser | Deterministic ranked findings with numeric evidence (score regression, level stall, token burn, action inefficiency, wall-clock inflation) and one bounded lever per finding |
+| 46 | Bounded candidate diff synthesis | Exactly one allowlisted, in-bounds, attributable change per experiment; protected areas unreachable; imported diffs re-validated |
+| 47 | Champion ledger & promotion gate | Durable locked champion per competition, append-only history, 1-tap owner approval, one-step rollback, cost-envelope and non-inferiority gates |
+| 48 | Daily Experiment Cycle orchestrator | Durable resumable state machine, one live cycle per competition, pre-send dispatch intent, restart-safe, Stop/Takeover honoured before any external call |
+| 49 | Experiment dispatch transports | Kaggle kernel / GitHub workflow / Colab manual handoff behind an injected HTTP call; missing credential ⇒ `NotConfigured`, ambiguous failure ⇒ reconcile before retry |
+| 50 | Daily Lab surface | Pure `DailyLabPresenter` display model + Compose Daily Lab card: ingest pasted telemetry, Approve & Run, Approve / Decline promotion, roll back, audit trail |
+| 51 | Notebook telemetry emitter & diff applier | `build_run_telemetry` / `emit_run_telemetry` / `apply_candidate_diff` cells in `4CBOn2_Kaggle6.ipynb`, mirroring the Kotlin contracts and bounds |
+| 52 | Package & verify v0.3 | Verification report, updated support matrix, APK/notebook bundle, refreshed handoff |
+
+## Current v0.3 status
+
+| Division | Work status | Verification | Key artifact / path |
+| --- | --- | --- | --- |
+| 43 — Run telemetry contract & ingest | **Finished** | Unit (5 tests) | `RunTelemetry.kt` |
+| 44 — Fixed benchmark evaluator registry | **Finished** | Unit | `BenchmarkEvaluators.kt` |
+| 45 — Run diagnoser | **Finished** | Unit (4 tests) | `RunDiagnoser.kt` |
+| 46 — Bounded candidate diff synthesis | **Finished** | Unit (4 tests) | `CandidateDiffSynthesizer.kt` |
+| 47 — Champion ledger & promotion gate | **Finished** | Unit (6 tests) | `ChampionLedgerAndPromotionGate.kt` |
+| 48 — Daily Experiment Cycle orchestrator | **Finished** | Unit incl. restart & duplicate-dispatch | `DailyExperimentCycle.kt` |
+| 49 — Experiment dispatch transports | **Finished** | Unit + mocked HTTP | `ExperimentDispatch.kt`, `AuthenticatedDispatchHttp.kt` |
+| 50 — Daily Lab surface | **Code complete** | Presenter: Unit. Compose card: review only (no SDK in this environment) | `DailyLabPresenter.kt`, `MainActivity.kt` |
+| 51 — Notebook telemetry emitter & diff applier | **Finished** | Python `unittest` (2 tests) | `4CBOn2_Kaggle6.ipynb`, `scripts/build_notebook.py` |
+| 52 — Package & verify v0.3 | **In progress** | Static + Unit | `4CBOn2_v0.3_Verification_Report.md` |
+
+## v0.3 execution rules (unchanged in spirit, sharper in practice)
+
+- **The candidate never grades itself.** The evaluator set is compiled in; a diff cannot install,
+  replace, or re-tune one (`44`, `46`).
+- **One change per experiment.** A diff that mixes two levers is rejected outright, because a mixed
+  change cannot be attributed to a cause (`46`).
+- **Inconclusive is a first-class answer.** Small samples, unfinished runs, and inside-noise deltas
+  keep the champion and say so (`44`, `45`, `47`).
+- **Durability before danger.** The dispatch intent is written to disk before the transport call, so
+  a crash or dropped connection can never double-submit (`48`).
+- **Stop beats everything.** Every mutating step re-reads the control lease; takeover or Stop blocks
+  dispatch immediately (`48`, `50`).

@@ -80,3 +80,67 @@ adb install -r /home/user/4CBOn2-debug.apk
 2. **Colab Built-in AI (`google.colab.ai`) Boundary:** Interactive free-tier `google.colab.ai` requires an active user-opened Google Colab notebook session (`COLAB_CONTROLLER`). The Android app never impersonates Colab proxy tokens, never silently routes prompts to paid external LLM APIs, and never treats `COLAB_OFFLINE` as live cloud intelligence.
 3. **Live External Writes & Submissions Remain Owner-Gated:** Default Kaggle runs execute strictly in **prepare-only** mode (`externalSubmissionPerformed = false`). Live submission requires explicit owner enablement, a fresh SHA-256-bound `ApprovalGrant`, active lease validation, and durable pre-send ledger persistence; ambiguous network timeouts enter `UNCERTAIN_ACKNOWLEDGMENT` and lock automatic retries.
 4. **Live Credential Verification:** Because zero owner secrets are embedded in this repository or environment, live authenticated Kaggle competition endpoints (`09`) and live interactive `google.colab.ai` sessions (`10`, `30`) are verified via deterministic unit/mocked adapters here and activate once the owner supplies credentials on-device or opens `4CBOn2_Kaggle6.ipynb` in Google Colab.
+
+---
+
+# v0.3 Addendum — Daily Experiment Cycle (Divisions 43–52)
+
+**Package version:** `v0.3.0-div50` · **Date:** 2 November 2026
+**Status:** Divisions 43–51 implemented and unit-verified; APK re-packaging (Division 52) deferred to an
+environment with Android SDK access.
+
+## 1. New verified artifacts
+
+| Artifact | Workspace path | Verification |
+| --- | --- | --- |
+| Telemetry contract & ingest | `android/app/src/main/java/.../RunTelemetry.kt` | Unit — 5 tests |
+| Fixed evaluator registry | `BenchmarkEvaluators.kt` | Unit — 5 tests |
+| Run diagnoser | `RunDiagnoser.kt` | Unit — 4 tests |
+| Bounded candidate diff synthesis | `CandidateDiffSynthesizer.kt` | Unit — 4 tests |
+| Champion ledger & promotion gate | `ChampionLedgerAndPromotionGate.kt` | Unit — 3 tests |
+| Daily Experiment Cycle | `DailyExperimentCycle.kt` | Unit — 4 tests (incl. restart, duplicate dispatch, takeover) |
+| Dispatch transports | `ExperimentDispatch.kt`, `AuthenticatedDispatchHttp.kt` | Unit — 2 tests (mocked HTTP) |
+| Daily Lab presenter + Compose card | `DailyLabPresenter.kt`, `MainActivity.kt` | Presenter: Unit — 1 test; card: review only |
+| Notebook telemetry emitter / diff applier | `4CBOn2_Kaggle6.ipynb` (Division 51 cell) | Python `unittest` — 2 tests |
+| Sandbox verification harness | `scripts/verify_pure_kotlin.sh`, `tools/pure_jvm_verify/` | Runs the real JUnit sources on a plain JVM |
+
+**Totals:** 59/59 Kotlin tests and 10/10 Python tests pass in the sandbox used to build v0.3.
+
+## 2. Reproduction commands
+
+```bash
+# Kotlin core (no Android SDK required)
+scripts/verify_pure_kotlin.sh                 # compile + run every pure-JVM @Test
+scripts/verify_pure_kotlin.sh --compile       # type-check the whole core only
+
+# Notebook
+python3 scripts/build_notebook.py
+python3 -m unittest discover -s tests -p "test_*.py" -v
+
+# Canonical Android verification (requires dl.google.com for the SDK)
+source scripts/ensure_toolchain.sh
+cd android && ./gradlew :app:testDebugUnitTest :app:assembleDebug
+```
+
+## 3. Capability matrix delta
+
+| Capability domain | Divisions | Standard profile | Personal lab | Verification tier |
+| --- | --- | --- | --- | --- |
+| Interactive-benchmark telemetry ingest (score/levels/actions/tokens) | 43 | Supported | Supported | Unit |
+| Fixed multi-family evaluator set (ARC / tabular / scalar) | 44 | Supported | Supported | Unit |
+| Deterministic diagnosis with numeric evidence | 45 | Supported | Supported | Unit |
+| One bounded, allowlisted candidate diff per experiment | 46 | Supported | Supported | Unit |
+| Locked champion, 1-tap promotion, rollback | 47 | Supported | Supported | Unit |
+| Closed daily loop with durable pre-send intent | 48 | Supported | Supported | Unit |
+| Dispatch: Colab manual handoff | 49 | Supported | Supported | Unit |
+| Dispatch: GitHub workflow | 49 | Supported when a PAT is stored and an endpoint exists | Supported | Unit + mocked HTTP |
+| Dispatch: Kaggle kernel push | 49 | **Not configured by default** (needs a multipart-capable endpoint) | Owner-supplied endpoint | Unit |
+| Daily Lab UI card | 50 | Supported | Supported | Presenter unit-tested; UI review only |
+| Notebook telemetry emission & diff application | 51 | Supported | Supported | Python unit |
+
+## 4. Unchanged exclusions
+
+No unattended promotion, no self-grading, no fabricated live runs, no credential in source or logs, no
+submission-cap changes from a candidate, no APK distribution claim until the Gradle build is executed
+in an SDK-enabled environment.
+

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Automated verification suite for /home/user/4CBOn2_Kaggle6.ipynb (Divisions 28, 29, 30, 31)."""
+"""Automated verification suite for 4CBOn2_Kaggle6.ipynb (Divisions 28-31, plus v0.3 Division 51)."""
 import json
 from pathlib import Path
+import tempfile
 import unittest
 
 
 def load_notebook_namespace() -> tuple[dict, dict]:
-    nb_path = Path("/home/user/4CBOn2_Kaggle6.ipynb")
+    nb_path = Path(__file__).resolve().parents[1] / "4CBOn2_Kaggle6.ipynb"
     raw = json.loads(nb_path.read_text(encoding="utf-8"))
     ns: dict = {}
     for cell in raw["cells"]:
@@ -230,6 +231,112 @@ class Kaggle6NotebookTest(unittest.TestCase):
         a1, _ = policy.select_action_spec(grid, available_action_ids=[1, 2], levels_completed=0)
         a2, _ = policy.select_action_spec(grid, available_action_ids=[1, 2], levels_completed=0)
         self.assertNotEqual(a1, a2)
+    # ---------------------------------------------------------------- v0.3 Division 51 ----
+
+    def test_run_telemetry_emission_is_validated_and_secret_free(self) -> None:
+        build = self.ns["build_run_telemetry"]
+        validate = self.ns["validate_run_telemetry"]
+        emit = self.ns["emit_run_telemetry"]
+
+        record = build(
+            competition_slug="arc-prize-2026",
+            benchmark_kind="ARC_AGI_INTERACTIVE",
+            run_label="r11l frontier run",
+            version_ref="364758641",
+            metric_name="ARC-AGI-3 score",
+            primary_metric=0.10,
+            higher_is_better=True,
+            levels_completed=3,
+            total_actions=53,
+            tokens_used=96609,
+            wall_clock_ms=1800000,
+            source="DIAGNOSTICS_JSON",
+            diagnostics={
+                "game": "r11l",
+                "auth_header": "Bearer abcdef1234567890",
+                "spoken": "used KGAT_abcdefghijklmnop1234",
+            },
+            completed_at_epoch_ms=1700000000000,
+        )
+        self.assertEqual(record["contractVersion"], "4cbon2.run_telemetry.v1")
+        self.assertEqual(record["totalActions"], 53)
+        self.assertTrue(record["redactionApplied"])
+        self.assertNotIn("auth_header", record["diagnostics"])
+        self.assertEqual(record["diagnostics"]["spoken"], "[redacted]")
+        self.assertEqual(record["diagnostics"]["redactions_applied"], "true")
+        ok, problems = validate(record)
+        self.assertTrue(ok, problems)
+
+        # A record without a score, actions or tokens is refused rather than guessed.
+        with self.assertRaises(ValueError):
+            build(
+                competition_slug="arc-prize-2026", benchmark_kind="ARC_AGI_INTERACTIVE",
+                run_label="bad", version_ref="v0", metric_name="score", primary_metric=None,
+                higher_is_better=True, levels_completed=0, total_actions=10, tokens_used=100,
+            )
+        with self.assertRaises(ValueError):
+            build(
+                competition_slug="arc-prize-2026", benchmark_kind="ARC_AGI_INTERACTIVE",
+                run_label="bad", version_ref="v0", metric_name="score", primary_metric=1.0,
+                higher_is_better=True, levels_completed=0, total_actions=0, tokens_used=100,
+            )
+
+        # Emission is atomic and validates first; a tampered record never reaches disk.
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "run_telemetry.json"
+            written = emit(out, record)
+            self.assertEqual(written, out)
+            reloaded = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual(reloaded["telemetryId"], record["telemetryId"])
+
+            tampered = dict(record)
+            tampered["redactionApplied"] = False
+            with self.assertRaises(ValueError):
+                emit(out, tampered)
+
+    def test_candidate_diff_application_is_single_key_bounded_and_revalidated(self) -> None:
+        apply_diff = self.ns["apply_candidate_diff"]
+        validate_diff = self.ns["validate_candidate_diff"]
+
+        def diff_with(patch, diff_id="diff_test", contract="4cbon2.candidate_diff.v1", extra=None):
+            payload = {
+                "contractVersion": contract,
+                "diffId": diff_id,
+                "patch": patch,
+                "baseVersionRef": "v3",
+            }
+            payload.update(extra or {})
+            return payload
+
+        config = {"reasoning_token_budget": 1200, "exploration_temperature": 0.7}
+        applied = apply_diff(config, diff_with({"reasoning_token_budget": "360"}))
+        self.assertEqual(applied["reasoning_token_budget"], 360)
+        self.assertEqual(applied["exploration_temperature"], 0.7)
+        self.assertEqual(applied["applied_diff_id"], "diff_test")
+        self.assertEqual(config["reasoning_token_budget"], 1200)  # original untouched
+
+        # Two changes, protected keys, unknown keys and out-of-bounds values are all refused.
+        self.assertTrue(validate_diff(diff_with({"reasoning_token_budget": "360", "exploration_temperature": "0.3"})))
+        self.assertTrue(validate_diff(diff_with({"evaluator_id": "eval.candidate_side_grading.v1"})))
+        self.assertTrue(validate_diff(diff_with({"submission_daily_cap": "999"})))
+        self.assertTrue(validate_diff(diff_with({"unknown_knob": "1"})))
+        self.assertTrue(validate_diff(diff_with({"reasoning_token_budget": "999999"})))
+        self.assertTrue(validate_diff(diff_with({"reasoning_token_budget": "360"}, contract="4cbon2.candidate_diff.v0")))
+        self.assertTrue(validate_diff(diff_with({"reasoning_token_budget": "360"}), evaluator_id="eval.evil.v1"))
+
+        with self.assertRaises(ValueError):
+            apply_diff(config, diff_with({"exploration_temperature": "3.0"}))
+
+        # Revert diffs restore the champion configuration carried in the diff.
+        revert = diff_with(
+            {"revert_to_version": "v3"},
+            extra={"championConfig": {"reasoning_token_budget": 900}},
+        )
+        reverted = apply_diff(config, revert)
+        self.assertEqual(reverted["reasoning_token_budget"], 900)
+        self.assertEqual(reverted["restored_version"], "v3")
+        with self.assertRaises(ValueError):
+            apply_diff(config, diff_with({"revert_to_version": "v3"}))
 
 
 if __name__ == "__main__":

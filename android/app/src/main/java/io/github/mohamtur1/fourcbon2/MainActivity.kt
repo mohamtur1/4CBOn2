@@ -1294,6 +1294,15 @@ private fun QueueAndActivityScreen(
     }
     var labBanner by remember { mutableStateOf<String?>(null) }
 
+    // Batch 5 (v0.3) — Daily Experiment Cycle state
+    var dailySlug by remember { mutableStateOf("arc-prize-2026") }
+    var diagnosticsInput by remember { mutableStateOf("") }
+    var candidateInput by remember { mutableStateOf("") }
+    var dailyBanner by remember { mutableStateOf<String?>(null) }
+    val dailyCard = remember(refreshTick, localMutation, dailySlug) {
+        container.dailyLabPresenter.card(dailySlug)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1310,6 +1319,249 @@ private fun QueueAndActivityScreen(
             title = "Actual Action Timeline (${timelineEvents.size} events) · Outbox (${jobs.size} jobs)",
             detail = "Displays only real recorded plan, gate, action, observation, verification, and takeover events.",
         )
+
+        // Batch 5 (v0.3) — Daily Experiment Cycle: ingest -> diagnose -> propose -> dispatch -> gate
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "Daily Lab — Self-Improvement Cycle",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = dailyCard.headline,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (dailyCard.alert) FontWeight.SemiBold else FontWeight.Normal,
+                )
+                Text(text = "Stage: ${dailyCard.stageLabel}", style = MaterialTheme.typography.bodySmall)
+                Text(text = "Next: ${dailyCard.nextAction}", style = MaterialTheme.typography.bodySmall)
+                Text(text = dailyCard.championLine, style = MaterialTheme.typography.bodySmall)
+                Text(text = dailyCard.latestRunLine, style = MaterialTheme.typography.bodySmall)
+                if (dailyCard.candidateLine.isNotBlank()) {
+                    Text(text = dailyCard.candidateLine, style = MaterialTheme.typography.bodySmall)
+                }
+                if (dailyCard.gateLine.isNotBlank()) {
+                    Text(text = dailyCard.gateLine, style = MaterialTheme.typography.bodySmall)
+                }
+                if (dailyCard.dispatchLine.isNotBlank()) {
+                    Text(text = dailyCard.dispatchLine, style = MaterialTheme.typography.bodySmall)
+                }
+                dailyBanner?.let { banner ->
+                    HorizontalDivider()
+                    Text(text = banner, style = MaterialTheme.typography.bodySmall)
+                }
+                OutlinedTextField(
+                    value = dailySlug,
+                    onValueChange = { dailySlug = it.trim() },
+                    label = { Text("Competition slug") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = diagnosticsInput,
+                    onValueChange = { diagnosticsInput = it },
+                    label = { Text("Paste run diagnostics.json") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(
+                        onClick = {
+                            val cycleId = container.dailyCycle.activeCycle(dailySlug)?.cycleId
+                                ?: (container.dailyCycle.openCycle(
+                                    competitionSlug = dailySlug,
+                                    benchmarkKind = BenchmarkKind.ARC_AGI_INTERACTIVE,
+                                    channel = DispatchChannel.COLAB_MANUAL,
+                                ) as? CycleOpenResult.Opened)?.state?.cycleId
+                            dailyBanner = if (cycleId == null) {
+                                "Could not open a cycle for '$dailySlug'."
+                            } else {
+                                when (val result = container.dailyCycle.ingestDiagnoseAndPropose(
+                                    cycleId = cycleId,
+                                    rawDiagnosticsJson = diagnosticsInput,
+                                    runLabel = "owner-pasted run",
+                                )) {
+                                    is DailyCycleStepResult.AwaitingOwner ->
+                                        "${result.state.stage.label}: ${result.prompt}"
+                                    is DailyCycleStepResult.Advanced ->
+                                        "${result.state.stage.label}: ${result.note}"
+                                    is DailyCycleStepResult.Blocked ->
+                                        "Blocked: ${result.reason}"
+                                }
+                            }
+                            localMutation++
+                            onMutated()
+                        },
+                    ) {
+                        Text("Ingest Run & Diagnose")
+                    }
+                    Button(
+                        enabled = dailyCard.canLockChampion,
+                        onClick = {
+                            val latest = container.runTelemetry.latestFor(dailySlug)
+                            dailyBanner = when {
+                                latest == null -> "No telemetry ingested yet."
+                                else -> container.dailyCycle.lockStartingChampion(latest.telemetryId, ownerConfirmed = true)
+                                    ?.let { "Locked champion ${it.versionRef} (${it.metricName}=${it.score})." }
+                                    ?: "A champion is already locked for $dailySlug."
+                            }
+                            localMutation++
+                            onMutated()
+                        },
+                    ) {
+                        Text("Lock Champion")
+                    }
+                }
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(
+                        enabled = dailyCard.canApproveDispatch,
+                        onClick = {
+                            val active = container.dailyCycle.activeCycle(dailySlug)
+                            dailyBanner = if (active == null) {
+                                "No cycle awaiting approval."
+                            } else {
+                                when (val result = container.dailyCycle.approveAndDispatch(
+                                    cycleId = active.cycleId,
+                                    approvedByOwner = true,
+                                )) {
+                                    is DailyCycleStepResult.Advanced -> "Dispatched: ${result.note}"
+                                    is DailyCycleStepResult.AwaitingOwner -> result.prompt
+                                    is DailyCycleStepResult.Blocked -> "Blocked: ${result.reason}"
+                                }
+                            }
+                            localMutation++
+                            onMutated()
+                        },
+                    ) {
+                        Text("Approve & Run")
+                    }
+                    OutlinedButton(
+                        enabled = dailyCard.canApprovePromotion,
+                        onClick = {
+                            val active = container.dailyCycle.activeCycle(dailySlug)
+                            dailyBanner = if (active == null) {
+                                "No cycle awaiting a promotion decision."
+                            } else {
+                                when (val result = container.dailyCycle.resolvePromotion(
+                                    cycleId = active.cycleId,
+                                    approvedByOwner = true,
+                                )) {
+                                    is DailyCycleStepResult.Advanced -> result.note
+                                    is DailyCycleStepResult.AwaitingOwner -> result.prompt
+                                    is DailyCycleStepResult.Blocked -> "Champion kept: ${result.reason}"
+                                }
+                            }
+                            localMutation++
+                            onMutated()
+                        },
+                    ) {
+                        Text("Approve Promotion")
+                    }
+                    OutlinedButton(
+                        enabled = dailyCard.canApprovePromotion,
+                        onClick = {
+                            val active = container.dailyCycle.activeCycle(dailySlug)
+                            dailyBanner = if (active == null) {
+                                "No cycle awaiting a promotion decision."
+                            } else {
+                                val result = container.dailyCycle.resolvePromotion(
+                                    cycleId = active.cycleId,
+                                    approvedByOwner = false,
+                                )
+                                "Champion kept: ${result.state.note}"
+                            }
+                            localMutation++
+                            onMutated()
+                        },
+                    ) {
+                        Text("Decline")
+                    }
+                    OutlinedButton(
+                        enabled = dailyCard.canRollback,
+                        onClick = {
+                            dailyBanner = container.championLedger
+                                .rollbackLastPromotion(dailySlug, ownerConfirmed = true)
+                                ?.let { "Rolled back to champion ${it.versionRef}." }
+                                ?: "Nothing to roll back."
+                            localMutation++
+                            onMutated()
+                        },
+                    ) {
+                        Text("Roll Back Champion")
+                    }
+                }
+                OutlinedTextField(
+                    value = candidateInput,
+                    onValueChange = { candidateInput = it },
+                    label = { Text("Paste candidate run diagnostics.json") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(
+                        onClick = {
+                            val active = container.dailyCycle.activeCycle(dailySlug)
+                            dailyBanner = if (active == null) {
+                                "No active cycle to receive candidate telemetry."
+                            } else {
+                                when (val result = container.dailyCycle.recordCandidateTelemetry(
+                                    cycleId = active.cycleId,
+                                    rawDiagnosticsJson = candidateInput,
+                                    runLabel = "candidate run",
+                                )) {
+                                    is DailyCycleStepResult.AwaitingOwner ->
+                                        "Gate decided: ${result.prompt}"
+                                    is DailyCycleStepResult.Advanced ->
+                                        "${result.state.stage.label}: ${result.note}"
+                                    is DailyCycleStepResult.Blocked ->
+                                        "Blocked: ${result.reason}"
+                                }
+                            }
+                            localMutation++
+                            onMutated()
+                        },
+                    ) {
+                        Text("Ingest Candidate Run")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            val active = container.dailyCycle.activeCycle(dailySlug)
+                            dailyBanner = if (active == null) {
+                                "No active cycle to stop."
+                            } else {
+                                container.dailyCycle.stopCycle(active.cycleId, reason = "Stopped by owner from Daily Lab.")
+                                    ?.let { "Cycle stopped." }
+                                    ?: "Cycle not found."
+                            }
+                            localMutation++
+                            onMutated()
+                        },
+                    ) {
+                        Text("Stop Cycle")
+                    }
+                }
+                if (dailyCard.recentTimeline.isNotEmpty()) {
+                    HorizontalDivider()
+                    Text(
+                        text = "Recent audit trail",
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    dailyCard.recentTimeline.forEach { line ->
+                        Text(text = "• $line", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
 
         // Divisions 37, 38, 39: Kaggle Prepare-Only Pipeline, Submission Gate & Improvement Lab
         Card(modifier = Modifier.fillMaxWidth()) {

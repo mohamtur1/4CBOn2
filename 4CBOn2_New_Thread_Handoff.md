@@ -49,3 +49,57 @@ During live Kaggle ARC-AGI-3 deployment (`2 November 2026`), the owner asked the
 Because Arena workspace snapshots exclude `.cache` / SDK binaries, a new thread can restore compilation & unit tests in ~90 seconds if needed:
 1. Check `java -version` (JDK 17/21) and install command-line Android SDK (`platforms;android-35`, `build-tools;35.0.0`) under `/tmp/android-sdk` with `ANDROID_HOME=/tmp/android-sdk`.
 2. Run `cd /home/user/android && ./gradlew testDebugUnitTest assembleDebug` to verify all `38/38` existing tests pass before starting `v0.3` divisions.
+
+---
+
+## 5. v0.3 Progress — Daily Experiment Cycle (added 2 November 2026)
+
+**Package:** `v0.3.0-div50` · **Branch of record:** `arena/f4b22ec8-4cbon2`
+**Verification:** 59/59 Kotlin tests (pure JVM) and 10/10 Python notebook tests pass.
+**APK:** not rebuilt — this environment cannot reach `dl.google.com` for the Android SDK (see §6).
+
+### What the gap in §3 now looks like
+
+| §3 gap | v0.3 division | Where it lives |
+| --- | --- | --- |
+| Tabular-only local evaluator | 43, 44 | `RunTelemetry.kt`, `BenchmarkEvaluators.kt` |
+| No telemetry pull-back | 43 | `RunTelemetryIngest` (diagnostics JSON, kernel status, manual) |
+| No closed-loop daily cycle | 45–49 | `RunDiagnoser.kt`, `CandidateDiffSynthesizer.kt`, `ChampionLedgerAndPromotionGate.kt`, `DailyExperimentCycle.kt`, `ExperimentDispatch.kt` |
+| No Daily Lab UI | 50 | `DailyLabPresenter.kt` + the "Daily Lab" card in `MainActivity.kt` |
+| Notebook could not emit or receive the loop's artifacts | 51 | Division 51 cell in `4CBOn2_Kaggle6.ipynb` / `scripts/build_notebook.py` |
+
+### The five rules that define v0.3 behaviour
+
+1. **Nothing is invented.** Missing score/actions/tokens, an unfinished kernel, or a run smaller than
+   the significance floor are rejected or marked inconclusive — never defaulted.
+2. **The candidate cannot grade itself.** The evaluator set is compiled in; diffs cannot install,
+   replace, or re-tune an evaluator.
+3. **One change per experiment.** A diff touching more than one allowlisted key is refused, because a
+   mixed change cannot be attributed to a cause.
+4. **Durability before danger.** The dispatch intent is persisted before the transport call with an
+   idempotency key; ambiguous outcomes must be reconciled, never blindly retried.
+5. **Stop wins.** Every mutating cycle step re-reads the control lease; takeover/Stop blocks dispatch
+   before any external call.
+
+### How to verify in a fresh thread
+
+```bash
+# Always works, even without the Android SDK:
+scripts/verify_pure_kotlin.sh                    # 59/59 Kotlin tests
+python3 scripts/build_notebook.py
+python3 -m unittest discover -s tests -p "test_*.py" -v   # 10/10 Python tests
+
+# When dl.google.com is reachable (finishes Division 52):
+source scripts/ensure_toolchain.sh
+cd android && ./gradlew :app:testDebugUnitTest :app:assembleDebug
+```
+
+### What is still open
+
+- **Division 52**: rebuild and sign the debug APK with Gradle; record its SHA-256 in
+  `PROTOTYPE_PACKAGE_AND_SUPPORT_MATRIX.md`; compile-verify the Compose Daily Lab card.
+- **Kaggle kernel dispatch**: `DispatchEndpoints.DEFAULT_KAGGLE_KERNEL_ENDPOINT` is intentionally empty
+  because Kaggle's push API needs a multipart notebook body the app does not build. Supply an endpoint
+  that matches your own runner (or a GitHub workflow) and the card will enable `Approve & Run`.
+- **First live loop**: lock a champion from a real ARC-AGI-3 run, then run one cycle end to end and
+  compare its diagnosis against what you would have concluded by hand.

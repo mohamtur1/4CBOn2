@@ -101,6 +101,55 @@ class FourCBOn2WorkspaceContainer(
     )
     val improvementLab = MinimalImprovementLab(database, kagglePreparePipeline)
 
+    // Batch 5 (v0.3): Daily Experiment Cycle — telemetry ingest, diagnosis, bounded candidate diffs,
+    // champion ledger, promotion gate, and dispatch. Transports are honest about configuration:
+    // a missing Keystore credential or endpoint surfaces as "not configured" rather than a fake run.
+    val runTelemetry = RunTelemetryIngest(database)
+    val championLedger = ChampionLedger(database)
+    val promotionGate = FixedPromotionGate(championLedger, database)
+    val experimentDispatchRouter = ExperimentDispatchRouter(
+        listOf(
+            ManualHandoffDispatchTransport(
+                urlBuilder = { ColabNotebookReference.colabOpenUrl },
+            ),
+            ApiDispatchTransport(
+                channel = DispatchChannel.KAGGLE_KERNEL,
+                endpoint = DispatchEndpoints.DEFAULT_KAGGLE_KERNEL_ENDPOINT,
+                http = BearerAuthenticatedDispatchHttp(
+                    credentialProvider = { credentialStore.load(CredentialSlot.KAGGLE_BEARER_ACCESS_TOKEN) },
+                ),
+                credentialConfigured = { credentialStore.contains(CredentialSlot.KAGGLE_BEARER_ACCESS_TOKEN) },
+            ),
+            ApiDispatchTransport(
+                channel = DispatchChannel.GITHUB_WORKFLOW,
+                endpoint = DispatchEndpoints.DEFAULT_GITHUB_WORKFLOW_ENDPOINT,
+                http = BearerAuthenticatedDispatchHttp(
+                    credentialProvider = { credentialStore.load(CredentialSlot.GITHUB_FINE_GRAINED_PAT) },
+                ),
+                credentialConfigured = { credentialStore.contains(CredentialSlot.GITHUB_FINE_GRAINED_PAT) },
+                acceptedStatusCodes = setOf(200, 201, 202, 204),
+            ),
+        ),
+    )
+    // Reuses the container's lease controller and timeline so Stop/Takeover and the audit trail are
+    // the same objects the rest of the app already drives.
+    val dailyCycle = DailyExperimentCycle(
+        database = database,
+        ingest = runTelemetry,
+        ledger = championLedger,
+        gate = promotionGate,
+        dispatchRouter = experimentDispatchRouter,
+        leaseController = takeoverLease,
+        timeline = actionTimeline,
+    )
+    val dailyLabPresenter = DailyLabPresenter(
+        cycle = dailyCycle,
+        ingest = runTelemetry,
+        ledger = championLedger,
+        gate = promotionGate,
+        timeline = actionTimeline,
+    )
+
     fun currentQueueEnvironment(
         isColabRuntimeVerified: Boolean =
             colabAiBridge.currentState() == ColabBuiltInAiState.VERIFIED_VIA_COLAB_RECEIPT,

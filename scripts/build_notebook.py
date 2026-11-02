@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds the canonical /home/user/4CBOn2_Kaggle6.ipynb notebook (Divisions 28, 29, 30, 31)."""
+"""Builds the canonical 4CBOn2_Kaggle6.ipynb notebook (Divisions 28-31, extended in v0.3 Division 51)."""
 import json
 from pathlib import Path
 
@@ -1386,6 +1386,271 @@ NOTEBOOK_LAST_STATUS = run_notebook_entrypoint()
 '''
 
 
+CELL_10_INTRO_MARKDOWN = (
+    "### v0.3 · Daily Lab handoff\n"
+    "\n"
+    "Emits `4cbon2.run_telemetry.v1` after every run and applies an owner-approved "
+    "`4cbon2.candidate_diff.v1` back onto the runtime config. The Android companion ingests the "
+    "telemetry, diagnoses it against the locked champion, and returns exactly one bounded change "
+    "for you to approve — the notebook never widens its own authority."
+)
+
+CELL_10_RUN_TELEMETRY_AND_CANDIDATE_DIFF = r'''# ==============================================================================
+# Division 51 (v0.3) — Run telemetry emission & bounded candidate-diff application
+#
+# Closes the notebook half of the v0.3 daily loop. The Android companion reasons about
+# `4cbon2.run_telemetry.v1` records (Divisions 43-48); this cell is what produces them from a real
+# Kaggle/Colab run, and what applies an owner-approved `4cbon2.candidate_diff.v1` back onto the
+# runtime configuration.
+#
+# Two rules carried over from the app:
+#   1. Never invent evidence. A telemetry record missing score / actions / tokens is refused.
+#   2. Never widen authority in the notebook. A candidate diff may write exactly one allowlisted
+#      key, inside owner-declared bounds; evaluator, submission and credential settings are
+#      unreachable from here.
+# ==============================================================================
+
+RUN_TELEMETRY_SCHEMA_V1 = "4cbon2.run_telemetry.v1"
+CANDIDATE_DIFF_SCHEMA_V1 = "4cbon2.candidate_diff.v1"
+
+BENCHMARK_KINDS = ("ARC_AGI_INTERACTIVE", "TABULAR_CSV_CV", "SCALAR_METRIC")
+TELEMETRY_SOURCES = ("DIAGNOSTICS_JSON", "KAGGLE_KERNEL_STATUS", "COLAB_RECEIPT", "MANUAL_ENTRY")
+
+_REDACTED = "[redacted]"
+_SECRET_KEY_HINTS = (
+    "token", "secret", "password", "passwd", "authorization", "auth", "apikey", "api_key",
+    "credential", "private_key", "pat", "cookie", "session_key",
+)
+_SECRET_VALUE_PATTERNS = (
+    re.compile(r"(?i)bearer\s+[A-Za-z0-9._~+/-]{8,}"),
+    re.compile(r"(?i)\bKGAT_[A-Za-z0-9]{8,}"),
+    re.compile(r"(?i)\bgh[pousr]_[A-Za-z0-9]{16,}"),
+    re.compile(r"(?i)\bgithub_pat_[A-Za-z0-9_]{16,}"),
+    re.compile(r"(?i)\b[a-z0-9_]*(token|secret|password|api_?key)\b\s*[=:]\s*\S+"),
+)
+
+# Owner-declared bounds for candidate patches; mirrors BoundedPatchPolicy on Android.
+PATCH_MAX_KEYS = 1
+PATCH_RANGES = {
+    "reasoning_token_budget": (128.0, 4000.0),
+    "max_actions_per_level": (1.0, 200.0),
+    "exploration_temperature": (0.0, 1.0),
+    "exploration_frontier_weight": (0.0, 1.0),
+    "dead_action_prune_threshold": (0.0, 10.0),
+    "max_wall_clock_ms": (60000.0, 21600000.0),
+    "max_actions": (1.0, 500.0),
+    "max_total_tokens": (1.0, 150000.0),
+}
+PATCH_REVERT_KEY = "revert_to_version"
+_PROTECTED_PATCH_PREFIXES = ("evaluator", "submission", "credential", "secret", "promotion", "champion")
+
+
+def _redact_value(value: str) -> str:
+    text = str(value)
+    for pattern in _SECRET_VALUE_PATTERNS:
+        if pattern.search(text):
+            return _REDACTED
+    return text
+
+
+def sanitize_diagnostics(mapping: Optional[Dict[str, Any]]) -> Tuple[Dict[str, str], bool]:
+    """Drops credential-shaped keys and masks credential-shaped values. Returns (safe, changed)."""
+    changed = False
+    safe: Dict[str, str] = {}
+    for key, value in (mapping or {}).items():
+        if any(hint in str(key).lower() for hint in _SECRET_KEY_HINTS):
+            changed = True
+            continue
+        redacted = _redact_value(value)
+        if redacted != str(value):
+            changed = True
+        safe[str(key)[:120]] = redacted[:400]
+    return safe, changed
+
+
+def build_run_telemetry(
+    competition_slug: str,
+    benchmark_kind: str,
+    run_label: str,
+    version_ref: str,
+    metric_name: str,
+    primary_metric: Optional[float],
+    higher_is_better: bool,
+    levels_completed: int,
+    total_actions: int,
+    tokens_used: int,
+    wall_clock_ms: int = 0,
+    source: str = "DIAGNOSTICS_JSON",
+    source_ref: Optional[str] = None,
+    diagnostics: Optional[Dict[str, Any]] = None,
+    started_at_epoch_ms: int = 0,
+    completed_at_epoch_ms: int = 0,
+    telemetry_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Builds a validated, secret-free `4cbon2.run_telemetry.v1` record.
+
+    Raises ValueError instead of guessing: a run without a score, action count or token count is not
+    evidence, and the Android diagnoser must never receive invented numbers.
+    """
+    if not competition_slug:
+        raise ValueError("competition_slug is required")
+    if benchmark_kind not in BENCHMARK_KINDS:
+        raise ValueError(f"benchmark_kind must be one of {BENCHMARK_KINDS}")
+    if source not in TELEMETRY_SOURCES:
+        raise ValueError(f"source must be one of {TELEMETRY_SOURCES}")
+    if primary_metric is None:
+        raise ValueError("primary_metric is required")
+    primary = float(primary_metric)
+    if primary != primary or primary in (float("inf"), float("-inf")):
+        raise ValueError("primary_metric must be finite")
+    if int(total_actions) <= 0:
+        raise ValueError("total_actions must be greater than zero")
+    if int(tokens_used) < 0 or int(levels_completed) < 0 or int(wall_clock_ms) < 0:
+        raise ValueError("counters must not be negative")
+
+    safe_diagnostics, redacted = sanitize_diagnostics(diagnostics)
+    if redacted:
+        safe_diagnostics["redactions_applied"] = "true"
+
+    record = {
+        "contractVersion": RUN_TELEMETRY_SCHEMA_V1,
+        "telemetryId": telemetry_id or f"tel_{int(time.time() * 1000)}_{int(total_actions)}",
+        "competitionSlug": competition_slug,
+        "benchmarkKind": benchmark_kind,
+        "runLabel": run_label,
+        "versionRef": str(version_ref),
+        "metricName": metric_name,
+        "primaryMetric": primary,
+        "higherIsBetter": bool(higher_is_better),
+        "levelsCompleted": int(levels_completed),
+        "totalActions": int(total_actions),
+        "tokensUsed": int(tokens_used),
+        "wallClockMs": int(wall_clock_ms),
+        "source": source,
+        "sourceRef": source_ref,
+        "startedAtEpochMs": int(started_at_epoch_ms),
+        "completedAtEpochMs": int(completed_at_epoch_ms) or int(time.time() * 1000),
+        "recordedAtEpochMs": int(time.time() * 1000),
+        "redactionApplied": True,
+        "diagnostics": safe_diagnostics,
+    }
+    ok, problems = validate_run_telemetry(record)
+    if not ok:
+        raise ValueError("invalid telemetry: " + "; ".join(problems))
+    return record
+
+
+def validate_run_telemetry(payload: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """Structural check of a telemetry record. Mirrors the Android ingest rejections."""
+    problems: List[str] = []
+    if not isinstance(payload, dict):
+        return False, ["telemetry must be an object"]
+    if payload.get("contractVersion") != RUN_TELEMETRY_SCHEMA_V1:
+        problems.append("unsupported contractVersion")
+    for field_name in ("telemetryId", "competitionSlug", "runLabel", "versionRef", "metricName"):
+        if not isinstance(payload.get(field_name), str) or not payload.get(field_name):
+            problems.append(f"{field_name} must be a non-empty string")
+    if payload.get("benchmarkKind") not in BENCHMARK_KINDS:
+        problems.append("benchmarkKind is not recognised")
+    metric = payload.get("primaryMetric")
+    if not isinstance(metric, (int, float)) or isinstance(metric, bool):
+        problems.append("primaryMetric must be numeric")
+    for field_name in ("levelsCompleted", "totalActions", "tokensUsed", "wallClockMs"):
+        value = payload.get(field_name)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            problems.append(f"{field_name} must be a non-negative integer")
+    if payload.get("totalActions") == 0:
+        problems.append("totalActions must be greater than zero")
+    if payload.get("redactionApplied") is not True:
+        problems.append("record must assert redactionApplied")
+    raw_json = json.dumps(payload, sort_keys=True)
+    if any(pattern.search(raw_json) for pattern in _SECRET_VALUE_PATTERNS):
+        problems.append("record still contains credential-shaped material")
+    return (not problems), problems
+
+
+def emit_run_telemetry(output_path: Path, payload: Dict[str, Any]) -> Path:
+    """Atomically writes a validated telemetry record for the Android companion to ingest."""
+    ok, problems = validate_run_telemetry(payload)
+    if not ok:
+        raise ValueError("refusing to emit invalid telemetry: " + "; ".join(problems))
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    tmp_path.replace(output_path)
+    return output_path
+
+
+def load_candidate_diff(path_or_payload: Any) -> Dict[str, Any]:
+    if isinstance(path_or_payload, dict):
+        return path_or_payload
+    return json.loads(Path(path_or_payload).read_text(encoding="utf-8"))
+
+
+def validate_candidate_diff(diff: Dict[str, Any], evaluator_id: Optional[str] = None) -> List[str]:
+    """Returns every reason the diff may not be applied. Empty list means it is safe to apply."""
+    violations: List[str] = []
+    if not isinstance(diff, dict):
+        return ["diff must be an object"]
+    if diff.get("contractVersion") != CANDIDATE_DIFF_SCHEMA_V1:
+        violations.append("unsupported diff contractVersion")
+    if evaluator_id is not None:
+        violations.append("the notebook may not install or replace an evaluator")
+    patch = diff.get("patch")
+    if not isinstance(patch, dict) or not patch:
+        violations.append("patch must be a non-empty object")
+        return violations
+    if len(patch) > PATCH_MAX_KEYS:
+        violations.append(f"patch changes {len(patch)} keys; at most {PATCH_MAX_KEYS} allowed")
+    for key, raw_value in patch.items():
+        key_str = str(key)
+        if any(key_str.startswith(prefix) or f"_{prefix}" in key_str for prefix in _PROTECTED_PATCH_PREFIXES):
+            violations.append(f"key '{key_str}' targets a protected policy area")
+            continue
+        if key_str == PATCH_REVERT_KEY:
+            if not str(raw_value):
+                violations.append("revert target is blank")
+            continue
+        if key_str not in PATCH_RANGES:
+            violations.append(f"key '{key_str}' is not allowlisted")
+            continue
+        try:
+            numeric = float(raw_value)
+        except (TypeError, ValueError):
+            violations.append(f"key '{key_str}' needs a number")
+            continue
+        low, high = PATCH_RANGES[key_str]
+        if not (low <= numeric <= high):
+            violations.append(f"key '{key_str}'={numeric} is outside {low}..{high}")
+    return violations
+
+
+def apply_candidate_diff(
+    config: Dict[str, Any],
+    diff: Dict[str, Any],
+    evaluator_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Applies one owner-approved bounded change onto a runtime config, as a new dict."""
+    violations = validate_candidate_diff(diff, evaluator_id=evaluator_id)
+    if violations:
+        raise ValueError("candidate diff refused: " + "; ".join(violations))
+    updated = dict(config)
+    for key, raw_value in diff["patch"].items():
+        if str(key) == PATCH_REVERT_KEY:
+            target = str(raw_value)
+            champion_config = diff.get("championConfig") or {}
+            if not isinstance(champion_config, dict) or not champion_config:
+                raise ValueError("revert diff has no championConfig to restore")
+            updated.update(champion_config)
+            updated["restored_version"] = target
+            continue
+        updated[str(key)] = float(raw_value) if "." in str(raw_value) else int(float(raw_value))
+    updated["applied_diff_id"] = diff.get("diffId")
+    return updated
+'''
+
+
 def main() -> None:
     nb = {
         "cells": [
@@ -1397,6 +1662,8 @@ def main() -> None:
             code_cell(CELL_7_KAGGLE_PIPELINE_AND_GATE),
             code_cell(CELL_8_IMPROVEMENT_LAB),
             code_cell(CELL_9_ARC_AGI_3_AND_ENTRYPOINT),
+            md_cell(CELL_10_INTRO_MARKDOWN),
+            code_cell(CELL_10_RUN_TELEMETRY_AND_CANDIDATE_DIFF),
         ],
         "metadata": {
             "kernelspec": {
@@ -1419,7 +1686,7 @@ def main() -> None:
         "nbformat": 4,
         "nbformat_minor": 5,
     }
-    out_path = Path("/home/user/4CBOn2_Kaggle6.ipynb")
+    out_path = Path(__file__).resolve().parents[1] / "4CBOn2_Kaggle6.ipynb"
     out_path.write_text(json.dumps(nb, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"Wrote {out_path} ({out_path.stat().st_size} bytes)")
 
