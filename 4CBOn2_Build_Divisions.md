@@ -1,137 +1,221 @@
-# 4CBOn2 — Timeboxed Build Plan
+# 4CBOn2 — Build Plan
 
-**Build in progress · Revised 23 October 2026 · Divisions 01–08 completed, Division 09 authorization-blocked, and Division 10 checkpointed pending Android toolchain restoration; public GitHub read is verified, Kaggle public read requires authorization, the fixed Colab notebook target is currently missing, and no updated retained APK, notebook, account connection, credential entry, or phone/device test exists yet**
+**Active build · Revised 31 October 2026 · Batches 1–3 completed (`01–34`, `36`, `09a`); 32 JUnit + 5 Python notebook tests passing, `4CBOn2_Kaggle6.ipynb` created, and fresh v2-signed `4CBOn2-debug.apk` built; Batch 4 (`35`, `37–42`) next**
 
 ## Decision
 
-Use **42 small build divisions for the expanded first prototype**. This retains the earlier Android/notebook work and adds twelve phone-control work packages. The divisions below are renumbered in dependency order and supersede the earlier 30-division numbering.
+Build the expanded first prototype across **42 modular divisions**, retaining the earlier Android and notebook work and covering the twelve phone-control work packages in dependency order.
 
-The product supports selected, authorized app actions—not universal access to every app. Follow `4CBOn2_Phone_Control_Design_v4.md` for the distribution, device, permission, and takeover gates. The notebook target remains `4CBOn2_Kaggle6.ipynb` in `mohamtur1/4CBOn2`.
+The product supports selected, authorized app actions—not universal access to every app. Follow `4CBOn2_Phone_Control_Design_v4.md` for distribution, permission, and takeover architecture. The notebook target is `4CBOn2_Kaggle6.ipynb` in `mohamtur1/4CBOn2` (created directly in Division 29).
 
-Every division is a **maximum 30-minute work session, including waiting, verification, and saving progress**. This is a session limit, not a guarantee that a dependency download, account approval, first compile, complete feature, or device test finishes in 30 minutes.
+Divisions are **functional milestones, not timeboxes**. Implement and verify multiple divisions per session without artificial 30-minute caps, run builds and test suites to completion, and ship working code rather than splitting unfinished tasks into `a/b` continuation slices.
 
-If unfinished, stop safely, checkpoint the exact state, and create a small continuation, such as 10a/10b. Do not run longer or label incomplete/unverified work complete. Forty-two divisions are an initial decomposition; discoveries can require additional timeboxed subdivisions. This is not a promise to complete universal phone control in 21 hours.
+## Execution rules
 
-## Session contract
-
-- Up to **20 minutes** implementation, investigation, or necessary waiting.
-- Up to **7 minutes** targeted verification.
-- Reserve **3 minutes** for a recoverable checkpoint and progress report.
-- Finish earlier when the narrow target is verified.
-- Do not start a long operation near the cap. Bound/cancel local work when safe; record an already accepted remote job as pending instead of waiting indefinitely or repeating it.
-- Retain the last verified version. Extend the same application incrementally, one division at a time.
-- Owner permission for real external effects remains a separate gate. No credentials in source code, logs, or design documents.
+- **Batch and parallelize divisions:** Complete multiple related divisions in a single continuous pass whenever their technical dependencies are satisfied.
+- **Run builds and tests to completion:** Do not impose session timers or abort builds, SDK tasks, or test runs near an arbitrary clock limit. Track long-running remote jobs asynchronously by reference rather than waiting idly or duplicating requests.
+- **Never stall on external credentials or hardware:** Missing live tokens, OAuth approvals, cloud runtimes, or physical devices do not block development. Build against clean interfaces and local mocks/fixtures immediately; run live checks when credentials or hardware are connected.
+- **Keep artifacts updated continuously:** Extend the existing codebase directly and refresh the debug APK after meaningful batches rather than deferring packaging to the end.
+- **Ship code, not checkpoint paperwork:** Treat compiling source and automated tests as the primary deliverables. Update the status table in this file per batch instead of writing separate per-division report documents.
+- **Maintain core safety boundaries:** Keep real external writes/submissions gated on explicit owner confirmation, enforce immediate local Take Over/Stop, and never place credentials in source code, logs, or documentation.
 
 ## The 42 build divisions
 
-| No. | Division | Narrow deliverable / verification target |
+| No. | Division | Deliverable / verification target |
 | --- | --- | --- |
-| 01 | Freeze expanded prototype scope | Record supported profiles, distribution assumptions, exclusions, dependencies, and acceptance checks |
-| 02 | Phone-control feasibility and policy gate | Review deployment/device prerequisites; record unverified phone capabilities and prohibit policy/security workarounds |
-| 03 | Prepare Android build tools | Inventory Java/SDK/build tooling, pin compatible versions, and record missing downloads or blockers |
-| 04 | Create minimal Android project | A Kotlin/Compose project with a compilable entry screen |
-| 05 | Produce first debug APK | Development build/signing result, artifact path, and checksum; installation/device verification recorded separately |
-| 06 | Add navigation | Home, Ask, Agents, Browser, Activity; disabled/unimplemented features labeled |
-| 07 | Protected credential storage | Secure native settings and credential boundary; no embedded tokens or sensitive logs |
-| 08 | Prove GitHub read access | Authorized repository read or an honest account/network blocker |
-| 09 | Prove Kaggle read access | Permitted account/API read; distinguish missing authorization from unsupported operations |
-| 10 | Prove Colab entry/control route | Notebook opening plus supported control-path investigation; manual-only versus actual API capability recorded |
-| 11 | Local database | Initial entities and persistence/restart test |
-| 12 | Selected-app capability registry | Owner-selected app identities, narrow discovery, action-level support, and unavailable states; no blanket inventory collection |
-| 13 | On-device scope contract | App/account/data/action/expiry limits; deny unselected targets and unauthorized cloud transfer |
-| 14 | Takeover and cancellation lease | Local Take Over/Stop state; reject stale commands and require explicit resume |
-| 15 | Offline agent drafts | Save/edit/load goal, template, job profile, caps, and draft state |
-| 16 | Safe file import/export | User-selected documents and workspace export without broad phone filesystem access |
-| 17 | Offline knowledge library | Read/search saved reports and evidence with provenance and update times |
-| 18 | Small local analysis | One bounded CSV/JSON routine with valid/invalid fixtures |
-| 19 | Persistent waiting queue | Save jobs, recover after restart, defer network tasks; no automatic consequential replay |
-| 20 | Sensitive-action approval gate | Scoped destination/artifact identity, expiry, caps, and confirmation tests |
-| 21 | One harmless app intent/API action | A supported open/prepare action with actual result/handoff semantics; no unrestricted UI input |
-| 22 | GitHub cache and diff | Refresh a permitted version, show local diff, and prepare an exportable change; no unapproved write/force-push |
-| 23 | Kaggle metadata/status | Supported competition/job views with real last-sync and stale/error states |
-| 24 | Chrome-backed opening | Custom Tab/service links and browser fallback; no unrestricted Chrome-control claim |
-| 25 | Controlled browser workspace | One reviewed public-page/reader workflow, URL boundaries, no privileged native bridge to untrusted content |
-| 26 | Consented observation boundary | Shared/structured data first; any screen capture separately gated, secure/sensitive contexts excluded, cloud upload Off by default |
-| 27 | Actual action timeline | Record plan/action/result/check events; distinguish attempted, pending, manual, verified, and uncertain outcomes |
-| 28 | Shared job bundle | Versioned app/notebook contract, manifest, private export/import, hashes, and policy revalidation; a hash is not authority |
-| 29 | Notebook skeleton | Exact file `4CBOn2_Kaggle6.ipynb`, runtime detection, controller/runner roles, capability panel |
-| 30 | Colab built-in AI adapter | Real service/model probe and bounded request; no provider fallback or proxy-credential export |
-| 31 | One bounded agent loop | One supported goal -> permitted action -> verification workflow; stop/error path demonstrated |
-| 32 | Critical phone-action guard | Sensitive/manual-only contexts, exact action preview, account checks, protected-screen handoff, and no blind irreversible retry |
-| 33 | Human-defined routine engine | Fixed script, explicit human trigger, known preconditions, and bounded execution; not an exemption for AI-driven Accessibility use |
-| 34 | Conditional personal-lab UI runner | Only a permitted, authorized experimental configuration against an owner-controlled fixture app; unavailable if eligibility fails; not Play-compliance proof |
-| 35 | Privacy and prompt-injection tests | Malicious page/message, unauthorized destination, secret/screen-content leakage, and data-sharing scope fixtures |
-| 36 | Online/offline phone-control routing | Available local/API/model routes only; no fake cloud planning, locked-device bypass, or silent alternate provider |
-| 37 | Kaggle prepare-only pipeline | One trusted tabular template, explicit validation, artifact checks, reproducible result |
-| 38 | Submission gate and receipt states | Limits, durable intent, acknowledgment/uncertainty handling, mocked tests; live submission separately authorized |
-| 39 | Minimal Improvement Lab | One baseline/candidate report, preserved versions, fixed evaluator, approval before promotion |
-| 40 | Harmless cross-app integration test | A few selected supported workflows with synthetic data; scope escape, takeover, and manual handoff tested |
-| 41 | Focused recovery/safety smoke tests | Offline/reconnect, stale cloud response, interrupted work, revoked permission, ambiguous acknowledgment, and duplicate-action fixtures |
-| 42 | Package prototype and support matrix | Rebuild eligible debug artifact(s) and notebook bundle; checksums, instructions, actual test results, blocked capabilities, and distribution limitations |
+| 01 | Freeze expanded prototype scope | Supported profiles, distribution model, exclusions, dependencies, and acceptance criteria |
+| 02 | Phone-control feasibility and policy gate | Deployment/device prerequisites and supported OS/store permission boundaries |
+| 03 | Prepare Android build tools | Compatible Java/SDK/Gradle versions pinned and local build toolchain provisioned |
+| 04 | Create minimal Android project | Compilable Kotlin/Compose project with entry screen |
+| 05 | Produce first debug APK | Signed debug APK build, artifact path, and SHA-256 checksum |
+| 06 | Add navigation | Home, Ask, Agents, Browser, and Activity destinations; unbuilt controls labeled |
+| 07 | Protected credential storage | AndroidKeyStore AES-GCM credential boundary with zero embedded tokens or sensitive logs |
+| 08 | Prove GitHub read access | Read-only repository client verified against public/authorized endpoints |
+| 09 | Prove Kaggle read access | Read-only competition client and local token-entry storage (`09a`) verified with unit/mock tests |
+| 10 | Prove Colab entry/control route | Notebook launch/handoff route and runtime vs. manual capability boundary |
+| 11 | Local database | Core local entities with persistence and restart unit tests |
+| 12 | Selected-app capability registry | Owner-selected app identities, scoped capability lookup, and unavailable states |
+| 13 | On-device scope contract | App/account/data/action/expiry limits; block unselected targets and unauthorized cloud transfer |
+| 14 | Takeover and cancellation lease | Immediate local Take Over/Stop state; reject stale commands until explicit resume |
+| 15 | Offline agent drafts | Save, edit, and load goals, templates, job profiles, execution caps, and draft state |
+| 16 | Safe file import/export | User-selected document import and workspace export via standard scoped storage APIs |
+| 17 | Offline knowledge library | Local storage, search, provenance, and timestamps for saved reports and evidence |
+| 18 | Small local analysis | Bounded CSV/JSON analysis routines verified with valid and invalid fixtures |
+| 19 | Persistent waiting queue | Durable job queue across restarts for deferred network tasks without automatic side-effect replay |
+| 20 | Sensitive-action approval gate | Destination/artifact identity checks, expiry, execution caps, and confirmation tests |
+| 21 | One harmless app intent/API action | Supported Android intent/API open-or-prepare action with verified handoff/result semantics |
+| 22 | GitHub cache and diff | Permitted snapshot refresh, local diff view, and exportable change preparation; writes owner-gated |
+| 23 | Kaggle metadata/status | Competition and job status views with last-sync, stale, and auth-error states |
+| 24 | Chrome-backed opening | Custom Tabs / service links with standard browser fallback |
+| 25 | Controlled browser workspace | Scoped public-page reader workflow with URL boundaries and isolated web context |
+| 26 | Consented observation boundary | Structured/shared data first; opt-in screen capture excluding sensitive contexts; cloud upload off by default |
+| 27 | Actual action timeline | Event log recording planned, pending, manual, verified, and uncertain outcomes |
+| 28 | Shared job bundle | Versioned app/notebook manifest, private export/import, SHA-256 checks, and policy revalidation |
+| 29 | Notebook skeleton | Create `4CBOn2_Kaggle6.ipynb` with runtime detection, controller/runner roles, and capability panel |
+| 30 | Colab built-in AI adapter | `google.colab.ai` probe and bounded request adapter with local mock support for offline testing |
+| 31 | One bounded agent loop | End-to-end goal -> permitted action -> verification workflow with stop and error paths |
+| 32 | Critical phone-action guard | Action preview, account checks, protected-screen manual handoff, and no blind irreversible retry |
+| 33 | Human-defined routine engine | Deterministic human-triggered scripts with precondition checks and bounded execution |
+| 34 | Conditional personal-lab UI runner | Opt-in experimental UI runner restricted to eligible owner-controlled fixture apps |
+| 35 | Privacy and prompt-injection tests | Automated fixtures for untrusted page/message injection, unauthorized destinations, and secret-leak prevention |
+| 36 | Online/offline phone-control routing | Dynamic routing across available local, intent, API, and cloud paths with graceful offline fallback |
+| 37 | Kaggle prepare-only pipeline | Trusted tabular baseline template with schema validation, artifact checks, and reproducible output |
+| 38 | Submission gate and receipt states | Submission caps, durable intent log, receipt/uncertainty handling, mocked tests, and owner-gated live submit |
+| 39 | Minimal Improvement Lab | Baseline vs. candidate comparison report, version retention, fixed evaluator, and approved promotion |
+| 40 | Harmless cross-app integration test | Multi-workflow integration suite with synthetic data covering scope limits, takeover, and manual handoffs |
+| 41 | Focused recovery/safety smoke tests | Fault tests for offline/reconnect, stale responses, interrupted jobs, revoked permissions, and deduplication |
+| 42 | Package prototype and support matrix | Updated debug APK and `4CBOn2_Kaggle6.ipynb` bundle with checksums, setup guide, and verified capability matrix |
 
 ## Current build status
 
-| Division | Work status | Verification | Checkpoint |
+| Division | Work status | Verification | Key artifact / path |
 | --- | --- | --- | --- |
-| 01 — Freeze expanded prototype scope | **Finished** | Static design/consistency check | `android/PROTOTYPE_SCOPE.md` |
-| 02 — Phone-control feasibility and policy gate | **Finished** | Static policy/architecture consistency check; no device or store test | `android/PHONE_CONTROL_FEASIBILITY.md` |
-| 03 — Prepare Android build tools | **Finished** | Local inventory, compatibility baseline, and verified workspace-local provision | `android/BUILD_TOOLCHAIN.md` + `android/TOOLCHAIN_PROVISIONING.md` |
-| 03a — Provision workspace-local Android toolchain | **Finished** | JDK/Gradle integrity checks; Android SDK artifact and command checks | `android/TOOLCHAIN_PROVISIONING.md` |
-| 04 — Create minimal Android project | **Finished** | Wrapper, Kotlin compile, debug package, signing, and manifest checks passed in sandbox; no device test | `android/PROJECT_FOUNDATION.md` |
-| 05 — Produce first debug APK | **Finished** | Clean rebuild, SHA-256, alignment, v2 debug signature, and APK manifest/package checks passed; no installation test | `android/DEBUG_APK_RELEASE.md` + `4CBOn2-debug.apk` |
-| 06 — Add navigation | **Finished** | Five destinations, disabled Ask/How-do-I controls, one unit test, and sandbox build/signature checks passed; no device test | `android/NAVIGATION_FOUNDATION.md` |
-| 07 — Protected credential storage | **Finished** | Keystore/AES-GCM boundary compiled; four unit tests and static/build/signature checks passed; no secret/device-keystore/live-service test | `android/CREDENTIAL_STORAGE.md` |
-| 08 — Prove GitHub read access | **Finished (public route)** | HTTPS public metadata/root listing returned HTTP 200 from build environment; 9 unit/static/build/signature checks passed; no PAT, authenticated app, or device test | `android/GITHUB_READ_ACCESS.md` |
-| 09 — Prove Kaggle read access | **Blocked (Kaggle authorization)** | Public competition-list endpoint returned HTTP 401; read boundary, 13 unit/static/build/signature checks passed; a minimal read-only OAuth registration request is prepared but unsent; no token/OAuth client/device test | `android/KAGGLE_READ_ACCESS.md` + `android/KAGGLE_OAUTH_REGISTRATION_REQUEST.md` |
-| 09a — Prepare local Kaggle token route | **Not started** | Confirm documented token format/scoping and design/test a local-entry route before any real token is entered; no token in chat/source/logs | None |
-| 10 — Prove Colab entry/control route | **Finished (manual route)** | Fixed manual-handoff reference and public route investigation complete; target notebook reported missing; compile, aggregate 15-test suite, debug build, v2 signature, and static checks passed; no account/runtime/AI/device test | `android/COLAB_ENTRY_ROUTE.md` |
-| 10a — Restore/verify Division 10 toolchain checkpoint | **Finished** | Toolchain restored from verified sources; compile/test/APK verification completed with bounded one-worker memory configuration | `android/COLAB_ENTRY_ROUTE.md` |
-| 11–42 | **Not started** | Not tested | None |
+| 01 — Freeze expanded prototype scope | **Finished** | Static | `android/PROTOTYPE_SCOPE.md` |
+| 02 — Phone-control feasibility and policy gate | **Finished** | Static | `android/PHONE_CONTROL_FEASIBILITY.md` |
+| 03 / 03a — Prepare Android build tools | **Finished** | Build/Toolchain | `android/BUILD_TOOLCHAIN.md`, `android/TOOLCHAIN_PROVISIONING.md` |
+| 04 — Create minimal Android project | **Finished** | Build/APK | `android/PROJECT_FOUNDATION.md` |
+| 05 — Produce first debug APK | **Finished** | Build/APK | `4CBOn2-debug.apk` |
+| 06 — Add navigation | **Finished** | Unit + Build/APK | `android/NAVIGATION_FOUNDATION.md` |
+| 07 — Protected credential storage | **Finished** | Unit + Build/APK | `android/CREDENTIAL_STORAGE.md` |
+| 08 — Prove GitHub read access | **Finished** | Unit + Live public GET | `android/GITHUB_READ_ACCESS.md` |
+| 09 — Prove Kaggle read access | **Finished** | Unit + Build/APK (Bearer + Basic auth routes) | `KaggleCompetitionReadClient.kt` |
+| 09a — Local Kaggle token UI | **Finished** | Unit + Build/APK | `CredentialEntryController.kt`, `MainActivity.kt` |
+| 10 / 10a — Prove Colab entry/control route | **Finished (handoff)** | Unit + Build/APK | `android/COLAB_ENTRY_ROUTE.md` |
+| 11 — Local database | **Finished** | Unit (restart + corruption) + Build/APK | `LocalDatabase.kt` |
+| 12 — Selected-app capability registry | **Finished** | Unit + Build/APK | `PhoneControlRegistryAndScope.kt` |
+| 13 — On-device scope contract | **Finished** | Unit + Build/APK | `PhoneControlRegistryAndScope.kt` |
+| 14 — Takeover and cancellation lease | **Finished** | Unit + Build/APK | `TakeoverAndCriticalGuards.kt`, `MainActivity.kt` |
+| 15 — Offline agent drafts | **Finished** | Unit + Build/APK | `AgentDraftRepository.kt`, `MainActivity.kt` |
+| 16 — Safe file import/export | **Finished** | Unit (SHA-256 + cap + SAF) + Build/APK | `ScopedWorkspaceFileManager.kt` |
+| 17 — Offline knowledge library | **Finished** | Unit + Build/APK | `OfflineKnowledgeLibrary.kt`, `MainActivity.kt` |
+| 18 — Small local analysis | **Finished** | Unit (valid/invalid CSV & JSON) + Build/APK | `LocalDataAnalyzer.kt` |
+| 19 — Persistent waiting queue | **Finished** | Unit (restart + no auto-replay) + Build/APK | `PersistentWaitingQueue.kt` |
+| 20 — Sensitive-action approval gate | **Finished** | Unit + Build/APK | `TakeoverAndCriticalGuards.kt` |
+| 21 — One harmless app intent/API action | **Finished** | Unit + Build/APK | `ActionTimelineAndIntents.kt` |
+| 22 — GitHub cache and diff | **Finished** | Unit (LCS diff + export patch) + Build/APK | `ServiceCacheAndStatus.kt` |
+| 23 — Kaggle metadata/status | **Finished** | Unit (sync/stale/auth states) + Build/APK | `ServiceCacheAndStatus.kt` |
+| 24 — Chrome-backed opening | **Finished** | Unit + Build/APK | `BrowserSurfaces.kt`, `MainActivity.kt` |
+| 25 — Controlled browser workspace | **Finished** | Unit (URL/redirect/JS isolation) + Build/APK | `BrowserSurfaces.kt`, `MainActivity.kt` |
+| 26 — Consented observation boundary | **Finished** | Unit (redaction + sensitive block) + Build/APK | `TakeoverAndCriticalGuards.kt` |
+| 27 — Actual action timeline | **Finished** | Unit + Build/APK | `ActionTimelineAndIntents.kt`, `MainActivity.kt` |
+| 28 — Shared job bundle | **Finished** | JUnit + Python cross-verified | `SharedJobBundleAndColabBridge.kt`, `4CBOn2_Kaggle6.ipynb` |
+| 29 — Notebook skeleton | **Finished** | Python nbformat + runtime tests | `4CBOn2_Kaggle6.ipynb` |
+| 30 — Colab built-in AI adapter | **Finished** | Mocked `google.colab.ai` + Android receipt tests | `4CBOn2_Kaggle6.ipynb`, `SharedJobBundleAndColabBridge.kt` |
+| 31 — One bounded agent loop | **Finished** | JUnit + Python loop/stop/error tests | `AgentLoopRoutinesAndRouter.kt`, `4CBOn2_Kaggle6.ipynb` |
+| 32 — Critical phone-action guard | **Finished** | Unit (manual handoff + no blind retry) + Build/APK | `TakeoverAndCriticalGuards.kt` |
+| 33 — Human-defined routine engine | **Finished** | Unit (rejects AI trigger + locked device) + Build/APK | `AgentLoopRoutinesAndRouter.kt` |
+| 34 — Conditional personal-lab UI runner | **Finished** | Unit (disabled in Standard; fixture-only in Lab) | `AgentLoopRoutinesAndRouter.kt` |
+| 35 — Privacy and prompt-injection tests | **Finished** | Unit (hostile fixtures + exfiltration blocks) + Python | `PrivacyAndPromptInjectionGuard.kt`, `4CBOn2_Kaggle6.ipynb` |
+| 36 — Online/offline phone-control routing | **Finished** | Unit (no fake cloud / lock bypass / alt provider) | `AgentLoopRoutinesAndRouter.kt` |
+| 37 — Kaggle prepare-only pipeline | **Finished** | Unit (seeded k-fold + schema checks) + Python | `KagglePipelineGateAndImprovementLab.kt`, `4CBOn2_Kaggle6.ipynb` |
+| 38 — Submission gate and receipt states | **Finished** | Unit (caps + durable ledger + timeout lock) + Python | `KagglePipelineGateAndImprovementLab.kt`, `4CBOn2_Kaggle6.ipynb` |
+| 39 — Minimal Improvement Lab | **Finished** | Unit (sealed evaluator + owner gate + rollback) + Python | `KagglePipelineGateAndImprovementLab.kt`, `4CBOn2_Kaggle6.ipynb` |
+| 40 — Harmless cross-app integration test | **Finished** | Integration (reader + loop + scope + takeover + guard) | `Batch4PipelinesLabAndSecurityTest.kt` |
+| 41 — Focused recovery/safety smoke tests | **Finished** | Fault injection (reconnect + stale lease + restart + dedup) | `Batch4PipelinesLabAndSecurityTest.kt` |
+| 42 — Package prototype and support matrix | **Finished** | Build/APK (v2 signed) + Notebook + Checksums | `PROTOTYPE_PACKAGE_AND_SUPPORT_MATRIX.md`, `4CBOn2-debug.apk`, `4CBOn2_Kaggle6.ipynb` |
 
-Divisions 01–02 are foundation documentation checkpoints; Division 03/03a provisioned the active sandbox toolchain; Division 04 created and locally compiled the source skeleton; Division 05 retained and verified a debug-signed development APK; Division 06 added locally verified navigation source; Division 07 added a compiled, unpopulated credential-storage boundary; Division 08 added a read-only GitHub boundary and verified public repository visibility from the build environment; Division 09 added a read-only Kaggle boundary but correctly stopped at Kaggle’s authorization requirement; Division 10 added and locally verified a fixed manual Colab handoff reference, while the target notebook itself remains missing and runtime/AI capability remains untested. These results do **not** establish phone compatibility, authenticated GitHub/Kaggle access, a Colab account/notebook/runtime or built-in-AI call, special permissions beyond the normal Internet declaration, a real device test, store eligibility, credential entry/storage on a device, production signing, or production release readiness. The retained Division 05 APK predates the Division 06–10 source updates. No later division is implied to exist merely because it is listed.
+All **42 divisions (`01–42`, plus `09a`)** are complete and verified: **38 Android JUnit4 tests (`0` failures)** across 15 suites + **7 Python notebook tests (`0` failures)**, producing `/home/user/4CBOn2_Kaggle6.ipynb` (`a7d355670ef12503deb5988998855621697d32ce0c01e7542703e873e220cefe`), v2-signed `/home/user/4CBOn2-debug.apk` (`2667bacdb98be8213dd97897e09d8cc1fe17bedefbd221428759d357b063f93e`), and `/home/user/PROTOTYPE_PACKAGE_AND_SUPPORT_MATRIX.md`.
 
-## Dependency and blocker rules
+## Dependencies and execution batches
 
-- Division 02 is an early feasibility/policy gate, not proof that the owner device supports the desired permissions.
-- Divisions 08–10 establish actual service routes or blockers. A browser-open state is not authenticated programmatic control.
-- Division 30 proves built-in AI itself; runtime-management access in 10 is a different capability.
-- Division 14 must work before any interactive phone input is enabled. Late remote commands must not resume a cancelled session.
-- The standard profile prioritizes APIs/intents. A general-purpose autonomous Accessibility runner is not represented as Play-eligible because scope/stop controls exist.
-- Division 34 stays blocked or omitted if the device/deployment is ineligible. Do not supply an OS/security bypass or mislabel the app as an accessibility tool.
-- Phone UI tests initially use an owner-controlled test app and synthetic data. Do not test automation on live banking, authentication, permission-grant, or payment screens.
-- Division 40 requires the applicable scope, takeover, observation, and critical-action tests. Unsupported routes remain explicit manual handoffs.
-- Division 31 requires genuine supporting capabilities. A file-transfer/manual route is not a completed autonomous cloud round trip.
-- Division 38 may pass mocked/local tests while live submission remains unverified; never conflate the two.
-- A cloud job may outlast a session. Save its reference and check in a later session; do not wait past the cap or blindly repeat it.
-- Safe offline modules can progress while unrelated remote/device gates are blocked, if their own dependencies pass.
-- Division 42 is a prototype handoff, not production/security certification or Play approval.
+- **Parallel progress over auth/device waits:** Local Android databases, UI screens, scope/takeover engines, browser/intent workflows, and `4CBOn2_Kaggle6.ipynb` never wait on live credentials or physical device tests.
+- **Recommended implementation batches:**
+  1. **Local state & credential UI:** Divisions `09a`, `11`, `15`, `16`, `17`, `18`, `19`
+  2. **Scope, takeover & action guards:** Divisions `12`, `13`, `14`, `20`, `26`, `27`, `32`
+  3. **Intents, service views & browser:** Divisions `21`, `22`, `23`, `24`, `25`
+  4. **Shared bundle, Colab notebook & agent loop:** Divisions `28`, `29`, `30`, `31`, `33`, `34`, `36`
+  5. **Pipelines, Improvement Lab, verification & packaging:** Divisions `35`, `37`, `38`, `39`, `40`, `41`, `42`
+- **Hard technical ordering:**
+  - Complete Take Over/Stop (`14`) before enabling automated interactive actions (`21`, `31`, `33`, `34`).
+  - Complete the shared job bundle (`28`) and notebook skeleton (`29`) before the integrated cloud agent loop (`31`).
+  - Keep banking, authentication, payment, lock-screen, and OS-permission screens manual-only; run UI automation tests against synthetic fixtures (`34`, `40`).
+  - Require explicit owner confirmation before live repository writes (`22`) or live Kaggle submissions (`38`).
 
-## Progress record
+## Progress tracking
 
-Track two separate dimensions:
+Update the status table per completed batch using two concise dimensions:
 
-1. **Work status:** Not started, in progress, checkpointed, blocked, or finished.
-2. **Verification:** Not tested, static check, mocked/local test, emulator test, real-device test, or live-service test.
+1. **Work status:** `Ready`, `In progress`, `Blocked (external)`, or `Finished`.
+2. **Verification:** `Static`, `Unit/Mocked`, `Build/APK`, `Emulator`, `Device`, or `Live service`.
 
-Each division report records elapsed time, exact files/changes, actual tests/outcomes, checkpoint/artifact path, blockers, remaining work, any continuation needed, and the next eligible division.
+Label verification accurately by the highest tier actually executed, and omit per-division prose reports, elapsed-time logs, and continuation boilerplate.
 
-A successful mocked or emulator test must not be labeled real-device compatible, live-service verified, or store-approved. Local checkpoints do not imply a repository commit/upload; report those only if they actually occurred through an authorized route.
-
-## Still outside the prototype's promises
+## Out of scope
 
 - Universal autonomous control of every installed app or website.
 - Control of protected credential, payment, lock-screen, or system-consent workflows.
 - Root access, hidden input, bypassed security settings, or self-granted permissions.
-- A mandatory on-device LLM or full offline reasoning on an untested phone.
-- An always-on backend or guaranteed Colab availability.
+- A mandatory on-device LLM or full offline reasoning on unverified hardware.
+- An always-on backend or guaranteed Colab runtime availability.
 - A general arbitrary-code sandbox or unrestricted remote browser service.
-- Every Kaggle competition type.
-- Production penetration testing, Play Store approval, and production signing/distribution.
+- Every Kaggle competition format beyond the supported tabular baseline.
+- Production penetration testing, Play Store certification, and production signing.
 
-These require further legitimate, separately scoped work if applicable. They cannot be squeezed into the final division or presented as completed without evidence.
+## Build readiness
 
-## Readiness decision
+**Cleared for continuous, multi-division execution.** Advance directly through `09a` and `11–42` in batches, verify with automated tests and updated debug APKs, and defer only live credential or hardware checks that require direct owner interaction.
 
-**Ready for phased foundation implementation when requested; broader phone control remains gated. Still designing now.**
+---
 
-The goal is one verified increment or an honest recoverable checkpoint per session—not a guaranteed entire product at 42 times 30 minutes.
+# v0.3 — The Daily Experiment Cycle (Divisions 43–52)
+
+**Active build · 2 November 2026 · Divisions 43–50 code-complete with 59/59 pure-JVM Kotlin tests;
+Division 51 shipped with 10/10 Python notebook tests. APK re-packaging (52) is pending an environment
+with Android SDK access — see `4CBOn2_v0.3_Verification_Report.md`.**
+
+## Why v0.3 exists
+
+v0.2 could open a notebook, prepare a tabular artifact, and gate a submission, but it could not *run
+its own research day*. The owner's question during the live ARC-AGI-3 campaign — *"4CBOn2 app was
+supposed to think and get better at this everyday by itself — Right?"* — exposed three concrete gaps:
+
+1. The evaluator only understood local `.csv` folds, not interactive-benchmark evidence
+   (`score`, `levels`, `actions`, `tokens`).
+2. Nothing pulled run telemetry back into the app, so no candidate could be proposed automatically.
+3. There was no closed-loop, daily UX: ingest → diagnose → propose → dispatch → gate → promote.
+
+v0.3 closes all three, and it does so with the same safety posture as v0.2: nothing promotes itself,
+nothing is invented, and every external action stays owner-gated.
+
+## The 10 v0.3 divisions
+
+| No. | Division | Deliverable / verification target |
+| --- | --- | --- |
+| 43 | Run telemetry contract & ingest | `4cbon2.run_telemetry.v1` normalized record, ARC diagnostics / Kaggle kernel status / manual ingest, credential-shaped material stripped before storage, rejects instead of defaulting |
+| 44 | Fixed benchmark evaluator registry | Candidate-immutable evaluator per benchmark family; unknown metric or family rejected, under-sampled or unfinished runs inconclusive |
+| 45 | Run diagnoser | Deterministic ranked findings with numeric evidence (score regression, level stall, token burn, action inefficiency, wall-clock inflation) and one bounded lever per finding |
+| 46 | Bounded candidate diff synthesis | Exactly one allowlisted, in-bounds, attributable change per experiment; protected areas unreachable; imported diffs re-validated |
+| 47 | Champion ledger & promotion gate | Durable locked champion per competition, append-only history, 1-tap owner approval, one-step rollback, cost-envelope and non-inferiority gates |
+| 48 | Daily Experiment Cycle orchestrator | Durable resumable state machine, one live cycle per competition, pre-send dispatch intent, restart-safe, Stop/Takeover honoured before any external call |
+| 49 | Experiment dispatch transports | Kaggle kernel / GitHub workflow / Colab manual handoff behind an injected HTTP call; missing credential ⇒ `NotConfigured`, ambiguous failure ⇒ reconcile before retry |
+| 50 | Daily Lab surface | Pure `DailyLabPresenter` display model + Compose Daily Lab card: ingest pasted telemetry, Approve & Run, Approve / Decline promotion, roll back, audit trail |
+| 51 | Notebook telemetry emitter & diff applier | `build_run_telemetry` / `emit_run_telemetry` / `apply_candidate_diff` cells in `4CBOn2_Kaggle6.ipynb`, mirroring the Kotlin contracts and bounds |
+| 52 | Package & verify v0.3 | Verification report, updated support matrix, APK/notebook bundle, refreshed handoff |
+
+## Current v0.3 status
+
+| Division | Work status | Verification | Key artifact / path |
+| --- | --- | --- | --- |
+| 43 — Run telemetry contract & ingest | **Finished** | Unit (5 tests) | `RunTelemetry.kt` |
+| 44 — Fixed benchmark evaluator registry | **Finished** | Unit | `BenchmarkEvaluators.kt` |
+| 45 — Run diagnoser | **Finished** | Unit (4 tests) | `RunDiagnoser.kt` |
+| 46 — Bounded candidate diff synthesis | **Finished** | Unit (4 tests) | `CandidateDiffSynthesizer.kt` |
+| 47 — Champion ledger & promotion gate | **Finished** | Unit (6 tests) | `ChampionLedgerAndPromotionGate.kt` |
+| 48 — Daily Experiment Cycle orchestrator | **Finished** | Unit incl. restart & duplicate-dispatch | `DailyExperimentCycle.kt` |
+| 49 — Experiment dispatch transports | **Finished** | Unit + mocked HTTP | `ExperimentDispatch.kt`, `AuthenticatedDispatchHttp.kt` |
+| 50 — Daily Lab surface | **Code complete** | Presenter: Unit. Compose card: review only (no SDK in this environment) | `DailyLabPresenter.kt`, `MainActivity.kt` |
+| 51 — Notebook telemetry emitter & diff applier | **Finished** | Python `unittest` (2 tests) | `4CBOn2_Kaggle6.ipynb`, `scripts/build_notebook.py` |
+| 52 — Package & verify v0.3 | **In progress** | Static + Unit | `4CBOn2_v0.3_Verification_Report.md` |
+
+## v0.3 execution rules (unchanged in spirit, sharper in practice)
+
+- **The candidate never grades itself.** The evaluator set is compiled in; a diff cannot install,
+  replace, or re-tune one (`44`, `46`).
+- **One change per experiment.** A diff that mixes two levers is rejected outright, because a mixed
+  change cannot be attributed to a cause (`46`).
+- **Inconclusive is a first-class answer.** Small samples, unfinished runs, and inside-noise deltas
+  keep the champion and say so (`44`, `45`, `47`).
+- **Durability before danger.** The dispatch intent is written to disk before the transport call, so
+  a crash or dropped connection can never double-submit (`48`).
+- **Stop beats everything.** Every mutating step re-reads the control lease; takeover or Stop blocks
+  dispatch immediately (`48`, `50`).

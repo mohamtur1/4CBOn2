@@ -1,0 +1,14 @@
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+
+# Generated Android outputs
+app/build/
+*.apk
+*.aab
+
+# Local toolchains and caches do not belong in source control
+.android-sdk/
+.toolchain/
