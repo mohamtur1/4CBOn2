@@ -17,7 +17,31 @@ android {
         versionName = "0.3.0-dev"
     }
 
+    // Pin the debug identity to the keystore committed at android/debug.keystore.
+    //
+    // Without this, AGP resolves the debug key from ~/.android/debug.keystore on whichever machine
+    // runs the build. A GitHub-hosted runner that does not already have that file ends up with a
+    // different certificate, and an APK signed by a different certificate cannot be installed over
+    // an existing one (Android reports "App not installed"). This was observed in CI: the committed
+    // keystore was present and copied to ~/.android, yet the build still signed with a third key.
+    //
+    // Naming the store file explicitly removes every home-directory and cache dependency.
+    // The passwords are the well-known public debug values, not secrets; see android/DEBUG_SIGNING.md.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = rootProject.file("debug.keystore")
+            storeType = "JKS"
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("debug")
+        }
+
         release {
             isMinifyEnabled = false
             proguardFiles(

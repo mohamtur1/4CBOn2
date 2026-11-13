@@ -87,8 +87,8 @@ adb install -r /home/user/4CBOn2-debug.apk
 
 **Package version:** `v0.3.0-dev` (versionCode `3`) · **Date:** 13 November 2026
 **Status:** Divisions 43–52 complete. Core modules are unit-verified locally; the debug APK is built,
-signed and verified by `build-debug-apk.yml` on a GitHub-hosted runner and published to the rolling
-release `4cbon2-debug-apk-latest`.
+signed with a pinned, committed debug keystore, verified by `build-debug-apk.yml` on a GitHub-hosted
+runner and published to the rolling release `4cbon2-debug-apk-latest` from `main`.
 
 ## 1. New verified artifacts
 
@@ -152,12 +152,12 @@ in an SDK-enabled environment.
 | Release | `4cbon2-debug-apk-latest` — <https://github.com/mohamtur1/4CBOn2/releases/latest> |
 | Asset | `4CBOn2-debug.apk` |
 | Package / version | `io.github.mohamtur1.fourcbon2` · `0.3.0-dev` (code `3`) |
-| Size | 12,137,771 bytes |
-| Signer certificate SHA-256 | `6a69c16df8f28cfd240225edbb82d2b8ada9e19ebcc5df28872b8cd5e3af3772` |
-| Asset SHA-256 (build shipped with Division 52) | `dce0c5a706cc54116d8e9ac14f06a16d0c471de81e8c76ea27064c9a3ccc4c4e` — superseded by later rebuilds |
-| Built from commit | `c19bd3e` (branch `arena/92b7263b-4cbon2`), workflow run 13 |
+| Signer certificate SHA-256 | `ea1f65ed3e32acafabeabdc8bd9af697520929fbe9b8849eb612efbf0fe3b316` — pinned since 13 Nov 2026 in `android/debug-signer.sha256` |
+| Signing key source | Committed `android/debug.keystore`, named explicitly by the debug signing config in `android/app/build.gradle.kts` (no Actions cache, no runner home directory) |
+| Size / asset SHA-256 | Varies per rebuild (see the release body's *Build record* for the authoritative values); the Division 52 build was 12,137,771 bytes / `dce0c5a706cc54116d8e9ac14f06a16d0c471de81e8c76ea27064c9a3ccc4c4e` |
+| Built from | `main`, by `.github/workflows/build-debug-apk.yml`; only `main` publishes the rolling release, and the exact commit and run number are recorded in the release body |
 | Toolchain | JDK 17 (Temurin), compileSdk 37 (`android-37.0`), build-tools 36.0.0, AGP 9.2.0 |
-| Verified by | `zipalign -c -v 4` plus `apksigner verify --verbose` (APK Signature Scheme v2) in CI |
+| Verified by | `zipalign -c -v 4`, `apksigner verify --verbose` (APK Signature Scheme v2), `:app:signingReport`, and a signer-digest pin check that fails the build on drift |
 
 Debug builds are not byte-reproducible, so the SHA-256 changes on each rebuild. The authoritative
 digest is the one GitHub reports for the release asset; it is repeated in the release body together

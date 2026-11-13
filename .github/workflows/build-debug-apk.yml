@@ -5,7 +5,9 @@ on:
   push:
     branches:
       - main
-      - "arena/92b7263b-4cbon2"
+      # Agent work branches build and verify the APK before merge, but only main publishes it
+      # (see the "Publish / refresh the rolling download release" step).
+      - "arena/**"
     # Only real app/toolchain inputs retrigger a build. Documentation under android/*.md
     # does not, so a docs-only commit cannot quietly change the published APK checksum.
     paths:
@@ -13,6 +15,8 @@ on:
       - "android/*.gradle.kts"
       - "android/gradle.properties"
       - "android/gradle/**"
+      - "android/debug.keystore"
+      - "android/debug-signer.sha256"
       - ".github/workflows/build-debug-apk.yml"
 
 permissions:
@@ -43,35 +47,44 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # A debug keystore generated fresh on every runner would give every build a different
-      # signature, forcing an uninstall (and losing local data) on each upgrade. So: restore one
-      # cached keystore, create it only if the cache is cold, then save it back explicitly.
-      - name: Restore the stable debug keystore
-        id: keystore-restore
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: 4cbon2-debug-keystore-v2
-
-      - name: Create the debug keystore if the cache was cold
+      # The debug identity is a committed file, not a cache entry: Actions caches are branch-scoped,
+      # so a key saved by a work branch is invisible to a build on main and every branch minted its
+      # own certificate. android/app/build.gradle.kts points the debug signingConfig straight at this
+      # file, so no runner state is involved. Check it before spending 3 minutes on the build.
+      - name: Check the committed debug keystore against the pin
         shell: bash
         run: |
           set -euo pipefail
-          KEYSTORE="$HOME/.android/debug.keystore"
-          mkdir -p "$HOME/.android"
-          if [ -f "$KEYSTORE" ]; then
-            echo "Restored the cached debug keystore."
-          else
-            echo "Cold cache: generating the project debug keystore (this becomes the stable key)."
-            keytool -genkeypair -v \
-              -keystore "$KEYSTORE" \
-              -storepass android -keypass android \
-              -alias androiddebugkey \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US" >/dev/null
+          KEYSTORE="android/debug.keystore"
+          PIN_FILE="android/debug-signer.sha256"
+          test -f "$KEYSTORE"
+          test -f "$PIN_FILE"
+          EXPECTED="$(tr -d '[:space:]' < "$PIN_FILE")"
+          # keytool prints "Certificate fingerprint (SHA-256): AA:BB:..". Split on "label: value"
+          # (-F': ') rather than a greedy sed, which would silently keep only the last hex pair.
+          ACTUAL="$(keytool -list -keystore "$KEYSTORE" -storepass android -alias androiddebugkey \
+            | awk -F': ' '/SHA-?256\)?:/ {print $2; exit}' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          echo "Committed keystore certificate SHA-256: ${ACTUAL:-<unreadable>}"
+          echo "Pinned in $PIN_FILE:                    $EXPECTED"
+          if [ -z "$ACTUAL" ]; then
+            echo "::error title=Unreadable keystore::keytool could not read an androiddebugkey certificate from $KEYSTORE with the public debug password."
+            exit 1
           fi
-          keytool -list -keystore "$KEYSTORE" -storepass android \
-            -alias androiddebugkey | grep -i 'SHA-256' || true
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error title=Keystore pin mismatch::$KEYSTORE holds $ACTUAL but $PIN_FILE pins $EXPECTED. Rotate both together (see android/DEBUG_SIGNING.md)."
+            exit 1
+          fi
+          echo "KEYSTORE_SHA256=$ACTUAL" >> "$GITHUB_ENV"
+
+      # Belt and braces: some tools still resolve the conventional location. The Gradle signing
+      # config does not depend on it, so a runner without this file builds identically.
+      - name: Mirror the keystore to the conventional debug location
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          cp android/debug.keystore "$HOME/.android/debug.keystore"
+          echo "Mirrored to $HOME/.android/debug.keystore"
 
       - name: Download the Android command-line tools
         shell: bash
@@ -107,6 +120,39 @@ jobs:
           sdkmanager --install "platforms;android-37.0" "build-tools;36.0.0" "platform-tools" >/dev/null
           test -f "${ANDROID_HOME}/platforms/android-37.0/android.jar"
           test -x "${ANDROID_HOME}/build-tools/36.0.0/apksigner"
+
+      # Ask Gradle itself which key it will sign with, before the build spends 3 minutes finding out.
+      # This is the check that was missing when a build silently signed with a runner-generated key
+      # even though the committed keystore was present.
+      - name: Confirm Gradle resolves the pinned debug signing config
+        working-directory: android
+        shell: bash
+        run: |
+          set -uo pipefail
+          chmod +x gradlew
+          LOG="$RUNNER_TEMP/signing-report.log"
+          ./gradlew --no-daemon --console=plain --max-workers=1 :app:signingReport >"$LOG" 2>&1 \
+            || echo "::warning title=signingReport failed::The pre-flight signing report did not run; the post-build pin check still enforces the identity. See the job log."
+          {
+            echo "### Gradle signing report (debug variant)"
+            echo ""
+            echo '```'
+            awk '/Variant: debug/{f=1} f{print} /^----------/{if (f) exit}' "$LOG" | head -20 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          RESOLVED="$(awk '/Variant: debug/{f=1} f && /SHA-?256\)?:/{print; exit}' "$LOG" \
+            | awk -F': ' '{print $2}' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          STORE="$(awk '/Variant: debug/{f=1} f && /^Store:/{print; exit}' "$LOG" | sed 's/^Store: *//')"
+          echo "Gradle debug store file: ${STORE:-<unknown>}"
+          echo "Gradle debug cert SHA-256: ${RESOLVED:-<unknown>}"
+          if [ -z "$RESOLVED" ]; then
+            echo "::warning title=Signing report unreadable::No certificate digest for the debug variant; relying on the post-build check."
+          elif [ "$RESOLVED" != "$KEYSTORE_SHA256" ]; then
+            echo "::error title=Gradle resolved a different signing key::Gradle will sign with $RESOLVED (store: ${STORE:-unknown}) but android/debug.keystore pins $KEYSTORE_SHA256. The explicit debug signingConfig in android/app/build.gradle.kts was not applied."
+            exit 1
+          else
+            echo "Gradle resolves the pinned debug key ($RESOLVED)."
+          fi
 
       - name: Assemble the debug APK
         working-directory: android
@@ -189,8 +235,8 @@ jobs:
           } >> "$GITHUB_ENV"
 
       # An upgrade in place only works while the signing certificate stays the same. The pin file
-      # holds that certificate's public SHA-256 digest, so a broken keystore cache fails the build
-      # instead of quietly shipping an APK that forces every owner to uninstall first.
+      # holds that certificate's public SHA-256 digest, so any drift fails the build instead of
+      # quietly shipping an APK that forces every owner to uninstall first.
       - name: Assert the signing certificate still matches the pin
         shell: bash
         run: |
@@ -202,8 +248,12 @@ jobs:
             exit 0
           fi
           EXPECTED="$(tr -d '[:space:]' < "$PIN_FILE")"
+          if [ -z "$APK_SIGNER" ]; then
+            echo "::error title=Signer unreadable::apksigner reported no certificate digest for the built APK."
+            exit 1
+          fi
           if [ "$EXPECTED" != "$APK_SIGNER" ]; then
-            echo "::error title=Signer drift::APK is signed by $APK_SIGNER but $PIN_FILE pins $EXPECTED. The keystore cache did not restore."
+            echo "::error title=Signer drift::APK is signed by $APK_SIGNER but $PIN_FILE pins $EXPECTED. android/app/build.gradle.kts must point the debug signingConfig at android/debug.keystore."
             exit 1
           fi
           echo "Signer matches the pin ($EXPECTED)."
@@ -219,7 +269,10 @@ jobs:
           path: 4CBOn2-debug.apk
           if-no-files-found: error
 
+      # Only main publishes. A work branch can prove the APK builds and signs correctly, but the
+      # rolling "latest" download must always come from merged code.
       - name: Publish / refresh the rolling download release
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: 4cbon2-debug-apk-latest
@@ -240,11 +293,13 @@ jobs:
                for the app you downloaded it with, then tap Install.
             4. Launch **4CBOn2** from the home screen.
 
-            **Upgrading from an older build:** this APK is signed with the project's
-            cached debug key. Builds published before that key was cached used a
-            throwaway per-run key, so an old install may not accept this one. If
-            Android says *App not installed* or reports a signature mismatch,
-            uninstall the old 4CBOn2 first, then install this one.
+            **One-time note for anyone upgrading from a build published before
+            13 November 2026:** earlier builds were signed with a throwaway per-run
+            key, so an old install will reject this one (*App not installed* /
+            signature mismatch). Uninstall the old 4CBOn2 once, then install this
+            APK. Every build from this one onward is signed with the same committed
+            debug keystore (`android/debug.keystore`), so later upgrades install in
+            place and keep their on-device data.
 
             Requires Android 8.0 or newer (API 26+).
 
@@ -258,6 +313,12 @@ jobs:
             - Signer: ${{ env.APK_SIGNER }}
             - Version: ${{ env.APK_VERSION_LINE }}
 
+      - name: Note that a branch build does not publish
+        if: github.ref != 'refs/heads/main'
+        shell: bash
+        run: |
+          echo "Built and verified on \`${{ github.ref_name }}\`, not published: the rolling release only refreshes from \`main\`." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Run unit tests (informational)
         continue-on-error: true
         working-directory: android
@@ -265,10 +326,3 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew --no-daemon --console=plain --max-workers=1 :app:testDebugUnitTest
-
-      - name: Save the debug keystore for the next build
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: ${{ steps.keystore-restore.outputs.cache-primary-key }}
