@@ -159,9 +159,10 @@ Label verification accurately by the highest tier actually executed, and omit pe
 
 # v0.3 — The Daily Experiment Cycle (Divisions 43–52)
 
-**Active build · 2 November 2026 · Divisions 43–50 code-complete with 59/59 pure-JVM Kotlin tests;
-Division 51 shipped with 10/10 Python notebook tests. APK re-packaging (52) is pending an environment
-with Android SDK access — see `4CBOn2_v0.3_Verification_Report.md`.**
+**Shipped · 13 November 2026 · Divisions 43–52 complete. 59/59 pure-JVM Kotlin tests and 10/10 Python
+notebook tests pass; the v0.3 debug APK is built and verified on a GitHub-hosted runner
+(`:app:assembleDebug` + `zipalign` + `apksigner`) and published to the rolling release
+`4cbon2-debug-apk-latest`. Download and install steps: `android/RELEASE_DOWNLOAD.md`.**
 
 ## Why v0.3 exists
 
@@ -203,9 +204,9 @@ nothing is invented, and every external action stays owner-gated.
 | 47 — Champion ledger & promotion gate | **Finished** | Unit (6 tests) | `ChampionLedgerAndPromotionGate.kt` |
 | 48 — Daily Experiment Cycle orchestrator | **Finished** | Unit incl. restart & duplicate-dispatch | `DailyExperimentCycle.kt` |
 | 49 — Experiment dispatch transports | **Finished** | Unit + mocked HTTP | `ExperimentDispatch.kt`, `AuthenticatedDispatchHttp.kt` |
-| 50 — Daily Lab surface | **Code complete** | Presenter: Unit. Compose card: review only (no SDK in this environment) | `DailyLabPresenter.kt`, `MainActivity.kt` |
+| 50 — Daily Lab surface | **Finished** | Presenter: Unit. Compose card compiles in the CI APK build | `DailyLabPresenter.kt`, `MainActivity.kt` |
 | 51 — Notebook telemetry emitter & diff applier | **Finished** | Python `unittest` (2 tests) | `4CBOn2_Kaggle6.ipynb`, `scripts/build_notebook.py` |
-| 52 — Package & verify v0.3 | **In progress** | Static + Unit | `4CBOn2_v0.3_Verification_Report.md` |
+| 52 — Package & verify v0.3 | **Finished** | Gradle `:app:assembleDebug` + `zipalign` + `apksigner` on CI; Static + Unit locally | `android/RELEASE_DOWNLOAD.md`, `4CBOn2_v0.3_Verification_Report.md` |
 
 ## v0.3 execution rules (unchanged in spirit, sharper in practice)
 
