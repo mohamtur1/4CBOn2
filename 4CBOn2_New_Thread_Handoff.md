@@ -55,7 +55,7 @@ Because Arena workspace snapshots exclude `.cache` / SDK binaries, a new thread 
 ## 5. v0.3 Progress — Daily Experiment Cycle (added 2 November 2026)
 
 **Package:** `v0.3.0-div50` · **Branch of record:** `arena/f4b22ec8-4cbon2`
-**Verification:** 59/59 Kotlin tests (pure JVM) and 10/10 Python notebook tests pass.
+**Verification:** 64/64 Kotlin tests (pure JVM) and 10/10 Python notebook tests pass.
 **APK:** not rebuilt — this environment cannot reach `dl.google.com` for the Android SDK (see §6).
 
 ### What the gap in §3 now looks like
@@ -85,7 +85,7 @@ Because Arena workspace snapshots exclude `.cache` / SDK binaries, a new thread 
 
 ```bash
 # Always works, even without the Android SDK:
-scripts/verify_pure_kotlin.sh                    # 59/59 Kotlin tests
+scripts/verify_pure_kotlin.sh                    # 64/64 Kotlin tests
 python3 scripts/build_notebook.py
 python3 -m unittest discover -s tests -p "test_*.py" -v   # 10/10 Python tests
 

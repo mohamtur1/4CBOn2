@@ -1,7 +1,34 @@
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+// Stamped into BuildConfig so the installed app can identify itself on the Home screen
+// (see BuildStamp.kt / AndroidBuildStampReader.kt). Both values come from the same inputs the
+// signing pipeline uses, so the phone and the release page cannot disagree:
+//   BUILT_UTC           — when this build was made, in UTC. CI passes -PbuiltUtc so the APK, the
+//                         release title and the release body all carry the identical stamp; a local
+//                         build without that property falls back to configuration time.
+//   SIGNER_SHA256_PIN   — android/debug-signer.sha256, the certificate digest CI asserts against.
+//                         Read defensively: a missing pin yields an empty string, which the stamp
+//                         reports as "no pinned key" rather than failing the build.
+// The java.time / java.util types are imported above on purpose: written out in full inside the
+// script, `java.time.…` fails to compile because `java` binds to the Gradle java extension.
+val builtUtc: String = providers.gradleProperty("builtUtc").orNull?.trim()?.takeIf { it.isNotEmpty() }
+    ?: ZonedDateTime
+        .now(ZoneOffset.UTC)
+        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'", Locale.US))
+val pinnedSignerSha256: String = rootProject
+    .file("debug-signer.sha256")
+    .takeIf { it.isFile }
+    ?.readText()
+    ?.trim()
+    .orEmpty()
 
 android {
     namespace = "io.github.mohamtur1.fourcbon2"
@@ -15,6 +42,9 @@ android {
         targetSdk = 36
         versionCode = 3
         versionName = "0.3.0-dev"
+
+        buildConfigField("String", "BUILT_UTC", "\"$builtUtc\"")
+        buildConfigField("String", "SIGNER_SHA256_PIN", "\"$pinnedSignerSha256\"")
     }
 
     // Pin the debug identity to the keystore committed at android/debug.keystore.
@@ -58,6 +88,9 @@ android {
 
     buildFeatures {
         compose = true
+        // Off by default since AGP 8; the on-device build stamp reads BuildConfig.BUILT_UTC and
+        // BuildConfig.SIGNER_SHA256_PIN.
+        buildConfig = true
     }
 
     packaging {
