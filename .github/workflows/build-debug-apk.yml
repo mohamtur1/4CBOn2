@@ -1,0 +1,225 @@
+name: Build 4CBOn2 Debug APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - "arena/92b7263b-4cbon2"
+    # Only real app/toolchain inputs retrigger a build. Documentation under android/*.md
+    # does not, so a docs-only commit cannot quietly change the published APK checksum.
+    paths:
+      - "android/app/**"
+      - "android/*.gradle.kts"
+      - "android/gradle.properties"
+      - "android/gradle/**"
+      - ".github/workflows/build-debug-apk.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-debug-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APK_PATH: android/app/build/outputs/apk/debug/app-debug.apk
+  ASSET_NAME: 4CBOn2-debug.apk
+
+jobs:
+  build:
+    name: Debug APK
+    if: github.repository == 'mohamtur1/4CBOn2'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # A debug keystore generated fresh on every runner would give every build a different
+      # signature, forcing an uninstall (and losing local data) on each upgrade. Cache one.
+      - name: Restore the stable debug keystore
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: 4cbon2-debug-keystore-v1
+
+      - name: Download the Android command-line tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 15 --max-time 300 \
+            --output "$RUNNER_TEMP/android-commandline-tools.zip" \
+            "https://dl.google.com/android/repository/commandlinetools-linux-16111833_latest.zip"
+
+      - name: Unpack the Android command-line tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_HOME="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$ANDROID_HOME/cmdline-tools" "$RUNNER_TEMP/android-commandline"
+          unzip -q "$RUNNER_TEMP/android-commandline-tools.zip" -d "$RUNNER_TEMP/android-commandline"
+          mv "$RUNNER_TEMP/android-commandline/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          {
+            echo "ANDROID_HOME=$ANDROID_HOME"
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME"
+          } >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+      - name: Install the SDK packages this project needs
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +o pipefail
+          yes | sdkmanager --licenses >/dev/null
+          set -o pipefail
+          # compileSdk 37 ships as "android-37.0"; build-tools 36.0.0 is the verified set.
+          sdkmanager --install "platforms;android-37.0" "build-tools;36.0.0" "platform-tools" >/dev/null
+          test -f "${ANDROID_HOME}/platforms/android-37.0/android.jar"
+          test -x "${ANDROID_HOME}/build-tools/36.0.0/apksigner"
+
+      - name: Assemble the debug APK
+        working-directory: android
+        shell: bash
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon --console=plain --max-workers=1 --stacktrace :app:assembleDebug 2>&1 \
+            | tee "$RUNNER_TEMP/gradle.log"
+
+      - name: Surface Gradle errors as annotations and in the summary
+        if: failure()
+        shell: bash
+        run: |
+          LOG="$RUNNER_TEMP/gradle.log"
+          if [ ! -f "$LOG" ]; then
+            echo "::error::The Gradle step produced no log file."
+            exit 0
+          fi
+          python3 - "$LOG" <<'PY'
+          import pathlib
+          import sys
+
+          lines = pathlib.Path(sys.argv[1]).read_text(errors="replace").splitlines()
+          print("tail-" + "=" * 60)
+          print("\n".join(lines[-40:]))
+
+          picks = [l for l in lines if l.startswith("e: ") or "error:" in l.lower()]
+          if not picks:
+              idx = [i for i, l in enumerate(lines) if "What went wrong" in l]
+              if idx:
+                  picks = lines[idx[0]: idx[0] + 18]
+          if not picks:
+              picks = lines[-15:]
+
+          summary = pathlib.Path(__import__("os").environ["GITHUB_STEP_SUMMARY"])
+          with summary.open("a") as fh:
+              fh.write("## Gradle failure\n\n```\n" + "\n".join(picks[:40]) + "\n```\n")
+
+          for line in picks[:15]:
+              msg = line.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")[:3500]
+              print(f"::error title=Gradle::{msg}")
+          PY
+
+      - name: Verify the APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$APK_PATH"
+          "${ANDROID_HOME}/build-tools/36.0.0/zipalign" -c -v 4 "$APK_PATH" >/dev/null
+          "${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --verbose "$APK_PATH" | tee apksigner.txt
+          SHA="$(sha256sum "$APK_PATH")"; SHA="${SHA%% *}"
+          SIZE="$(stat -c%s "$APK_PATH")"
+          APKSIGNER="${ANDROID_HOME}/build-tools/36.0.0/apksigner"
+          CERT="$("$APKSIGNER" verify --print-certs "$APK_PATH" | grep -i 'certificate SHA-256 digest' | head -n 1 | sed 's/^[^:]*: *//' || true)"
+          VNAME="$(grep -oE 'versionName = "[^"]+"' android/app/build.gradle.kts | sed 's/.*"\(.*\)"/\1/')"
+          VCODE="$(grep -oE 'versionCode = [0-9]+' android/app/build.gradle.kts | grep -oE '[0-9]+')"
+          VERSION_LINE="${VNAME} (code ${VCODE})"
+          {
+            echo "## 4CBOn2 debug APK"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| File | \`$ASSET_NAME\` |"
+            echo "| Size | $SIZE bytes |"
+            echo "| SHA-256 | \`$SHA\` |"
+            echo "| Package | \`io.github.mohamtur1.fourcbon2\` |"
+            echo "| Build identity | \`$VERSION_LINE\` |"
+            echo "| Signer | $CERT |"
+            echo "| minSdk / targetSdk / compileSdk | 26 / 36 / 37 |"
+            echo "| Build type | Debug (debug-signed, sideload only) |"
+            echo ""
+            echo "Download: <https://github.com/mohamtur1/4CBOn2/releases/download/4cbon2-debug-apk-latest/$ASSET_NAME>"
+          } >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "APK_SHA256=$SHA"
+            echo "APK_SIZE=$SIZE"
+            echo "APK_SIGNER=$CERT"
+            echo "APK_VERSION_LINE=$VERSION_LINE"
+          } >> "$GITHUB_ENV"
+
+      - name: Copy the APK to a friendly file name
+        shell: bash
+        run: cp "$APK_PATH" "$ASSET_NAME"
+
+      - name: Upload the APK as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 4CBOn2-debug-apk
+          path: 4CBOn2-debug.apk
+          if-no-files-found: error
+
+      - name: Publish / refresh the rolling download release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: 4cbon2-debug-apk-latest
+          name: 4CBOn2 Debug APK (latest)
+          make_latest: true
+          files: 4CBOn2-debug.apk
+          body: |
+            Debug-signed build of the 4CBOn2 Android app, built automatically by
+            GitHub Actions from commit `${{ github.sha }}`
+            (branch `${{ github.ref_name }}`, run ${{ github.run_number }}).
+
+            **Get it on your phone (GitHub mobile app or browser)**
+            1. Open this release page — GitHub app: repo **mohamtur1/4CBOn2** → **Releases** →
+               *4CBOn2 Debug APK (latest)*. Browser:
+               <https://github.com/mohamtur1/4CBOn2/releases/latest>.
+            2. Tap `4CBOn2-debug.apk` to download it.
+            3. Open the downloaded file. If Android asks, allow "Install unknown apps"
+               for the app you downloaded it with, then tap Install.
+            4. Launch **4CBOn2** from the home screen.
+
+            **Upgrading from an older build:** this APK is signed with the project's
+            cached debug key. Builds published before that key was cached used a
+            throwaway per-run key, so an old install may not accept this one. If
+            Android says *App not installed* or reports a signature mismatch,
+            uninstall the old 4CBOn2 first, then install this one.
+
+            Requires Android 8.0 or newer (API 26+).
+
+            Personal build only: debug signature, no Play Store submission, and not yet
+            a verified device-tested release. Source and build status live in the
+            `android/` folder of the repository.
+
+            **Build record**
+            - SHA-256: `${{ env.APK_SHA256 }}`
+            - Size: ${{ env.APK_SIZE }} bytes
+            - Signer: ${{ env.APK_SIGNER }}
+            - Version: ${{ env.APK_VERSION_LINE }}
+
+      - name: Run unit tests (informational)
+        continue-on-error: true
+        working-directory: android
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --console=plain --max-workers=1 :app:testDebugUnitTest

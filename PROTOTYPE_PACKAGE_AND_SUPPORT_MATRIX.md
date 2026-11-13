@@ -85,9 +85,10 @@ adb install -r /home/user/4CBOn2-debug.apk
 
 # v0.3 Addendum — Daily Experiment Cycle (Divisions 43–52)
 
-**Package version:** `v0.3.0-div50` · **Date:** 2 November 2026
-**Status:** Divisions 43–51 implemented and unit-verified; APK re-packaging (Division 52) deferred to an
-environment with Android SDK access.
+**Package version:** `v0.3.0-dev` (versionCode `3`) · **Date:** 13 November 2026
+**Status:** Divisions 43–52 complete. Core modules are unit-verified locally; the debug APK is built,
+signed and verified by `build-debug-apk.yml` on a GitHub-hosted runner and published to the rolling
+release `4cbon2-debug-apk-latest`.
 
 ## 1. New verified artifacts
 
@@ -144,3 +145,20 @@ No unattended promotion, no self-grading, no fabricated live runs, no credential
 submission-cap changes from a candidate, no APK distribution claim until the Gradle build is executed
 in an SDK-enabled environment.
 
+## 5. v0.3 APK record
+
+| Field | Value |
+| --- | --- |
+| Release | `4cbon2-debug-apk-latest` — <https://github.com/mohamtur1/4CBOn2/releases/latest> |
+| Asset | `4CBOn2-debug.apk` |
+| Package / version | `io.github.mohamtur1.fourcbon2` · `0.3.0-dev` (code `3`) |
+| Size | 12,137,771 bytes |
+| Signer certificate SHA-256 | `6a69c16df8f28cfd240225edbb82d2b8ada9e19ebcc5df28872b8cd5e3af3772` |
+| Asset SHA-256 (build shipped with Division 52) | `dce0c5a706cc54116d8e9ac14f06a16d0c471de81e8c76ea27064c9a3ccc4c4e` — superseded by later rebuilds |
+| Built from commit | `c19bd3e` (branch `arena/92b7263b-4cbon2`), workflow run 13 |
+| Toolchain | JDK 17 (Temurin), compileSdk 37 (`android-37.0`), build-tools 36.0.0, AGP 9.2.0 |
+| Verified by | `zipalign -c -v 4` plus `apksigner verify --verbose` (APK Signature Scheme v2) in CI |
+
+Debug builds are not byte-reproducible, so the SHA-256 changes on each rebuild. The authoritative
+digest is the one GitHub reports for the release asset; it is repeated in the release body together
+with the source commit. Install and upgrade instructions live in `android/RELEASE_DOWNLOAD.md`.
