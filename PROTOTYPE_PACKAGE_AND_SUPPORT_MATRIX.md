@@ -154,7 +154,7 @@ in an SDK-enabled environment.
 | Package / version | `io.github.mohamtur1.fourcbon2` · `0.3.0-dev` (code `3`) |
 | Size | 12,137,771 bytes |
 | Signer certificate SHA-256 | `6a69c16df8f28cfd240225edbb82d2b8ada9e19ebcc5df28872b8cd5e3af3772` |
-| Asset SHA-256 (13 Nov 2026 build) | `dce0c5a706cc54116d8e9ac14f06a16d0c471de81e8c76ea27064c9a3ccc4c4e` |
+| Asset SHA-256 (build shipped with Division 52) | `dce0c5a706cc54116d8e9ac14f06a16d0c471de81e8c76ea27064c9a3ccc4c4e` — superseded by later rebuilds |
 | Built from commit | `c19bd3e` (branch `arena/92b7263b-4cbon2`), workflow run 13 |
 | Toolchain | JDK 17 (Temurin), compileSdk 37 (`android-37.0`), build-tools 36.0.0, AGP 9.2.0 |
 | Verified by | `zipalign -c -v 4` plus `apksigner verify --verbose` (APK Signature Scheme v2) in CI |

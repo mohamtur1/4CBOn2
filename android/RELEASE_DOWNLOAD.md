@@ -76,7 +76,7 @@ installed** or a signature mismatch while updating that old build:
 | Version | `0.3.0-dev` (code `3`) |
 | Size | 12,137,771 bytes |
 | Signer certificate SHA-256 | `6a69c16df8f28cfd240225edbb82d2b8ada9e19ebcc5df28872b8cd5e3af3772` |
-| SHA-256 of the 13 November 2026 build | `dce0c5a706cc54116d8e9ac14f06a16d0c471de81e8c76ea27064c9a3ccc4c4e` |
+| SHA-256 (one example — the 13 Nov 2026 build) | `dce0c5a706cc54116d8e9ac14f06a16d0c471de81e8c76ea27064c9a3ccc4c4e` |
 | minSdk / targetSdk / compileSdk | 26 / 36 / 37 |
 | Build type | Debug (debug-signed, sideload only) |
 
