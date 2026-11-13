@@ -43,34 +43,18 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # A debug keystore generated fresh on every runner would give every build a different
-      # signature, forcing an uninstall (and losing local data) on each upgrade. So: restore one
-      # cached keystore, create it only if the cache is cold, then save it back explicitly.
-      - name: Restore the stable debug keystore
-        id: keystore-restore
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: 4cbon2-debug-keystore-v2
-
-      - name: Create the debug keystore if the cache was cold
+      # The debug keystore is committed on purpose: Actions caches are branch-scoped, so a
+      # cached key cannot be reused across branches and every build would mint a throwaway
+      # signature. A debug key is public by design (storepass/keypass "android", not a
+      # release identity); see android/DEBUG_SIGNING.md for the reasoning and rotation path.
+      - name: Install the project debug keystore
         shell: bash
         run: |
           set -euo pipefail
-          KEYSTORE="$HOME/.android/debug.keystore"
+          test -f android/debug.keystore
           mkdir -p "$HOME/.android"
-          if [ -f "$KEYSTORE" ]; then
-            echo "Restored the cached debug keystore."
-          else
-            echo "Cold cache: generating the project debug keystore (this becomes the stable key)."
-            keytool -genkeypair -v \
-              -keystore "$KEYSTORE" \
-              -storepass android -keypass android \
-              -alias androiddebugkey \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US" >/dev/null
-          fi
-          keytool -list -keystore "$KEYSTORE" -storepass android \
+          cp android/debug.keystore "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android \
             -alias androiddebugkey | grep -i 'SHA-256' || true
 
       - name: Download the Android command-line tools
@@ -265,10 +249,3 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew --no-daemon --console=plain --max-workers=1 :app:testDebugUnitTest
-
-      - name: Save the debug keystore for the next build
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: ${{ steps.keystore-restore.outputs.cache-primary-key }}
