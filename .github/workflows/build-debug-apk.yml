@@ -44,12 +44,34 @@ jobs:
           java-version: "17"
 
       # A debug keystore generated fresh on every runner would give every build a different
-      # signature, forcing an uninstall (and losing local data) on each upgrade. Cache one.
+      # signature, forcing an uninstall (and losing local data) on each upgrade. So: restore one
+      # cached keystore, create it only if the cache is cold, then save it back explicitly.
       - name: Restore the stable debug keystore
-        uses: actions/cache@v4
+        id: keystore-restore
+        uses: actions/cache/restore@v4
         with:
           path: ~/.android/debug.keystore
-          key: 4cbon2-debug-keystore-v1
+          key: 4cbon2-debug-keystore-v2
+
+      - name: Create the debug keystore if the cache was cold
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE="$HOME/.android/debug.keystore"
+          mkdir -p "$HOME/.android"
+          if [ -f "$KEYSTORE" ]; then
+            echo "Restored the cached debug keystore."
+          else
+            echo "Cold cache: generating the project debug keystore (this becomes the stable key)."
+            keytool -genkeypair -v \
+              -keystore "$KEYSTORE" \
+              -storepass android -keypass android \
+              -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US" >/dev/null
+          fi
+          keytool -list -keystore "$KEYSTORE" -storepass android \
+            -alias androiddebugkey | grep -i 'SHA-256' || true
 
       - name: Download the Android command-line tools
         shell: bash
@@ -166,6 +188,26 @@ jobs:
             echo "APK_VERSION_LINE=$VERSION_LINE"
           } >> "$GITHUB_ENV"
 
+      # An upgrade in place only works while the signing certificate stays the same. The pin file
+      # holds that certificate's public SHA-256 digest, so a broken keystore cache fails the build
+      # instead of quietly shipping an APK that forces every owner to uninstall first.
+      - name: Assert the signing certificate still matches the pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          PIN_FILE="android/debug-signer.sha256"
+          if [ ! -f "$PIN_FILE" ]; then
+            echo "No signer pin yet; the expected digest for this build is $APK_SIGNER"
+            echo "::warning title=Signer pin missing::Add $APK_SIGNER to $PIN_FILE once this build is confirmed."
+            exit 0
+          fi
+          EXPECTED="$(tr -d '[:space:]' < "$PIN_FILE")"
+          if [ "$EXPECTED" != "$APK_SIGNER" ]; then
+            echo "::error title=Signer drift::APK is signed by $APK_SIGNER but $PIN_FILE pins $EXPECTED. The keystore cache did not restore."
+            exit 1
+          fi
+          echo "Signer matches the pin ($EXPECTED)."
+
       - name: Copy the APK to a friendly file name
         shell: bash
         run: cp "$APK_PATH" "$ASSET_NAME"
@@ -223,3 +265,10 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew --no-daemon --console=plain --max-workers=1 :app:testDebugUnitTest
+
+      - name: Save the debug keystore for the next build
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: ${{ steps.keystore-restore.outputs.cache-primary-key }}
