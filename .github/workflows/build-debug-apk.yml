@@ -6,8 +6,13 @@ on:
     branches:
       - main
       - "arena/92b7263b-4cbon2"
+    # Only real app/toolchain inputs retrigger a build. Documentation under android/*.md
+    # does not, so a docs-only commit cannot quietly change the published APK checksum.
     paths:
-      - "android/**"
+      - "android/app/**"
+      - "android/*.gradle.kts"
+      - "android/gradle.properties"
+      - "android/gradle/**"
       - ".github/workflows/build-debug-apk.yml"
 
 permissions:
@@ -133,8 +138,11 @@ jobs:
           "${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --verbose "$APK_PATH" | tee apksigner.txt
           SHA="$(sha256sum "$APK_PATH")"; SHA="${SHA%% *}"
           SIZE="$(stat -c%s "$APK_PATH")"
-          CERT="$(apksigner verify --print-certs "$APK_PATH" | grep -i 'SHA-256 digest' | head -n 1 || true)"
-          VERSION_LINE="$(grep -E 'versionName' android/app/build.gradle.kts | head -n 1 | tr -s ' ')"
+          APKSIGNER="${ANDROID_HOME}/build-tools/36.0.0/apksigner"
+          CERT="$("$APKSIGNER" verify --print-certs "$APK_PATH" | grep -i 'certificate SHA-256 digest' | head -n 1 | sed 's/^[^:]*: *//' || true)"
+          VNAME="$(grep -oE 'versionName = "[^"]+"' android/app/build.gradle.kts | sed 's/.*"\(.*\)"/\1/')"
+          VCODE="$(grep -oE 'versionCode = [0-9]+' android/app/build.gradle.kts | grep -oE '[0-9]+')"
+          VERSION_LINE="${VNAME} (code ${VCODE})"
           {
             echo "## 4CBOn2 debug APK"
             echo ""
@@ -191,9 +199,10 @@ jobs:
             4. Launch **4CBOn2** from the home screen.
 
             **Upgrading from an older build:** this APK is signed with the project's
-            stable debug key, but builds published before 2026-11-13 used a throwaway
-            per-run key. If Android says *App not installed* or reports a signature
-            mismatch, uninstall the old 4CBOn2 first, then install this one.
+            cached debug key. Builds published before that key was cached used a
+            throwaway per-run key, so an old install may not accept this one. If
+            Android says *App not installed* or reports a signature mismatch,
+            uninstall the old 4CBOn2 first, then install this one.
 
             Requires Android 8.0 or newer (API 26+).
 
