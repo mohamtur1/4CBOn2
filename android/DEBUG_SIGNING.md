@@ -75,7 +75,7 @@ This is a deliberate, documented trade-off, and it is the weakest available opti
 The honest cost: anyone with this repository can sign an APK that Android will
 accept as an in-place update to `io.github.mohamtur1.fourcbon2`. Only install this
 app from the project's own release page
-(`mohamtur1/4CBOn2` → **Releases** → *4CBOn2 Debug APK (latest)*).
+(`mohamtur1/4CBOn2` → **Releases** → the release titled *4CBOn2 Debug APK — built …*).
 
 A secret-stored key would avoid that cost, but it was not reachable from this
 environment: the CI token cannot read or write Actions secrets
@@ -107,6 +107,28 @@ Verified locally with a Temurin JDK `keytool`, not assumed:
   password (a wrong key password fails with *Cannot recover key*).
 - The certificate itself was parsed independently (DER, 792 bytes) and its SHA-256
   recomputed, matching `ea1f65ed…`.
+
+### Checking the pin on the phone
+
+CI is not the only place the pin is enforced. The Home screen shows the installed
+APK's **own** certificate digest — read from `PackageManager` signing info at
+runtime, not from a string in a layout — beside the pinned digest stamped into
+`BuildConfig` at compile time, and states the verdict in words:
+
+| Verdict | Meaning |
+| --- | --- |
+| *matches the project's pinned key* | This is a project build. |
+| *does NOT match the project's pinned key* | Something re-signed or repackaged it. Shown in the error colour. Uninstall. |
+| *could not read this APK's signature* | The package manager gave no certificate. Reported, not guessed. |
+| *this build recorded no pinned key to compare against* | `android/debug-signer.sha256` was missing when this APK was built. |
+
+Code: `BuildStamp.kt` (pure JVM model, unit-tested in `BuildStampTest.kt`) and
+`AndroidBuildStampReader.kt` (the package-manager glue).
+
+The stamp also carries the build time and the version. The version identity is
+deliberately unchanged by this (`0.3.0-dev`, code `3`): the build time
+distinguishes builds, and a version bump belongs to the next division-level
+release rather than to a packaging change.
 
 ### Who publishes
 

@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -207,6 +208,12 @@ private fun HomeScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Read once per Home entry: the installed build's own version, build time, and signing
+    // certificate, so the owner can tell on the phone which build this is and whether it carries
+    // the project's pinned key. Package-manager reads, not user input.
+    val buildStamp = remember(context) { readBuildStamp(context) }
+    val deviceZone = remember { ZoneId.systemDefault() }
+
     val draftsCount = remember(refreshTick) { container.agentDrafts.listAll().size }
     val kbCount = remember(refreshTick) { container.knowledgeLibrary.listEntries().size }
     val queueCount = remember(refreshTick) { container.waitingQueue.listJobs().size }
@@ -278,11 +285,30 @@ private fun HomeScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text(
-            text = "4CBOn2",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = "4CBOn2",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            // Which build is this, and is it really signed by the project's key? Shown on every
+            // Home entry because the rolling GitHub release keeps its original publish date and
+            // two builds of the same source are otherwise indistinguishable on the phone.
+            Text(
+                text = buildStamp.title(),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = buildStamp.lines(deviceZone).joinToString("\n"),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (buildStamp.signerCheck == SignerCheck.DRIFT) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
         StatusCard(
             title = if (env.isNetworkAvailable) "Mode: Online Companion (local-first)" else "Mode: Offline Workspace",
             detail = "Engine: Local SQLite + Scope Broker · Drafts: $draftsCount · Knowledge: $kbCount · Queued: $queueCount · Files: ${filesList.size}",

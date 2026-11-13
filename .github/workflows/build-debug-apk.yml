@@ -41,6 +41,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # One timestamp for the whole job. It is stamped into the APK (BuildConfig.BUILT_UTC, shown on
+      # the app's Home screen) and into the release title and body, so the phone and the release
+      # page say the same thing instead of differing by however long the build took.
+      - name: Record the build timestamp
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_UTC="$(date -u '+%Y-%m-%d %H:%M UTC')"
+          echo "BUILD_UTC=$BUILD_UTC" >> "$GITHUB_ENV"
+          echo "This build is stamped: $BUILD_UTC"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -160,7 +171,10 @@ jobs:
         run: |
           set -o pipefail
           chmod +x gradlew
-          ./gradlew --no-daemon --console=plain --max-workers=1 --stacktrace :app:assembleDebug 2>&1 \
+          # -PbuiltUtc stamps the job's single build time into BuildConfig, which is what the app's
+          # Home screen shows and what the release title says.
+          ./gradlew --no-daemon --console=plain --max-workers=1 --stacktrace \
+            -PbuiltUtc="$BUILD_UTC" :app:assembleDebug 2>&1 \
             | tee "$RUNNER_TEMP/gradle.log"
 
       - name: Surface Gradle errors as annotations and in the summary
@@ -217,6 +231,7 @@ jobs:
             echo "| Field | Value |"
             echo "| --- | --- |"
             echo "| File | \`$ASSET_NAME\` |"
+            echo "| Built | ${BUILD_UTC:-unknown} |"
             echo "| Size | $SIZE bytes |"
             echo "| SHA-256 | \`$SHA\` |"
             echo "| Package | \`io.github.mohamtur1.fourcbon2\` |"
@@ -225,7 +240,11 @@ jobs:
             echo "| minSdk / targetSdk / compileSdk | 26 / 36 / 37 |"
             echo "| Build type | Debug (debug-signed, sideload only) |"
             echo ""
-            echo "Download: <https://github.com/mohamtur1/4CBOn2/releases/download/4cbon2-debug-apk-latest/$ASSET_NAME>"
+            if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+              echo "Download: <https://github.com/mohamtur1/4CBOn2/releases/download/4cbon2-debug-apk-latest/$ASSET_NAME>"
+            else
+              echo "Branch build: verified but **not published**. The rolling release only refreshes from \`main\`."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
           {
             echo "APK_SHA256=$SHA"
@@ -276,42 +295,59 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: 4cbon2-debug-apk-latest
-          name: 4CBOn2 Debug APK (latest)
+          # The title carries the build time on purpose: this is a rolling release, so GitHub keeps
+          # showing the original publish date (31 October 2026) no matter how often the APK is
+          # replaced, and "is this the new one?" was unanswerable from the releases list.
+          name: 4CBOn2 Debug APK — built ${{ env.BUILD_UTC }}
           make_latest: true
           files: 4CBOn2-debug.apk
           body: |
-            Debug-signed build of the 4CBOn2 Android app, built automatically by
-            GitHub Actions from commit `${{ github.sha }}`
-            (branch `${{ github.ref_name }}`, run ${{ github.run_number }}).
+            Debug-signed build of the 4CBOn2 Android app, built automatically by GitHub Actions.
+
+            **Build record**
+
+            | Field | Value |
+            | --- | --- |
+            | Built | ${{ env.BUILD_UTC }} |
+            | Version | ${{ env.APK_VERSION_LINE }} |
+            | Signer | `${{ env.APK_SIGNER }}` |
+            | APK SHA-256 | `${{ env.APK_SHA256 }}` |
+            | Size | ${{ env.APK_SIZE }} bytes |
+            | Commit | `${{ github.sha }}` |
+            | Branch / run | `${{ github.ref_name }}` / ${{ github.run_number }} |
+
+            **How to confirm you installed this build:** open 4CBOn2 and read the stamp under the
+            app name on the Home screen. It shows this same build time and version, plus whether
+            the installed APK's own signing certificate matches the project's pinned key — if it
+            ever says otherwise, do not trust that install. The stamp is read from the installed
+            package, not typed in, so a repackaged APK cannot claim to be this build.
+
+            Note that the date next to this release's title is the day it was first published
+            (31 October 2026), not the day this APK was built. Use the build time above, or the
+            asset's own timestamp, to tell builds apart.
 
             **Get it on your phone (GitHub mobile app or browser)**
             1. Open this release page — GitHub app: repo **mohamtur1/4CBOn2** → **Releases** →
-               *4CBOn2 Debug APK (latest)*. Browser:
+               the release titled *4CBOn2 Debug APK — built …* (the newest one). Browser:
                <https://github.com/mohamtur1/4CBOn2/releases/latest>.
             2. Tap `4CBOn2-debug.apk` to download it.
             3. Open the downloaded file. If Android asks, allow "Install unknown apps"
                for the app you downloaded it with, then tap Install.
-            4. Launch **4CBOn2** from the home screen.
+            4. Launch **4CBOn2** from the home screen and check the build stamp on Home.
 
             **One-time note for anyone upgrading from a build published before
             13 November 2026:** earlier builds were signed with a throwaway per-run
             key, so an old install will reject this one (*App not installed* /
             signature mismatch). Uninstall the old 4CBOn2 once, then install this
-            APK. Every build from this one onward is signed with the same committed
-            debug keystore (`android/debug.keystore`), so later upgrades install in
-            place and keep their on-device data.
+            APK. Every build from 13 November 2026 onward is signed with the same
+            committed debug keystore (`android/debug.keystore`), so later upgrades
+            install in place and keep their on-device data.
 
             Requires Android 8.0 or newer (API 26+).
 
             Personal build only: debug signature, no Play Store submission, and not yet
             a verified device-tested release. Source and build status live in the
             `android/` folder of the repository.
-
-            **Build record**
-            - SHA-256: `${{ env.APK_SHA256 }}`
-            - Size: ${{ env.APK_SIZE }} bytes
-            - Signer: ${{ env.APK_SIGNER }}
-            - Version: ${{ env.APK_VERSION_LINE }}
 
       - name: Note that a branch build does not publish
         if: github.ref != 'refs/heads/main'

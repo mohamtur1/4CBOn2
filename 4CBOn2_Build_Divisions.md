@@ -159,7 +159,7 @@ Label verification accurately by the highest tier actually executed, and omit pe
 
 # v0.3 — The Daily Experiment Cycle (Divisions 43–52)
 
-**Shipped · 13 November 2026 · Divisions 43–52 complete. 59/59 pure-JVM Kotlin tests and 10/10 Python
+**Shipped · 13 November 2026 · Divisions 43–52 complete. 64/64 pure-JVM Kotlin tests and 10/10 Python
 notebook tests pass; the v0.3 debug APK is built and verified on a GitHub-hosted runner
 (`:app:assembleDebug` + `zipalign` + `apksigner` + `:app:signingReport`) and published to the rolling
 release `4cbon2-debug-apk-latest` from `main`. Signing is pinned to a committed debug keystore

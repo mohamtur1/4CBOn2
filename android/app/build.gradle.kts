@@ -3,6 +3,26 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Stamped into BuildConfig so the installed app can identify itself on the Home screen
+// (see BuildStamp.kt / AndroidBuildStampReader.kt). Both values come from the same inputs the
+// signing pipeline uses, so the phone and the release page cannot disagree:
+//   BUILT_UTC           — when this build was made, in UTC. CI passes -PbuiltUtc so the APK, the
+//                         release title and the release body all carry the identical stamp; a local
+//                         build without that property falls back to configuration time.
+//   SIGNER_SHA256_PIN   — android/debug-signer.sha256, the certificate digest CI asserts against.
+//                         Read defensively: a missing pin yields an empty string, which the stamp
+//                         reports as "no pinned key" rather than failing the build.
+val builtUtc: String = providers.gradleProperty("builtUtc").orNull?.trim()?.takeIf { it.isNotEmpty() }
+    ?: java.time.ZonedDateTime
+        .now(java.time.ZoneOffset.UTC)
+        .format(java.time.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'", java.util.Locale.US))
+val pinnedSignerSha256: String = rootProject
+    .file("debug-signer.sha256")
+    .takeIf { it.isFile }
+    ?.readText()
+    ?.trim()
+    .orEmpty()
+
 android {
     namespace = "io.github.mohamtur1.fourcbon2"
     // Stable Compose/AndroidX dependencies require API 37 at compile time.
@@ -15,6 +35,9 @@ android {
         targetSdk = 36
         versionCode = 3
         versionName = "0.3.0-dev"
+
+        buildConfigField("String", "BUILT_UTC", "\"$builtUtc\"")
+        buildConfigField("String", "SIGNER_SHA256_PIN", "\"$pinnedSignerSha256\"")
     }
 
     // Pin the debug identity to the keystore committed at android/debug.keystore.
@@ -58,6 +81,9 @@ android {
 
     buildFeatures {
         compose = true
+        // Off by default since AGP 8; the on-device build stamp reads BuildConfig.BUILT_UTC and
+        // BuildConfig.SIGNER_SHA256_PIN.
+        buildConfig = true
     }
 
     packaging {

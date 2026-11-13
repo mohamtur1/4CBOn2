@@ -105,7 +105,7 @@ runner and published to the rolling release `4cbon2-debug-apk-latest` from `main
 | Notebook telemetry emitter / diff applier | `4CBOn2_Kaggle6.ipynb` (Division 51 cell) | Python `unittest` — 2 tests |
 | Sandbox verification harness | `scripts/verify_pure_kotlin.sh`, `tools/pure_jvm_verify/` | Runs the real JUnit sources on a plain JVM |
 
-**Totals:** 59/59 Kotlin tests and 10/10 Python tests pass in the sandbox used to build v0.3.
+**Totals:** 64/64 Kotlin tests and 10/10 Python tests pass in the sandbox used to build v0.3.
 
 ## 2. Reproduction commands
 
@@ -156,6 +156,8 @@ in an SDK-enabled environment.
 | Signing key source | Committed `android/debug.keystore`, named explicitly by the debug signing config in `android/app/build.gradle.kts` (no Actions cache, no runner home directory) |
 | Size / asset SHA-256 | Varies per rebuild (see the release body's *Build record* for the authoritative values); the Division 52 build was 12,137,771 bytes / `dce0c5a706cc54116d8e9ac14f06a16d0c471de81e8c76ea27064c9a3ccc4c4e` |
 | Built from | `main`, by `.github/workflows/build-debug-apk.yml`; only `main` publishes the rolling release, and the exact commit and run number are recorded in the release body |
+| Release title | `4CBOn2 Debug APK — built <YYYY-MM-DD HH:MM UTC>`; the rolling release keeps its original publish date, so the title carries the build time |
+| On-device build stamp | Home screen: version, build time, install time, and whether the installed APK's own certificate matches the pin — `BuildStamp.kt` (unit-tested) + `AndroidBuildStampReader.kt` |
 | Toolchain | JDK 17 (Temurin), compileSdk 37 (`android-37.0`), build-tools 36.0.0, AGP 9.2.0 |
 | Verified by | `zipalign -c -v 4`, `apksigner verify --verbose` (APK Signature Scheme v2), `:app:signingReport`, and a signer-digest pin check that fails the build on drift |
 
